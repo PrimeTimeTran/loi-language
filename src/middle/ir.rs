@@ -1,5 +1,8 @@
 use crate::frontend::ast::Expr;
 
+// -------------------------------------------------
+// TYPE SYSTEM
+// -------------------------------------------------
 #[derive(Debug, Clone)]
 pub enum Type {
     I32,
@@ -8,6 +11,22 @@ pub enum Type {
     Str,
     Void,
     Ptr(Box<Type>),
+    Unknown, // useful for partial inference / dynamic
+}
+
+// -------------------------------------------------
+// TYPED EXPRESSION (semantic result of lowering)
+// -------------------------------------------------
+#[derive(Clone)]
+pub struct TypedExpr(pub Expr, pub Type);
+
+impl std::fmt::Debug for TypedExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypedExpr")
+            .field("expr", &self.0)
+            .field("ty", &self.1)
+            .finish()
+    }
 }
 
 // -------------------------------------------------
@@ -19,9 +38,14 @@ pub enum IR {
         body: Vec<IR>,
     },
 
-    // -------------------------
     // VARIABLES
-    // -------------------------
+    Declare {
+        name: String,
+        value: TypedExpr,
+        mutable: bool,
+        dynamic: bool,
+    },
+
     Assign {
         name: String,
         value: TypedExpr,
@@ -31,23 +55,17 @@ pub enum IR {
         name: String,
     },
 
-    // -------------------------
-    // EXPRESSIONS (statement form)
-    // -------------------------
+    // EXPRESSIONS
     ExprStmt {
         expr: TypedExpr,
     },
 
-    // -------------------------
     // I/O
-    // -------------------------
     Print {
         value: TypedExpr,
     },
 
-    // -------------------------
-    // CONTROL FLOW (HIGH LEVEL)
-    // -------------------------
+    // CONTROL FLOW
     If {
         condition: TypedExpr,
         then_branch: Vec<IR>,
@@ -63,18 +81,7 @@ pub enum IR {
         body: Vec<IR>,
     },
 
-    // -------------------------
-    // LOW LEVEL BRANCHING (LLVM LATER)
-    // -------------------------
-    Branch {
-        condition: Option<TypedExpr>,
-        true_label: String,
-        false_label: Option<String>,
-    },
-
-    // -------------------------
     // FUNCTIONS
-    // -------------------------
     Function {
         name: String,
         params: Vec<(String, Type)>,
@@ -90,48 +97,6 @@ pub enum IR {
     Return {
         value: Option<TypedExpr>,
     },
+
     Nop,
-}
-
-// -------------------------------------------------
-// TYPED EXPRESSION (SEMANTIC OUTPUT)
-// -------------------------------------------------
-pub struct TypedExpr(pub Expr, pub Type);
-
-impl std::fmt::Debug for TypedExpr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TypedExpr")
-            .field("expr", &self.0)
-            .field("ty", &self.1)
-            .finish()
-    }
-}
-
-impl Clone for TypedExpr {
-    fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone())
-    }
-}
-
-// -------------------------------------------------
-// OPERATORS
-// -------------------------------------------------
-#[derive(Debug, Clone)]
-pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Eq,
-    Neq,
-    Lt,
-    Gt,
-    And,
-    Or,
-}
-
-#[derive(Debug, Clone)]
-pub enum UnOp {
-    Neg,
-    Not,
 }

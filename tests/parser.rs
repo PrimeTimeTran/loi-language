@@ -1,7 +1,4 @@
-use loi::{
-    frontend::{ast, ast::Expr, lexer::lex, parser::parse},
-    middle::ir::BinOp,
-};
+use loi::frontend::{ast::{self, BinOp, Expr}, lexer::lex, parser::parse};
 
 #[test]
 fn parse_simple_expr() {
@@ -18,11 +15,11 @@ fn parse_simple_expr() {
     match expr {
         Expr::Binary { left, op, right } => {
             match left.as_ref() {
-                Expr::Number(1) => {}
+                Expr::Number(1.0) => {}
                 _ => panic!(),
             }
             match right.as_ref() {
-                Expr::Number(2) => {}
+                Expr::Number(2.0) => {}
                 _ => panic!(),
             }
             assert!(matches!(op, BinOp::Add));

@@ -1,3 +1,69 @@
+## 🚀 Release: v0.1.0 — LLVM Compiler Pipeline Milestone
+
+### 🧠 Overview
+
+This release marks the first complete end-to-end compiler pipeline for the `.loi` language, transitioning from a prototype string-based backend to a real LLVM-based compilation system.
+
+---
+
+### ✨ Highlights
+
+- Full compiler pipeline implemented:
+
+  ```
+  Lexer → Parser → AST → Semantic IR → LLVM IR → Bitcode → Native Executable
+  ```
+
+- LLVM backend integrated using Inkwell
+
+- `.loi` programs now compile into real native executables via `clang`
+
+- Watch mode added for automatic rebuilds during development
+
+- Typed intermediate representation (IR) introduced as core compiler layer
+
+- Basic CLI-driven compilation over directory targets
+
+---
+
+### 🏗 Compiler Architecture
+
+The compiler is now structured into three clear stages:
+
+- **Frontend**: tokenization + parsing → AST
+- **Middle**: semantic analysis → typed IR
+- **Backend**: LLVM lowering → bitcode → executable
+
+---
+
+### 🧪 Testing
+
+Initial test coverage added for:
+
+- Lexer correctness
+- Parser validity
+- Semantic IR generation
+- End-to-end compilation pipeline
+
+---
+
+### ⚠️ Current Limitations
+
+- LLVM lowering is still in early stage (many IR nodes are stubbed)
+- Generated LLVM currently emits minimal `main` function in many cases
+- No optimization passes enabled yet
+- No runtime library (printing and IO are placeholders or external)
+
+---
+
+### 🔭 Next Steps
+
+- Implement real LLVM lowering for expressions (`+ - * /`)
+- Add variables (`alloca`, `store`, `load`)
+- Introduce function calls and runtime support
+- Build standard library (print, math, etc.)
+- Add optimization pipeline (O1/O2/O3 levels)
+
 ```
 cargo build --release
 cargo install --path .

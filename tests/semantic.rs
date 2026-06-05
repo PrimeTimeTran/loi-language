@@ -1,6 +1,5 @@
-use loi::frontend::ast::{Expr, Stmt};
+use loi::frontend::ast::{BinOp, Expr, Stmt};
 use loi::frontend::{lexer::lex, parser::parse};
-use loi::middle::ir::BinOp;
 
 #[test]
 fn parse_simple_expr() {
@@ -16,8 +15,8 @@ fn parse_simple_expr() {
 
     match expr {
         Expr::Binary { left, op, right } => {
-            assert!(matches!(&**left, Expr::Number(1)));
-            assert!(matches!(&**right, Expr::Number(2)));
+            assert!(matches!(&**left, Expr::Number(1.0)));
+            assert!(matches!(&**right, Expr::Number(2.0)));
             assert!(matches!(op, BinOp::Add));
         }
         _ => panic!("Expected binary expression"),

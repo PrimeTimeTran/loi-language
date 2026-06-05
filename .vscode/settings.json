@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/target": true,
+    ".vscode": true,
+    "Cargo.lock": true,
+    
+    "": "",
+    "KEEP.end": true
+  },
+  "search.exclude": {
+    ".vscode": false,
+    "": "",
+    "KEEP.end": true
+  },
+}

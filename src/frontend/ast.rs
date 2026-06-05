@@ -1,19 +1,71 @@
-use crate::middle::ir::{BinOp, UnOp};
+// use crate::middle::ir::{BinOp, UnOp};
 
-#[derive(Debug, Clone)]
+use crate::frontend::{
+    lexer::Token,
+    parser::{parse, parse_source},
+};
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub stmts: Vec<Stmt>,
 }
-#[derive(Debug, Clone)]
-pub enum Stmt {
-    Assign { name: String, expr: Expr },
-    Print { expr: Expr },
-    ExprStmt { expr: Expr },
+
+// -------------------------------------------------
+// VARIABLE DECLARATION KIND (your language core)
+// -------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeclKind {
+    MutableStatic,   // =
+    ImmutableStatic, // =!
+    Dynamic,         // =?
 }
-#[derive(Debug, Clone)]
+
+// -------------------------------------------------
+// STATEMENTS
+// -------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stmt {
+    Let {
+        name: String,
+        kind: DeclKind,
+        value: Expr,
+    },
+
+    Print {
+        expr: Expr,
+    },
+
+    ExprStmt {
+        expr: Expr,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnOp {
+    Neg,
+    Not,
+}
+
+// -------------------------------------------------
+// EXPRESSIONS (PURE SYNTAX TREE)
+// -------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Number(i64),
-    Float(f64),
+    Number(f64),
     Bool(bool),
     String(String),
     Var(String),
@@ -33,4 +85,70 @@ pub enum Expr {
         name: String,
         args: Vec<Expr>,
     },
+}
+
+#[test]
+fn test_static_mutable_declaration() {
+    let input = "x = 5;";
+
+    let ast = parse_source(input).unwrap();
+
+    assert_eq!(ast.stmts.len(), 1);
+
+    match &ast.stmts[0] {
+        Stmt::Let { name, kind, value } => {
+            assert_eq!(name, "x");
+            assert!(matches!(kind, DeclKind::MutableStatic));
+
+            match value {
+                Expr::Number(n) => assert_eq!(*n, 5.0),
+                _ => panic!("expected number"),
+            }
+        }
+        _ => panic!("expected Let statement"),
+    }
+}
+
+#[test]
+fn test_static_immutable_declaration() {
+    let input = "y =! 10;";
+
+    let ast = parse_source(input).unwrap();
+
+    assert_eq!(ast.stmts.len(), 1);
+
+    match &ast.stmts[0] {
+        Stmt::Let { name, kind, value } => {
+            assert_eq!(name, "y");
+            assert!(matches!(kind, DeclKind::ImmutableStatic));
+
+            match value {
+                Expr::Number(n) => assert_eq!(*n, 10.0),
+                _ => panic!("expected number"),
+            }
+        }
+        _ => panic!("expected Let statement"),
+    }
+}
+
+#[test]
+fn test_dynamic_declaration() {
+    let input = "z =? 5;";
+
+    let ast = parse_source(input).unwrap();
+
+    assert_eq!(ast.stmts.len(), 1);
+
+    match &ast.stmts[0] {
+        Stmt::Let { name, kind, value } => {
+            assert_eq!(name, "z");
+            assert!(matches!(kind, DeclKind::Dynamic));
+
+            match value {
+                Expr::Number(n) => assert_eq!(*n, 5.0),
+                _ => panic!("expected number"),
+            }
+        }
+        _ => panic!("expected Let statement"),
+    }
 }
