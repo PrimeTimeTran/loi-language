@@ -1,30 +1,9 @@
-// src/frontend/lexer.rs
-
 use std::{iter::Peekable, str::Chars};
 
 use logos::Logos;
 
-#[derive(Logos, Debug, Clone, PartialEq)]
-pub enum Token {
-    Ident(String),
-    Number(f64),
-    Plus,
-    Minus,
-    Star,
-    Slash,
+use crate::frontend::token::Token;
 
-    Equals,
-    EqualsBang,
-    EqualsQ,
-    ColonEq,
-    #[token(",")]
-    Comma,
-    Print,
-    EOF,
-    Semicolon,
-    LParen,
-    RParen,
-}
 fn lex_number(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<f64, String> {
     let mut s = String::new();
     let mut has_dot = false;

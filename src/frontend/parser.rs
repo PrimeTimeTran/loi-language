@@ -3,7 +3,8 @@ use std::iter::Peekable;
 
 use crate::frontend::{
     ast::{BinOp, DeclKind, Expr, Stmt},
-    lexer::{Token, lex},
+    lexer::lex,
+    token::Token,
 };
 
 #[derive(Debug, Serialize)]

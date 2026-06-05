@@ -13,7 +13,7 @@ pub enum Type {
     Str,
     Void,
     Ptr(Box<Type>),
-    Unknown, // useful for partial inference / dynamic
+    Unknown,
 }
 
 // -------------------------------------------------

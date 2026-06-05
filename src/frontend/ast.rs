@@ -1,11 +1,6 @@
-// use crate::middle::ir::{BinOp, UnOp};
-
 use serde::Serialize;
 
-use crate::frontend::{
-    lexer::Token,
-    parser::{parse, parse_source},
-};
+use crate::frontend::parser::{parse, parse_source};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {

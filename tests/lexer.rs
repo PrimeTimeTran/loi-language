@@ -1,4 +1,4 @@
-use loi::frontend::lexer::{Token, lex};
+use loi::frontend::{lexer::lex, token::Token};
 
 #[test]
 fn lex_number() {
