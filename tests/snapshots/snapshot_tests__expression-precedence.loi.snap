@@ -1,0 +1,18 @@
+---
+source: tests/snapshot_tests.rs
+expression: ast
+---
+stmts:
+  - ExprStmt:
+      expr:
+        Binary:
+          left:
+            Number: 5
+          op: Add
+          right:
+            Binary:
+              left:
+                Number: 3
+              op: Mul
+              right:
+                Number: 2

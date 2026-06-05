@@ -1,18 +1,21 @@
 use loi::{cli::Config, pipeline::compile_targets};
+use std::path::PathBuf;
 
 #[test]
 fn compile_math_program() {
     let config = Config {
-        debug: false,
-        input: "tests/fixtures/end_to_end".to_string(),
-        output: "tmp/test_output".to_string(),
-        watch: false, // or whatever your Config fields are
+        input: PathBuf::from("tests/fixtures/end_to_end"),
+        output: PathBuf::from("tmp/test_output"),
+        watch: false,
     };
 
     let result = compile_targets(&config);
 
-    match result {
-        Ok(_) => {}
-        Err(e) => panic!("compile_targets failed:\n{}", e),
+    if let Err(errors) = result {
+        let mut msg = String::from("compile_targets failed:\n");
+        for e in errors {
+            msg.push_str(&format!("  - {}\n", e));
+        }
+        panic!("{}", msg);
     }
 }

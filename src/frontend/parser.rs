@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::iter::Peekable;
 
 use crate::frontend::{
@@ -5,7 +6,7 @@ use crate::frontend::{
     lexer::{Token, lex},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize)]
 pub struct AST {
     pub stmts: Vec<Stmt>,
 }

@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::frontend::ast::Expr;
 
 // -------------------------------------------------
@@ -28,7 +30,16 @@ impl std::fmt::Debug for TypedExpr {
             .finish()
     }
 }
+// #[derive(Debug, Serialize, Clone)]
 
+#[derive(Debug, Serialize, Clone)]
+pub enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Cmp,
+}
 // -------------------------------------------------
 // IR ROOT
 // -------------------------------------------------
@@ -96,6 +107,26 @@ pub enum IR {
 
     Return {
         value: Option<TypedExpr>,
+    },
+
+    // Binary operations: target = left op right
+    Binary {
+        target: String,
+        left: String,
+        op: Op,
+        right: String,
+    },
+    // Assignment: target = source
+    Move {
+        target: String,
+        source: String,
+    },
+    // Control flow
+    Label(String),
+    Jump(String),
+    JumpIf {
+        condition: String,
+        label: String,
     },
 
     Nop,

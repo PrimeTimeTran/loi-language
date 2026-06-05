@@ -3,116 +3,52 @@ name = "loi"
 version = "0.1.0"
 edition = "2024"
 
-# -------------------------------------------------
-# CORE CLI + USER EXPERIENCE LAYER
-# -------------------------------------------------
-
 [dependencies]
-
-# CLI framework (subcommands, args, flags)
+# --- CLI & User Experience ---
 clap = { version = "4", features = ["derive"] }
-
-# Terminal abstraction (cross-platform output control)
 console = "0.15"
-
-# Progress bars / build feedback (bundler-like UX)
 indicatif = "0.17"
-
-# Colored terminal output (errors, warnings, etc.)
 owo-colors = "4"
-
-# Interactive CLI prompts (optional UX layer)
 dialoguer = "0.11"
 
-
-# -------------------------------------------------
-# ERROR HANDLING + DIAGNOSTICS (CRITICAL FOR COMPILER)
-# -------------------------------------------------
-
-# Structured error types (clean compiler errors)
-thiserror = "1"
-
-# Flexible error handling (runtime / CLI orchestration)
+# --- Error Handling & Diagnostics ---
 anyhow = "1"
-
-# Compiler-grade diagnostics (spans, highlights, fancy errors)
+thiserror = "1"
 miette = { version = "7", features = ["fancy"] }
-
-# Alternative rich diagnostic formatting (optional complement to miette)
 ariadne = "0.5"
 
-
-# -------------------------------------------------
-# LEXING + PARSING LAYER
-# -------------------------------------------------
-
-# Fast lexer generator (tokenization)
+# --- Lexing & Parsing ---
 logos = "0.14"
-
-# Parser combinators (alternative or fallback to hand-written parser)
 chumsky = "0.10"
 
-
-# -------------------------------------------------
-# COMPILER CORE DATA STRUCTURES
-# -------------------------------------------------
-
-# Graph structures (module graphs, CFG, dependency graphs)
+# --- Compiler Core & Data Structures ---
+bitflags = "2"
+bumpalo = "3"
+id-arena = "2"
+lasso = "0.7"
 petgraph = "0.6"
-
-# Small stack allocations for AST/IR performance
 smallvec = "1"
 
-# String interning (critical for compiler performance scaling)
-lasso = "0.7"
-
-
-# -------------------------------------------------
-# FILESYSTEM + PROJECT DISCOVERY
-# -------------------------------------------------
-
-# Recursive file walking (monorepos, source scanning)
-walkdir = "2"
-
-# Respects .gitignore automatically (VERY useful for compilers)
-ignore = "0.4"
-
-
-# -------------------------------------------------
-# IR / CACHING / SERIALIZATION LAYER
-# -------------------------------------------------
-
-# Serialize AST / IR for caching or incremental builds
+# --- IR, Backend & Caching ---
+bincode = "1"
+inkwell = { version = "0.4", features = ["llvm17-0"] }
+notify = "6"
 serde = { version = "1", features = ["derive"] }
 
-# Fast binary serialization format (compiler cache / IR disk storage)
-bincode = "1"
-notify = "6"
-inkwell = { version = "0.4", features = ["llvm17-0"] }
+# --- Filesystem & Discovery ---
+ignore = "0.4"
+walkdir = "2"
 
-
-# -------------------------------------------------
-# DEVELOPMENT + TESTING TOOLING
-# -------------------------------------------------
+# --- Observability ---
+tracing = "0.1"
+tracing-subscriber = "0.3"
+rayon = "1.12.0"
 
 [dev-dependencies]
-tempfile = "3.27.0"
-
-# Snapshot testing (CRITICAL for compiler correctness)
-insta = { version = "1", features = ["yaml"] }
-
-# Benchmarking compiler passes (lexer/parser/IR speed)
 criterion = "0.5"
-
-# Better diff output in tests
+insta = { version = "1", features = ["yaml"] }
 pretty_assertions = "1"
-
-
-notify = "6"
-
-# -------------------------------------------------
-# BENCHMARK TARGETS
-# -------------------------------------------------
+tempfile = "3"
 
 [[bench]]
 name = "lexer"
@@ -121,6 +57,3 @@ harness = false
 [[bench]]
 name = "parser"
 harness = false
-
-
-

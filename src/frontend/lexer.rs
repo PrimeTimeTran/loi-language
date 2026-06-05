@@ -2,7 +2,9 @@
 
 use std::{iter::Peekable, str::Chars};
 
-#[derive(Debug, Clone, PartialEq)]
+use logos::Logos;
+
+#[derive(Logos, Debug, Clone, PartialEq)]
 pub enum Token {
     Ident(String),
     Number(f64),
@@ -14,9 +16,9 @@ pub enum Token {
     Equals,
     EqualsBang,
     EqualsQ,
-
     ColonEq,
-
+    #[token(",")]
+    Comma,
     Print,
     EOF,
     Semicolon,

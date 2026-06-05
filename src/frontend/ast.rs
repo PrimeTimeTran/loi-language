@@ -1,5 +1,7 @@
 // use crate::middle::ir::{BinOp, UnOp};
 
+use serde::Serialize;
+
 use crate::frontend::{
     lexer::Token,
     parser::{parse, parse_source},
@@ -13,7 +15,7 @@ pub struct Program {
 // -------------------------------------------------
 // VARIABLE DECLARATION KIND (your language core)
 // -------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum DeclKind {
     MutableStatic,   // =
     ImmutableStatic, // =!
@@ -23,7 +25,7 @@ pub enum DeclKind {
 // -------------------------------------------------
 // STATEMENTS
 // -------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum Stmt {
     Let {
         name: String,
@@ -40,7 +42,7 @@ pub enum Stmt {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum BinOp {
     Add,
     Sub,
@@ -54,7 +56,7 @@ pub enum BinOp {
     Or,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum UnOp {
     Neg,
     Not,
@@ -63,7 +65,7 @@ pub enum UnOp {
 // -------------------------------------------------
 // EXPRESSIONS (PURE SYNTAX TREE)
 // -------------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Expr {
     Number(f64),
     Bool(bool),
