@@ -1,0 +1,10 @@
+#[test]
+fn compiles_loi_file() {
+    let path =
+        Path::new("targets/tests/basic.loi");
+
+    let result =
+        compile_file(path, "tmp/test_output");
+
+    assert!(result.is_ok());
+}
