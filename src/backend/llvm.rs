@@ -1,4 +1,5 @@
 use crate::frontend::ast::{BinOp, Expr};
+use crate::middle::ir::{IROp, TypedExpr};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FloatType;
@@ -112,16 +113,14 @@ fn lower_ir<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
-    ir: IR,
+    ir: IROp,
     fmt: PointerValue<'ctx>,
     printf_fn: FunctionValue<'ctx>,
     zero: IntValue<'ctx>,
     env: &mut std::collections::HashMap<String, inkwell::values::PointerValue<'ctx>>,
 ) -> Result<(), String> {
-    use crate::middle::ir::{IR, TypedExpr};
-
     match ir {
-        IR::Assign { name, value } => {
+        IROp::Assign { name, value } => {
             let TypedExpr(expr, ty) = value;
 
             let ptr = builder.build_alloca(context.f64_type(), &name).unwrap();
@@ -137,7 +136,7 @@ fn lower_ir<'ctx>(
         // -----------------------------
         // MODULE
         // -----------------------------
-        IR::Module { body } => {
+        IROp::Module { body } => {
             for stmt in body.iter().cloned() {
                 lower_ir(context, module, builder, stmt, fmt, printf_fn, zero, env)?;
             }
@@ -148,7 +147,7 @@ fn lower_ir<'ctx>(
         // -----------------------------
         // PRINT
         // -----------------------------
-        IR::Print { value } => {
+        IROp::Print { value } => {
             let TypedExpr(expr, ty) = value;
 
             let llvm_val = codegen_expr(&expr, &ty, context, builder, env);
@@ -162,12 +161,12 @@ fn lower_ir<'ctx>(
         // -----------------------------
         // RETURN
         // -----------------------------
-        IR::Return { .. } => {
+        IROp::Return { .. } => {
             builder.build_return(Some(&zero));
             Ok(())
         }
 
-        IR::Declare { name, value, .. } => {
+        IROp::Declare { name, value, .. } => {
             let ptr = builder.build_alloca(context.f64_type(), &name).unwrap();
             let TypedExpr(expr, ty) = value;
 
@@ -190,7 +189,7 @@ pub fn lower_ir_to_llvm<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
-    ir: IR,
+    ir: IROp,
 ) -> Result<(), String> {
     use inkwell::AddressSpace;
     let i32_type = context.i32_type();
@@ -240,7 +239,7 @@ pub fn lower_ir_to_llvm<'ctx>(
     println!(
         "IR BODY LEN = {}",
         match &ir {
-            IR::Module { body } => body.len(),
+            IROp::Module { body } => body.len(),
             _ => 0,
         }
     );
@@ -261,7 +260,7 @@ pub fn lower_ir_to_llvm<'ctx>(
 }
 #[test]
 fn generates_bitcode() {
-    let ir = IR::Module { body: vec![] };
+    let ir = IROp::Module { body: vec![] };
 
     let dir = tempfile::tempdir().unwrap();
 

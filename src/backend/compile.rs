@@ -6,10 +6,10 @@ use std::path::Path;
 use inkwell::context::Context;
 
 use crate::backend::llvm::lower_ir_to_llvm;
-use crate::middle::ir::IR;
+use crate::middle::ir::IROp;
 
 // pub fn compile(ir: IR, out_base: &Path, module_name: &str) -> Result<String, String> {
-pub fn compile(ir: IR, out_base: &Path, module_name: &str) -> Result<String, String> {
+pub fn compile(ir: IROp, out_base: &Path, module_name: &str) -> Result<String, String> {
     let bc_path = out_base.with_extension("bc");
     let ll_path = out_base.with_extension("ll");
 

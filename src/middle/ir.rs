@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
-use crate::frontend::ast::Expr;
+use frontend::ast::Expr;
+
+use crate::frontend;
 
 // -------------------------------------------------
 // TYPE SYSTEM
@@ -43,10 +47,28 @@ pub enum Op {
 // -------------------------------------------------
 // IR ROOT
 // -------------------------------------------------
+
+// 1. The container that holds the "Global" metadata for the module/file
+pub struct IR {
+    pub body: Vec<IROp>,
+    pub symbols: HashMap<String, String>,
+    pub metadata: HashMap<String, String>,
+}
+
+impl IR {
+    pub fn new() -> Self {
+        Self {
+            body: Vec::new(),
+            symbols: HashMap::new(),
+            metadata: HashMap::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-pub enum IR {
+pub enum IROp {
     Module {
-        body: Vec<IR>,
+        body: Vec<IROp>,
     },
 
     // VARIABLES
@@ -56,12 +78,10 @@ pub enum IR {
         mutable: bool,
         dynamic: bool,
     },
-
     Assign {
         name: String,
         value: TypedExpr,
     },
-
     Load {
         name: String,
     },
@@ -79,49 +99,43 @@ pub enum IR {
     // CONTROL FLOW
     If {
         condition: TypedExpr,
-        then_branch: Vec<IR>,
-        else_branch: Vec<IR>,
+        then_branch: Vec<IROp>,
+        else_branch: Vec<IROp>,
     },
-
     While {
         condition: TypedExpr,
-        body: Vec<IR>,
+        body: Vec<IROp>,
     },
-
     Block {
-        body: Vec<IR>,
+        body: Vec<IROp>,
     },
 
     // FUNCTIONS
     Function {
         name: String,
         params: Vec<(String, Type)>,
-        body: Vec<IR>,
+        body: Vec<IROp>,
         return_type: Type,
     },
-
     Call {
         name: String,
         args: Vec<TypedExpr>,
     },
-
     Return {
         value: Option<TypedExpr>,
     },
 
-    // Binary operations: target = left op right
+    // LOW-LEVEL / LLVM-ISH
     Binary {
         target: String,
         left: String,
         op: Op,
         right: String,
     },
-    // Assignment: target = source
     Move {
         target: String,
         source: String,
     },
-    // Control flow
     Label(String),
     Jump(String),
     JumpIf {

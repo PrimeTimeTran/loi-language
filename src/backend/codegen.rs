@@ -1,4 +1,4 @@
-use crate::middle::ir::IR;
+use crate::middle::IROp::IR;
 
 use std::fs;
 use std::path::Path;

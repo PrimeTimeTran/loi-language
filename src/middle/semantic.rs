@@ -5,9 +5,9 @@ use crate::frontend::ast::Stmt;
 use crate::frontend::lexer;
 use crate::frontend::parser::AST;
 use crate::frontend::parser::parse;
-use crate::middle::ir::{IR, Type, TypedExpr};
+use crate::middle::ir::{IROp, Type, TypedExpr};
 
-pub fn analyze(ast: AST) -> Result<IR, String> {
+pub fn analyze(ast: AST) -> Result<IROp, String> {
     let mut body = Vec::new();
 
     for stmt in ast.stmts {
@@ -18,7 +18,7 @@ pub fn analyze(ast: AST) -> Result<IR, String> {
             Stmt::Let { name, kind, value } => {
                 let ty = infer_type(&value)?; // assume you have this
 
-                body.push(IR::Declare {
+                body.push(IROp::Declare {
                     name,
                     value: TypedExpr(value, ty),
                     mutable: matches!(kind, DeclKind::MutableStatic | DeclKind::Dynamic),
@@ -45,7 +45,7 @@ pub fn analyze(ast: AST) -> Result<IR, String> {
             Stmt::Print { expr } => {
                 let ty = infer_type(&expr)?;
 
-                body.push(IR::Print {
+                body.push(IROp::Print {
                     value: TypedExpr(expr, ty),
                 });
             }
@@ -56,14 +56,14 @@ pub fn analyze(ast: AST) -> Result<IR, String> {
             Stmt::ExprStmt { expr } => {
                 let ty = infer_type(&expr)?;
 
-                body.push(IR::ExprStmt {
+                body.push(IROp::ExprStmt {
                     expr: TypedExpr(expr, ty),
                 });
             }
         }
     }
 
-    Ok(IR::Module { body })
+    Ok(IROp::Module { body })
 }
 
 fn infer_type(expr: &Expr) -> Result<Type, String> {

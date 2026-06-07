@@ -1,8 +1,8 @@
-use loi::{backend::compile, middle::ir::IR};
+use loi::{backend::compile, middle::ir::IROp};
 
 #[test]
 fn generates_bitcode() {
-    let ir = IR::Module { body: vec![] };
+    let ir = IROp::Module { body: vec![] };
 
     let dir = tempfile::tempdir().unwrap();
 

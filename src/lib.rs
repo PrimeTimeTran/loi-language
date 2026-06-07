@@ -34,9 +34,15 @@ pub mod pipeline;
 pub mod watcher;
 // CLI entry helpers (library reuse)
 pub mod cli;
+pub mod cmd;
+mod context;
 
 // Shared diagnostics + error system
 pub mod diagnostics;
 
 // Shared compiler utilities
 pub mod utils;
+
+// Shared compiler utilities
+pub mod registry;
+pub mod scanner;
