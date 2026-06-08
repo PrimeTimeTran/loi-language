@@ -17,10 +17,10 @@ impl RegistryDisplay for Registry {
         for file in &self.files {
             println!(
                 "{:<20} | {:<10} | {:<10} | {:<10}",
-                format!("/{}", file.namespace.join("/")),
+                format!("/{}", file.namespace),
                 file.name,
                 file.version,
-                file.capability.as_deref().unwrap_or("-")
+                file.utter.as_deref().unwrap_or("-")
             );
         }
         println!("{:-<60}", "");

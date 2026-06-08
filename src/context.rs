@@ -8,7 +8,7 @@ use crate::{
     registry::registry::Registry,
 };
 
-pub struct LoiContext {
+pub struct CompileContext {
     pub registry: Registry,
     pub utters: UtterRegistry,
     pub compiler_service: CompilerService,

@@ -59,10 +59,10 @@ impl UtterRegistry {
         // how to pair them. Assuming for now we resolve to the Utter:
 
         // If you have a specific mapping, check that first:
-        if let Some(handler) = self.handlers.get(&file.extension) {}
+        if let Some(handler) = self.handlers.get(&file.ext) {}
 
-        // 2. Secondary: Capability (e.g., "ui")
-        if let Some(c) = file.capability.as_ref() {
+        // 2. Secondary: Utter (e.g., "ui")
+        if let Some(c) = file.utter.as_ref() {
             if let Some(u) = self.utters.get(c) {
                 return Some(u.as_ref());
             }

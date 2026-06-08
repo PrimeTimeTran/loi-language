@@ -38,18 +38,18 @@ impl CompilerService {
         }
     }
     pub fn compile(&self, file: &FileMeta) -> Result<IR, String> {
-        // 1. Extract the capability from the Option
+        // 1. Extract the utter from the Option
         let cap = file
-            .capability
+            .utter
             .as_ref()
-            .ok_or_else(|| format!("File '{}' has no capability", file.name))?;
+            .ok_or_else(|| format!("File '{}' has no utter", file.name))?;
 
         // 2. Now 'cap' is &String, which satisfies Borrow<str>
         let engine = self
             .utter_registry
             .utters
             .get(cap)
-            .ok_or_else(|| format!("No engine registered for capability '@{}'", cap))?;
+            .ok_or_else(|| format!("No engine registered for utter '@{}'", cap))?;
 
         println!(
             "⚡ Compiling '{}' with engine: {}",

@@ -4,132 +4,257 @@ use std::path::{Path, PathBuf};
 pub struct FileMeta {
     pub path: PathBuf,
     pub active: bool,
-    pub namespace: Vec<String>,
+    pub namespace: String,
     pub name: String,
     pub version: u32,
     pub priority: Option<u8>,
     pub tag: Option<String>,
-    pub capability: Option<String>,
-    pub extension: String,
+    pub utter: Option<String>,
+    pub ext: String,
+    pub capabilities: Vec<String>,
 }
-
 impl FileMeta {
     pub fn default() -> Self {
         Self {
             name: "unknown".to_string(),
             priority: None,
-            capability: None,
+            utter: None,
             version: 0,
             tag: None,
-            extension: "loi".to_string(),
-            namespace: Vec::new(),
+            ext: "loi".to_string(),
+            capabilities: Vec::new(),
+            namespace: String::new(),
             path: PathBuf::new(),
             active: true,
         }
     }
-    pub fn from_path(path: &Path, root: &Path) -> Self {
-        let container_ext = path.extension().and_then(|s| s.to_str()).unwrap_or("loi");
 
-        // 2. Get the stem (e.g., "02@ui#1.html")
+    pub fn from_path(path: &Path, root: &Path) -> Self {
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
-        // 3. Extract functional extension (e.g., "html") if it exists
-        // rsplit_once finds the LAST dot, separating "02@ui#1" and "html"
-        let (stem_without_ext, functional_ext) = if let Some((base, ext)) = stem.rsplit_once('.') {
-            (base, Some(ext.to_string()))
-        } else {
-            (stem, None)
-        };
+        // 1. Split into core components: [Identifier]@[Utter]#[Version]-[Tag].[Ext]
+        let (body, ext) = Self::split_extension(stem, path);
+        let (body, meta) = body.split_once('#').unwrap_or((body, ""));
+        let (id_part, utter) = body.split_once('@').unwrap_or((body, ""));
 
-        // 4. Metadata Layer: Split at '#'
-        let (name_and_cap, meta_part) = stem_without_ext
-            .split_once('#')
-            .unwrap_or((stem_without_ext, ""));
+        // 2. Extract specific data
+        let (priority, name) = Self::parse_identifier(id_part);
+        let (version, tag) = Self::parse_metadata(meta);
 
-        // 5. Routing Layer: Split at '@'
-        // 1. ISOLATE NAME AND CAPABILITY (Everything left of '@' is the identifier)
-        let (raw_identifier, capability) = match name_and_cap.split_once('@') {
-            Some((b, c)) => (b, Some(c.to_string())),
-            None => (name_and_cap, None),
-        };
-
-        // 2. DERIVE PRIORITY AND NAME FROM raw_identifier
-        let (priority, name) = if let Some((p_str, n)) = raw_identifier.split_once('.') {
-            // Case: "02.name" -> Priority 2, Name "name"
-            (p_str.parse::<u8>().ok(), n.to_string())
-        } else if let Some((p_str, n)) = raw_identifier.split_once('-') {
-            // Case: "02-name" -> Priority 2, Name "name"
-            (p_str.parse::<u8>().ok(), n.to_string())
-        } else if raw_identifier.chars().all(|c| c.is_ascii_digit()) {
-            // Case: "02" -> Priority 2, Name "02" (Name is same as priority)
-            (
-                raw_identifier.parse::<u8>().ok(),
-                raw_identifier.to_string(),
-            )
-        } else {
-            // Case: "name" (No priority) -> Name is the whole string
-            (None, raw_identifier.to_string())
-        };
-
-        let (version, tag) = if !meta_part.is_empty() {
-            let (v, t) = meta_part.split_once('-').unwrap_or((meta_part, ""));
-            (
-                v.parse().unwrap_or(0),
-                if t.is_empty() {
-                    None
-                } else {
-                    Some(t.to_string())
-                },
-            )
-        } else {
-            (0, None)
-        };
-
-        FileMeta {
-            active: !path
-                .components()
-                .any(|c| c.as_os_str() == "archive" || c.as_os_str() == ".hidden"),
+        let mut file = FileMeta {
+            active: !path.components().any(|c| c.as_os_str() == "archive"),
             name,
             priority,
-            capability,
+            utter: if utter.is_empty() {
+                None
+            } else {
+                Some(utter.to_string())
+            },
             version,
-            tag,
-            extension: functional_ext.unwrap_or_else(|| container_ext.to_string()),
-            namespace: Self::derive_namespace(path, root),
+            tag: tag.map(|s| s.to_string()),
+            ext,
             path: path.to_path_buf(),
+            namespace: Self::derive_namespace(path, root),
+            ..Default::default()
+        };
+
+        let parsed = ParsedPath::from(path);
+        file.infer_capabilities(&parsed);
+        file
+    }
+
+    fn capabilities(&self, parsed: &ParsedPath) -> Vec<String> {
+        let mut caps = vec![];
+
+        if parsed.variant.as_deref() == Some("ui") {
+            caps.push("ui".to_string());
+        }
+
+        if parsed.version.is_some() {
+            caps.push("versioned".to_string());
+        }
+
+        caps.sort();
+        caps.dedup();
+        caps
+    }
+
+    fn infer_capabilities(&mut self, parsed: &ParsedPath) {
+        let mut caps = Vec::new();
+
+        // extension-based
+        match self.ext.as_str() {
+            "js" | "jsx" | "ts" | "tsx" => {
+                caps.push("scripting");
+            }
+            "html" => caps.push("markup"),
+            "css" => caps.push("styling"),
+            "md" => caps.push("document"),
+            "mdx" => {
+                caps.push("document");
+                caps.push("ui");
+            }
+            _ => {}
+        }
+
+        // structural (ONLY from parsed path)
+        if parsed.is_ui {
+            caps.push("ui");
+        }
+
+        if parsed.is_versioned {
+            caps.push("versioned");
+        }
+
+        self.capabilities = caps.into_iter().map(String::from).collect();
+
+        self.capabilities.sort();
+        self.capabilities.dedup();
+    }
+
+    fn is_versioned(fs: &str) -> bool {
+        fs.contains('#')
+            && fs
+                .split('#')
+                .nth(1)
+                .map(|s| {
+                    s.chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false)
+    }
+
+    fn derive_namespace(path: &Path, _root: &Path) -> String {
+        let file = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+
+        if file.contains("@ui") {
+            "ui".to_string()
+        } else if file.contains("script") {
+            "scripting".to_string()
+        } else if file.contains("style") {
+            "styling".to_string()
+        } else {
+            "core".to_string()
         }
     }
 
-    fn derive_namespace(path: &Path, root: &Path) -> Vec<String> {
-        path.strip_prefix(root)
-            .unwrap_or(path)
-            .parent()
-            .map(|p| {
-                p.components()
-                    .filter_map(|c| {
-                        if let std::path::Component::Normal(n) = c {
-                            Some(n.to_string_lossy().into_owned())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
+    fn split_extension<'a>(stem: &'a str, path: &Path) -> (&'a str, String) {
+        match stem.rsplit_once('.') {
+            Some((base, ext)) => (base, ext.to_string()),
+            None => (
+                stem,
+                path.extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("loi")
+                    .to_string(),
+            ),
+        }
+    }
+
+    fn parse_identifier(id: &str) -> (Option<u8>, String) {
+        // ONLY dot is structural
+        if let Some((p_str, n)) = id.split_once('.') {
+            let priority = p_str.parse::<u8>().ok();
+            return (priority, n.to_string());
+        }
+
+        // If no dot, treat entire thing as name (including hyphens)
+        if id.chars().all(|c| c.is_ascii_digit()) {
+            return (id.parse::<u8>().ok(), id.to_string());
+        }
+
+        (None, id.to_string())
+    }
+
+    fn parse_metadata(meta: &str) -> (u32, Option<&str>) {
+        if meta.is_empty() {
+            return (0, None);
+        }
+        let (v, t) = meta.split_once('-').unwrap_or((meta, ""));
+        (
+            v.parse().unwrap_or(0),
+            if t.is_empty() { None } else { Some(t) },
+        )
+    }
+
+    pub fn get_fs_name(&self) -> String {
+        self.path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string()
+    }
+
+    pub fn get_ext(&self) -> String {
+        let name = self.get_fs_name();
+        name.split('@')
+            .nth(1)
+            .and_then(|s| s.split('.').rev().nth(1))
+            .unwrap_or("loi")
+            .to_string()
+    }
+}
+
+pub struct ParsedPath {
+    variant: Option<String>,
+    version: Option<u32>,
+    is_versioned: bool,
+    is_ui: bool,
+}
+impl From<&Path> for ParsedPath {
+    fn from(path: &Path) -> Self {
+        let path_str = path.to_string_lossy();
+
+        let is_ui = path_str.contains("@ui");
+
+        let is_versioned = path_str.contains('#')
+            && path_str
+                .split('#')
+                .nth(1)
+                .map(|s| {
+                    s.chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+        let version = path_str.split('#').nth(1).and_then(|s| {
+            s.chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse()
+                .ok()
+        });
+
+        let variant = path_str
+            .split('@')
+            .nth(1)
+            .and_then(|s| s.split('.').next())
+            .map(|s| s.to_string());
+
+        Self {
+            variant,
+            version,
+            is_versioned,
+            is_ui,
+        }
     }
 }
 
 /*
  * Filename Parsing Pipeline Specification:
  * Phase 1 (Base): [Priority-]Name.ext
- * Phase 2 (Routing): Name@Capability.ext
+ * Phase 2 (Routing): Name@utter.ext
  * Phase 3 (Versioning): Name#Version[-Tag].ext
- * Phase 4 (Complex Integration): [Priority-]Name@Capability#Version[-Tag].ext
+ * Phase 4 (Complex Integration): [Priority-]Name@utter#Version[-Tag].ext
  *
  * Logic Precedence (Right-to-Left):
- * 1. Extension (via Path)
+ * 1. ext (via Path)
  * 2. Metadata (split '#') -> Version / Tag
- * 3. Routing (split '@')  -> Capability
+ * 3. Routing (split '@')  -> utter
  * 4. Identifier (split '.' or '-') -> Priority / Name
  *
  * Example Files:
@@ -154,26 +279,6 @@ impl FileMeta {
  * 19. "ui@menu#4.html.loi"          (Phase 4: Name ui, Cap menu, Ver 4)
  * 20. "log@sys#12-prod.txt.loi"     (Phase 4: Name log, Cap sys, Ver 12, Tag prod)
  */
-#[cfg(test)]
-mod test_utils {
-    use crate::{
-        backend::{compiler_service::CompilerService, utter::registry::UtterRegistry},
-        context::LoiContext,
-        registry::registry::Registry,
-    };
-
-    use super::*;
-    pub fn setup_test_context() -> LoiContext {
-        let registry = Registry::from_files(vec![]);
-        let utters = UtterRegistry::new();
-
-        LoiContext {
-            compiler_service: CompilerService::new(registry.clone(), utters.clone()),
-            registry,
-            utters,
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -198,8 +303,8 @@ mod tests {
         let m = FileMeta::from_path(&PathBuf::from("root/index@ui.html.loi"), &root);
 
         assert_eq!(m.name, "index");
-        assert_eq!(m.capability, Some("ui".to_string()));
-        assert_eq!(m.extension, "html"); // Should extract correctly
+        assert_eq!(m.utter, Some("ui".to_string()));
+        assert_eq!(m.ext, "html"); // Should extract correctly
     }
 
     #[test]
@@ -208,7 +313,7 @@ mod tests {
         let m = FileMeta::from_path(&PathBuf::from("root/base@core#1.loi"), &root);
 
         assert_eq!(m.name, "base");
-        assert_eq!(m.capability, Some("core".to_string()));
+        assert_eq!(m.utter, Some("core".to_string()));
         assert_eq!(m.version, 1);
     }
 
@@ -220,7 +325,7 @@ mod tests {
 
         assert_eq!(m.priority, Some(2));
         assert_eq!(m.name, "02");
-        assert_eq!(m.capability, Some("ui".to_string()));
+        assert_eq!(m.utter, Some("ui".to_string()));
         assert_eq!(m.version, 1);
         assert_eq!(m.tag, Some("alpha".to_string()));
     }
@@ -253,13 +358,13 @@ mod tests {
             assert_eq!(meta.priority, p, "Failed priority for {}", filename);
             assert_eq!(meta.name, name, "Failed name for {}", filename);
             assert_eq!(
-                meta.capability,
+                meta.utter,
                 cap.map(|s| s.to_string()),
                 "Failed cap for {}",
                 filename
             );
             assert_eq!(meta.version, ver, "Failed version for {}", filename);
-            assert_eq!(meta.extension, ext, "Failed ext for {}", filename);
+            assert_eq!(meta.ext, ext, "Failed ext for {}", filename);
         }
     }
 }

@@ -2,99 +2,156 @@ use colored::*;
 use owo_colors::OwoColorize;
 use rustyline::DefaultEditor;
 use std::fs;
+use std::path::PathBuf;
+use strum::{Display, EnumIter, IntoEnumIterator};
 use tabled::Table;
 use tabled::settings::{Color, Modify, Style, object::Rows};
 pub mod display;
+use crate::cmd::display::ListFilter;
+use crate::registry::file_meta::FileMeta;
+use crate::registry::registry::Registry;
 use crate::{
-    cmd::display::{FileView, RegistryPrinter},
-    context::LoiContext,
+    cmd::display::{FileView, RegistryRenderer, RegistryUI},
+    context::CompileContext,
 };
 
 pub struct CliController {
-    pub ctx: LoiContext,
+    pub ctx: CompileContext,
+    pub history_path: PathBuf,
+    pub current_namespace: Vec<String>,
+    pub verbosity: u8,
+    // Optional: add a watcher to trigger updates
 }
 
 impl CliController {
-    pub fn new(ctx: LoiContext) -> Self {
-        Self { ctx }
+    pub fn new(ctx: CompileContext) -> Self {
+        Self {
+            ctx,
+            history_path: dirs::home_dir().unwrap().join(".loi_history"),
+            current_namespace: Vec::new(),
+            verbosity: 0,
+        }
+    }
+
+    fn build_indexed_view(&self) -> Vec<&FileMeta> {
+        let mut files: Vec<&FileMeta> = self
+            .ctx
+            .registry
+            .files
+            .iter()
+            .chain(self.ctx.registry.files_archive.iter())
+            .collect();
+
+        files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
+        files
     }
 
     pub fn run(&mut self) {
         let mut rl = DefaultEditor::new().expect("Failed to create editor");
+        let _ = rl.load_history(&self.history_path);
+        let ui = RegistryRenderer;
 
         loop {
-            match rl.readline("loi> ") {
+            // 1. Top UI frame
+            ui.render_header(&self.ctx.registry);
+            let prompt = format!(
+                "\n{}",
+                // "●".green(),
+                // "loi".bold().green(),
+                "❯".cyan()
+            );
+
+            match rl.readline(prompt.as_str()) {
                 Ok(line) => {
                     let input = line.trim();
                     if input.is_empty() {
                         continue;
                     }
 
-                    // Add to history so you can press UP to see previous commands
                     let _ = rl.add_history_entry(input);
 
-                    // Split into command and argument
                     let parts: Vec<&str> = input.splitn(2, ' ').collect();
-                    let cmd = parts[0];
+                    let cmd_name = parts[0];
                     let arg = parts.get(1).copied();
 
-                    // Dispatch the commands
-                    match cmd {
-                        "ls" => self.render_list(),
-                        "clear" => {
-                            let _ = clearscreen::clear();
-                        }
-                        "view" => self.handle_view(arg),
-                        "build" => self.handle_build(arg),
-                        "exit" | "quit" => {
-                            println!("Goodbye!");
+                    if let Some(cmd) = Command::from_str(cmd_name, arg) {
+                        println!();
+
+                        // 2. main execution
+                        cmd.execute(self, &ui);
+
+                        // 3. footer UI
+                        ui.render_shortcuts();
+
+                        if matches!(cmd, Command::Exit) {
                             break;
                         }
-                        _ => println!(
-                            "{}",
-                            "Unknown command. Try 'ls', 'build', 'view', or 'clear'".red()
-                        ),
+                    } else {
+                        println!("{}", "Unknown command. Try 'help'".red());
                     }
                 }
-                Err(rustyline::error::ReadlineError::Interrupted) => {
-                    println!("CTRL-C");
-                    break;
+                Err(_) => break,
+            }
+        }
+        let _ = rl.save_history(&self.history_path);
+    }
+
+    fn resolve_target<'a>(
+        _registry: &'a Registry,
+        files: &[&'a FileMeta],
+        target: &BuildTarget,
+    ) -> Option<&'a FileMeta> {
+        match target {
+            BuildTarget::ByIndex(i) => files.get(i.saturating_sub(1)).copied(),
+            BuildTarget::ByName(name) => {
+                let mut first: Option<&FileMeta> = None;
+
+                for f in files {
+                    if f.name != *name {
+                        continue;
+                    }
+
+                    if f.utter.is_none() {
+                        return Some(f);
+                    }
+
+                    if first.is_none() {
+                        first = Some(f);
+                    }
                 }
-                Err(rustyline::error::ReadlineError::Eof) => {
-                    println!("CTRL-D");
-                    break;
-                }
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    break;
-                }
+
+                first
             }
         }
     }
-    fn handle_build(&self, name_arg: Option<&str>) {
-        let name = match name_arg {
-            Some(n) => n,
-            None => {
-                println!("{}", "Usage: build <filename>".yellow());
-                return;
-            }
-        };
 
-        // 1. Retrieve the file from the registry
-        let file = match self.ctx.registry.find_file(name) {
+    fn display_files(&self) -> Vec<&FileMeta> {
+        let mut files: Vec<_> = self
+            .ctx
+            .registry
+            .files
+            .iter()
+            .chain(self.ctx.registry.files_archive.iter())
+            .collect();
+
+        files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
+
+        files
+    }
+
+    fn handle_build(&self, target: &BuildTarget) {
+        println!("target = {:?}", target);
+        println!("files len = {}", self.ctx.registry.files.len());
+        let files = self.build_indexed_view();
+
+        let file = match Self::resolve_target(&self.ctx.registry, &files, target) {
             Some(f) => f,
             None => {
-                println!(
-                    "{}: File '{}' not found in registry",
-                    "❌ Error".red(),
-                    name
-                );
+                println!("{}", "❌ File not found".red());
                 return;
             }
         };
 
-        // 2. Delegate the logic of picking and executing the compiler to a service or the registry
-        // This keeps the CLI handler agnostic of "how" a file is compiled.
         match self.ctx.compiler_service.compile(file) {
             Ok(_) => println!("{}", "✅ Build completed successfully!".green()),
             Err(e) => println!("{}: {}", "❌ Build failed".red(), e),
@@ -133,36 +190,204 @@ impl CliController {
     }
 }
 
-impl RegistryPrinter for CliController {
-    fn render_list(&self) {
-        // 1. Metadata collection
-        let root_path = std::env::current_dir().unwrap().display().to_string();
-        let file_count = self.ctx.registry.files.len();
+#[derive(Debug, PartialEq)]
+pub enum BuildTarget {
+    ByName(String),
+    ByIndex(usize),
+}
 
-        // 2. Data transformation
-        let data: Vec<FileView> = self
-            .ctx
-            .registry
-            .files
-            .iter()
-            .map(|f| FileView {
-                namespace: f.namespace.join("/"),
-                name: f.name.clone(),
-                capability: f.capability.as_deref().unwrap_or("-").to_string(),
-            })
+impl Default for BuildTarget {
+    fn default() -> Self {
+        BuildTarget::ByIndex(1)
+    }
+}
+
+pub struct CommandMeta {
+    pub label: &'static str,
+    pub alias: Option<&'static str>,
+    pub description: &'static str,
+    pub hidden: bool,
+    pub weight: u32,
+}
+#[derive(EnumIter, Display, Debug, PartialEq)]
+pub enum Command {
+    List(ListFilter),
+    #[strum(serialize = "tree")]
+    Tree,
+    #[strum(serialize = "history")]
+    History(Option<String>),
+    #[strum(serialize = "caps")]
+    CapabilityMap,
+    #[strum(serialize = "diff")]
+    Diff(String, String),
+    #[strum(serialize = "build")]
+    Build(BuildTarget),
+    #[strum(serialize = "view")]
+    View(String),
+    #[strum(serialize = "clear")]
+    Clear,
+    #[strum(serialize = "help")]
+    Help,
+    #[strum(serialize = "exit")]
+    Exit,
+}
+
+impl Command {
+    pub fn metadata(&self) -> CommandMeta {
+        match self {
+            Command::List(_) => CommandMeta {
+                label: "ls",
+                alias: None,
+                description: "List files",
+                hidden: false,
+                weight: 10,
+            },
+
+            Command::Tree => CommandMeta {
+                label: "tree",
+                alias: None,
+                description: "Display namespace hierarchy",
+                hidden: false,
+                weight: 20,
+            },
+
+            Command::History(_) => CommandMeta {
+                label: "history",
+                alias: None,
+                description: "Show version audit trail",
+                hidden: false,
+                weight: 5,
+            },
+
+            Command::CapabilityMap => CommandMeta {
+                label: "caps",
+                alias: None,
+                description: "Show capability matrix",
+                hidden: false,
+                weight: 15,
+            },
+
+            Command::Diff(_, _) => CommandMeta {
+                label: "diff",
+                alias: None,
+                description: "Compare two components",
+                hidden: false,
+                weight: 30,
+            },
+
+            Command::Build(_) => CommandMeta {
+                label: "build",
+                alias: Some("b"),
+                description: "Compile component",
+                hidden: false,
+                weight: 100,
+            },
+
+            Command::View(_) => CommandMeta {
+                label: "view",
+                alias: Some("v"),
+                description: "Display file contents",
+                hidden: false,
+                weight: 40,
+            },
+
+            Command::Clear => CommandMeta {
+                label: "clear",
+                alias: None,
+                description: "Clear terminal",
+                hidden: true,
+                weight: 1,
+            },
+
+            Command::Help => CommandMeta {
+                label: "help",
+                alias: None,
+                description: "Show available commands",
+                hidden: false,
+                weight: 0,
+            },
+
+            Command::Exit => CommandMeta {
+                label: "exit",
+                alias: None,
+                description: "Quit application",
+                hidden: false,
+                weight: 0,
+            },
+        }
+    }
+
+    fn parse_build(arg: &str) -> BuildTarget {
+        if let Some(num) = arg.strip_prefix("-n ") {
+            BuildTarget::ByIndex(num.parse().unwrap_or(1))
+        } else {
+            BuildTarget::ByName(arg.to_string())
+        }
+    }
+
+    pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
+        match cmd {
+            "ls" => Some(Command::List(ListFilter::Active)),
+            "ls-all" => Some(Command::List(ListFilter::All)),
+            "ls-archived" => Some(Command::List(ListFilter::Archived)),
+            "tree" => Some(Command::Tree),
+            "caps" => Some(Command::CapabilityMap),
+            "clear" => Some(Command::Clear),
+            "help" => Some(Command::Help),
+            "exit" | "quit" => Some(Command::Exit),
+            "build" => arg.map(|a| Command::Build(Self::parse_build(a))),
+            "view" => arg.map(|a| Command::View(a.to_string())),
+            "history" => Some(Command::History(arg.map(|a| a.to_string()))),
+
+            "diff" => arg.and_then(|a| {
+                let parts: Vec<&str> = a.split_whitespace().collect();
+                if parts.len() == 2 {
+                    Some(Command::Diff(parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    println!("{}", "Usage: diff <file_a> <file_b>".yellow());
+                    None
+                }
+            }),
+
+            _ => None,
+        }
+    }
+
+    pub fn print_help() {
+        println!("\n{}", "=== Available Commands ===".bold().cyan());
+
+        let seen_list = false;
+
+        let mut cmds: Vec<_> = Command::iter()
+            .map(|c| c.metadata())
+            .filter(|m| !m.hidden)
             .collect();
 
-        // 3. Styling the table
-        let mut table = Table::new(data);
-        table
-            .with(Style::modern())
-            .with(Modify::new(Rows::first()).with(Color::FG_CYAN));
+        // optional: sort by importance (same idea as shortcuts)
+        cmds.sort_by(|a, b| b.weight.cmp(&a.weight));
 
-        // 4. Print metadata header
-        println!("\n{}", "=== Registry Status ===".bold().yellow());
-        println!("Path: {}", root_path.dimmed());
-        println!("Total Files: {}\n", file_count.to_string().green().bold());
+        for cmd in cmds {
+            println!("  {:<15} - {}", cmd.label.yellow(), cmd.description);
+        }
 
-        println!("{}\n", table);
+        println!();
+    }
+    // Logic to handle execution by delegating to the UI or Controller
+    pub fn execute(&self, controller: &CliController, ui: &RegistryRenderer) {
+        let registry = &controller.ctx.registry;
+        match self {
+            Command::List(filter) => ui.render_list(registry, *filter),
+            Command::Tree => ui.render_tree(registry),
+            Command::History(target) => ui.render_version_history(registry, target.as_deref()),
+            Command::CapabilityMap => ui.render_capability_map(registry),
+            Command::Diff(a, b) => ui.render_diff(registry, a, b),
+            Command::Build(name) => controller.handle_build(name),
+            Command::View(name) => controller.handle_view(Some(name)),
+            Command::Clear => {
+                let _ = clearscreen::clear();
+            }
+            Command::Help => Command::print_help(),
+            Command::Exit => println!("Exiting..."),
+        }
     }
 }
