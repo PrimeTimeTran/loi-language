@@ -18,6 +18,32 @@ pub trait Handler: DynClone {
 }
 
 dyn_clone::clone_trait_object!(Handler);
+
+
+#[derive(Clone)]
+pub struct LoiHandler;
+impl Handler for LoiHandler {
+    fn handle(
+        &self,
+        file: &FileMeta,
+        utter: &dyn Utter,
+        symbols: &SymbolRegistry,
+    ) -> Result<IR, String> {
+        utter.to_ir(file, symbols)
+    }
+
+    fn emit(&self, ir: &IR) -> Result<String, String> {
+        let body = match ir {
+            IR::Raw(s) => s,
+            IR::Structured { body, .. } => {
+                // temporary debug rendering of structured IR
+                &format!("{:?}", body)
+            }
+        };
+
+        Ok(format!("<loi>{}</loi>", body))
+    }
+}
 #[derive(Clone)]
 pub struct HtmlHandler;
 impl Handler for HtmlHandler {
@@ -31,7 +57,15 @@ impl Handler for HtmlHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        Ok(format!("<html>{:?}</html>", ir.body))
+        let body = match ir {
+            IR::Raw(s) => s,
+            IR::Structured { body, .. } => {
+                // temporary debug rendering of structured IR
+                &format!("{:?}", body)
+            }
+        };
+
+        Ok(format!("<html>{}</html>", body))
     }
 }
 
@@ -48,7 +82,12 @@ impl Handler for CssHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        Ok(format!("/* css ir */\n{:?}", ir.body))
+        let body = match ir {
+            IR::Raw(s) => s,
+            IR::Structured { body, .. } => &format!("{:?}", body),
+        };
+
+        Ok(format!("/* css ir */\n{}", body))
     }
 }
 
@@ -65,6 +104,11 @@ impl Handler for JsHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        Ok(format!("// js ir\n{:?}", ir.body))
+        let body = match ir {
+            IR::Raw(s) => s,
+            IR::Structured { body, .. } => &format!("{:?}", body),
+        };
+
+        Ok(format!("// js ir\n{}", body))
     }
 }

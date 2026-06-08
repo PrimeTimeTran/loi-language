@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use inkwell::object_file::Symbol;
 use serde::Serialize;
 
 use frontend::ast::Expr;
@@ -49,15 +50,38 @@ pub enum Op {
 // -------------------------------------------------
 
 // 1. The container that holds the "Global" metadata for the module/file
-pub struct IR {
-    pub body: Vec<IROp>,
-    pub symbols: HashMap<String, String>,
-    pub metadata: HashMap<String, String>,
+// pub struct IR {
+//     pub body: Vec<IROp>,
+//     pub symbols: HashMap<String, String>,
+//     pub metadata: HashMap<String, String>,
+// }
+
+// use std::collections::HashMap;
+
+pub enum IR {
+    Raw(String),
+    Structured {
+        body: Vec<IROp>,
+        symbols: HashMap<String, Symbol>,
+        metadata: HashMap<String, String>,
+    },
 }
 
 impl IR {
     pub fn new() -> Self {
-        Self {
+        IR::Structured {
+            body: Vec::new(),
+            symbols: HashMap::new(),
+            metadata: HashMap::new(),
+        }
+    }
+
+    pub fn raw(content: impl Into<String>) -> Self {
+        IR::Raw(content.into())
+    }
+
+    pub fn structured() -> Self {
+        IR::Structured {
             body: Vec::new(),
             symbols: HashMap::new(),
             metadata: HashMap::new(),

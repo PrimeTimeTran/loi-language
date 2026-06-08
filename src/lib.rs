@@ -36,7 +36,7 @@ pub mod watcher;
 // CLI entry helpers (library reuse)
 pub mod cli;
 pub mod cmd;
-mod context;
+mod build_system;
 
 // Shared diagnostics + error system
 pub mod diagnostics;

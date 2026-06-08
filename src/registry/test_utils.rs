@@ -10,22 +10,15 @@ pub mod test_helpers {
 #[cfg(test)]
 mod test_utils {
     use crate::{
-        backend::{compiler_service::CompilerService, utter::registry::UtterRegistry},
-        context::CompileContext,
+        backend::{compile_service::CompilerService, utter::registry::UtterRegistry},
+        build_system::BuildSystem,
         registry::registry::Registry,
     };
 
     use super::*;
-    pub fn setup_test_context() -> CompileContext {
+    pub fn setup_test_context() -> BuildSystem {
         let registry = Registry::from_files(vec![]);
         let utters = UtterRegistry::new();
-
-        CompileContext {
-            compiler_service: CompilerService::new(registry.clone(), utters.clone()),
-            registry,
-            utters,
-            dir_out: String::new().into(),
-            dir_root: String::new().into(),
-        }
+        BuildSystem::test()
     }
 }

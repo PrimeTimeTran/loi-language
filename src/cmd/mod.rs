@@ -12,11 +12,11 @@ use crate::registry::file_meta::FileMeta;
 use crate::registry::registry::Registry;
 use crate::{
     cmd::display::{FileView, RegistryRenderer, RegistryUI},
-    context::CompileContext,
+    build_system::BuildSystem,
 };
 
 pub struct CliController {
-    pub ctx: CompileContext,
+    pub system: BuildSystem,
     pub history_path: PathBuf,
     pub current_namespace: Vec<String>,
     pub verbosity: u8,
@@ -24,9 +24,9 @@ pub struct CliController {
 }
 
 impl CliController {
-    pub fn new(ctx: CompileContext) -> Self {
+    pub fn new(system: BuildSystem) -> Self {
         Self {
-            ctx,
+            system,
             history_path: dirs::home_dir().unwrap().join(".loi_history"),
             current_namespace: Vec::new(),
             verbosity: 0,
@@ -40,7 +40,7 @@ impl CliController {
 
         loop {
             // 1. Top UI frame
-            ui.render_header(&self.ctx.registry);
+            ui.render_header(&self.system.registry);
             let prompt = format!(
                 "\n{}",
                 // "●".green(),
@@ -85,29 +85,17 @@ impl CliController {
 
     fn build_indexed_view(&self) -> Vec<&FileMeta> {
         let mut files: Vec<&FileMeta> = self
-            .ctx
+            .system
             .registry
             .files
             .iter()
-            .chain(self.ctx.registry.files_archive.iter())
+            .chain(self.system.registry.files_archive.iter())
             .collect();
 
         files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
         files
     }
 
-    fn output_path(&self, file: &FileMeta) -> PathBuf {
-        let relative = file
-            .path
-            .strip_prefix(&self.ctx.dir_root)
-            .unwrap_or(&file.path);
-
-        let mut out = self.ctx.dir_out.clone();
-        out.push(relative);
-
-        out.set_extension("out");
-        out
-    }
     fn resolve_target<'a>(
         _registry: &'a Registry,
         files: &[&'a FileMeta],
@@ -139,11 +127,11 @@ impl CliController {
 
     fn display_files(&self) -> Vec<&FileMeta> {
         let mut files: Vec<_> = self
-            .ctx
+            .system
             .registry
             .files
             .iter()
-            .chain(self.ctx.registry.files_archive.iter())
+            .chain(self.system.registry.files_archive.iter())
             .collect();
 
         files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
@@ -153,10 +141,10 @@ impl CliController {
 
     fn handle_build(&self, target: &BuildTarget) {
         println!("target = {:?}", target);
-        println!("files len = {}", self.ctx.registry.files.len());
+        println!("files len = {}", self.system.registry.files.len());
         let files = self.build_indexed_view();
 
-        let file = match Self::resolve_target(&self.ctx.registry, &files, target) {
+        let file = match Self::resolve_target(&self.system.registry, &files, target) {
             Some(f) => f,
             None => {
                 println!("{}", "❌ File not found".red());
@@ -164,22 +152,30 @@ impl CliController {
             }
         };
 
-        match self.ctx.compiler_service.compile(file) {
+        match self.system.compiler_service.compile(file) {
             Ok(_) => println!("{}", "✅ Build completed successfully!".green()),
             Err(e) => println!("{}: {}", "❌ Build failed".red(), e),
         }
     }
-
     fn handle_build_all(&self, target: &BuildAllArgs) {
-        for file in &self.ctx.registry.files {
-            if let Ok(artifact) = self.ctx.compiler_service.compile(file) {
-                let out = self.output_path(file);
+        let results = self
+            .system
+            .compiler_service
+            .compile_all(&self.system.registry.files);
 
-                if let Some(parent) = out.parent() {
-                    let _ = fs::create_dir_all(parent);
+        for result in results {
+            match result {
+                Ok((_, artifact)) => {
+                    for out in artifact.outputs {
+                        if let Some(parent) = out.path.parent() {
+                            let _ = fs::create_dir_all(parent);
+                        }
+                        let _ = fs::write(&out.path, &out.bytes);
+                    }
                 }
-
-                let _ = fs::write(out, artifact.bytes());
+                Err(e) => {
+                    eprintln!("❌ compile failed: {e}");
+                }
             }
         }
     }
@@ -192,7 +188,7 @@ impl CliController {
             }
         };
 
-        if let Some(file) = self.ctx.registry.files.iter().find(|f| f.name == name) {
+        if let Some(file) = self.system.registry.files.iter().find(|f| f.name == name) {
             // 2. Build the actual path to the file
             // Note: Assuming your FileMeta has a 'path' field pointing to the source
             let path = &file.path;
@@ -431,7 +427,7 @@ impl Command {
     }
     // Logic to handle execution by delegating to the UI or Controller
     pub fn execute(&self, controller: &CliController, ui: &RegistryRenderer) {
-        let registry = &controller.ctx.registry;
+        let registry = &controller.system.registry;
         match self {
             Command::List(filter) => ui.render_list(registry, *filter),
             Command::Tree => ui.render_tree(registry),

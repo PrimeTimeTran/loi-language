@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
-use crate::backend::utter::handler::{CssHandler, Handler, HtmlHandler, JsHandler};
-use crate::backend::utter::utter::{CssUtter, HtmlUtter, JsUtter, UIUtter};
+use crate::backend::utter::handler::{CssHandler, Handler, HtmlHandler, JsHandler, LoiHandler};
+use crate::backend::utter::utter::{
+    CssUtter, HtmlUtter, IdentityUtter, JsUtter, LoiUtter, UIUtter,
+};
 use crate::{backend::utter::utter::Utter, registry::file_meta::FileMeta};
 
 #[derive(Clone)]
@@ -34,12 +36,22 @@ impl UtterRegistry {
         registry.utters.insert("ui".to_string(), Box::new(UIUtter));
         registry
             .utters
+            .insert("loi".to_string(), Box::new(LoiUtter));
+        registry
+            .utters
+            .insert("identity".to_string(), Box::new(IdentityUtter));
+        registry
+            .utters
             .insert("html".to_string(), Box::new(HtmlUtter));
         registry
             .utters
             .insert("css".to_string(), Box::new(CssUtter));
 
         registry.utters.insert("js".to_string(), Box::new(JsUtter));
+
+        registry
+            .handlers
+            .insert("loi".to_string(), Box::new(LoiHandler));
 
         registry
             .handlers
