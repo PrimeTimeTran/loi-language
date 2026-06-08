@@ -16,6 +16,19 @@ pub struct Registry {
 }
 
 impl Registry {
+    pub fn find_file(&self, name: &str) -> Option<&FileMetadata> {
+        // 1. Check active files first (most common case)
+        self.files
+            .iter()
+            .find(|f| f.name == name)
+            // 2. Fallback to archive if not found
+            .or_else(|| self.filesArchive.iter().find(|f| f.name == name))
+    }
+
+    /// Explicitly find only in active files
+    pub fn find_active(&self, name: &str) -> Option<&FileMetadata> {
+        self.files.iter().find(|f| f.name == name)
+    }
     pub fn build_file(&self, name: &str, utter_reg: &UtterRegistry) {
         if let Some(file) = self.get_active_by_name(name) {
             if let Some(cap) = &file.capability {
@@ -70,7 +83,7 @@ impl Registry {
     pub fn scan(root: &Path) -> Self {
         let all_files = Self::discover_files(root);
         let (active, archive) = Self::organize(all_files);
-        
+
         Registry {
             files: active,
             filesArchive: archive,

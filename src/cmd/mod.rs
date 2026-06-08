@@ -2,7 +2,6 @@ use colored::*;
 use owo_colors::OwoColorize;
 use rustyline::DefaultEditor;
 use std::fs;
-use std::io::{self, Write};
 use tabled::Table;
 use tabled::settings::{Color, Modify, Style, object::Rows};
 pub mod display;
@@ -16,7 +15,6 @@ pub struct CliController {
 }
 
 impl CliController {
-    // Now takes the context directly
     pub fn new(ctx: LoiContext) -> Self {
         Self { ctx }
     }
@@ -82,47 +80,24 @@ impl CliController {
             }
         };
 
-        // 1. Find the file in the registry
-        // Note: You might need a helper method in Registry to find by exact name
-        if let Some(file) = self.ctx.registry.files.iter().find(|f| f.name == name) {
-            // 2. Resolve the Utter (Capability)
-            if let Some(cap) = &file.capability {
-                match self.ctx.utters.get_utter(cap) {
-                    Some(utter) => {
-                        println!("⚡ Compiling '{}' with engine: {}", name, utter.name());
-
-                        // 3. Execute the compilation (to_ir)
-                        match utter.to_ir(file) {
-                            Ok(ir) => {
-                                println!("{}", "✅ IR Generated successfully!".green());
-                                // Here you would later pipe the IR to your backend/emitter
-                            }
-                            Err(e) => {
-                                println!("{}: {}", "❌ Compilation failed".red(), e);
-                            }
-                        }
-                    }
-                    None => {
-                        println!(
-                            "{}: No engine registered for capability '@{}'",
-                            "❌ Error".red(),
-                            cap
-                        );
-                    }
-                }
-            } else {
+        // 1. Retrieve the file from the registry
+        let file = match self.ctx.registry.find_file(name) {
+            Some(f) => f,
+            None => {
                 println!(
-                    "{}: File '{}' has no capability defined (missing @tag?)",
+                    "{}: File '{}' not found in registry",
                     "❌ Error".red(),
                     name
                 );
+                return;
             }
-        } else {
-            println!(
-                "{}: File '{}' not found in registry",
-                "❌ Error".red(),
-                name
-            );
+        };
+
+        // 2. Delegate the logic of picking and executing the compiler to a service or the registry
+        // This keeps the CLI handler agnostic of "how" a file is compiled.
+        match self.ctx.compiler_service.compile(file) {
+            Ok(_) => println!("{}", "✅ Build completed successfully!".green()),
+            Err(e) => println!("{}: {}", "❌ Build failed".red(), e),
         }
     }
     fn handle_view(&self, name_arg: Option<&str>) {
@@ -134,7 +109,6 @@ impl CliController {
             }
         };
 
-        // 1. Locate the file in the registry
         if let Some(file) = self.ctx.registry.files.iter().find(|f| f.name == name) {
             // 2. Build the actual path to the file
             // Note: Assuming your FileMetadata has a 'path' field pointing to the source
@@ -174,6 +148,7 @@ impl RegistryPrinter for CliController {
             .map(|f| FileView {
                 namespace: f.namespace.join("/"),
                 name: f.name.clone(),
+                capability: f.capability.as_deref().unwrap_or("-").to_string(),
             })
             .collect();
 

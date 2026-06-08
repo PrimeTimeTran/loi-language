@@ -4,6 +4,7 @@ use tabled::Tabled;
 pub struct FileView {
     pub namespace: String,
     pub name: String,
+    pub capability: String,
 }
 
 pub trait RegistryPrinter {

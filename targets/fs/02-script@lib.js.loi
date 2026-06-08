@@ -1,0 +1,3 @@
+function helloLoi() {
+  console.log(PI)
+}

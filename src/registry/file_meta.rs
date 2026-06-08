@@ -2,8 +2,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct FileMetadata {
-    // The "Virtual Path": ["00", "3", "a", "prebuild-next"]
-    // This replaces filename and segments.
     pub namespace: Vec<String>,
     pub name: String,
     // Core metadata
@@ -92,5 +90,77 @@ impl FileMetadata {
                 .unwrap_or("")
                 .to_string(),
         }
+    }
+}
+
+/*
+Expected filename support patterns:
+1. "01-arithmetic.loi"           (Priority 1, name "arithmetic")
+2. "index@ui.html.loi"           (Name "index", cap "ui", ext "html")
+3. "styles@ui#1.css.loi"         (Name "styles", cap "ui", ver 1, ext "css")
+4. "script@lib#2-beta.js.loi"    (Name "script", cap "lib", ver 2, tag "beta", ext "js")
+5. "05.loi"                      (Priority 5, name "unknown")
+6. "auth@api#10-prod.json.loi"   (Name "auth", cap "api", ver 10, tag "prod")
+7. "profile@ui.loi"              (No explicit ext in logic, defaults handled)
+8. "base@core#1.loi"             (Name "base", cap "core", ver 1)
+9. "data@store#99-debug.bin.loi" (Complex metadata)
+10. "utils@helper.loi"           (Name "utils", cap "helper")
+11. "02@ui#1.html.loi"           (Priority 2, name "ui", cap "ui"?) -> Needs careful parsing
+12. "test#0-run.loi"             (Name "test", ver 0, tag "run")
+13. "app@web#5.js.loi"           (Name "app", cap "web", ver 5)
+14. "config#1-local.toml.loi"    (Name "config", ver 1, tag "local")
+15. "simple.loi"                 (No priority, no metadata)
+*/
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_standard_file() {
+        let path = PathBuf::from("root/simple.loi");
+        let root = PathBuf::from("root");
+        let meta = FileMetadata::from_path(&path, &root);
+
+        assert_eq!(meta.name, "simple");
+        assert_eq!(meta.extension, "loi");
+        assert!(meta.capability.is_none());
+    }
+
+    #[test]
+    fn test_priority_and_metadata() {
+        // Filename: 03@ui#1-alpha.html.loi
+        let path = PathBuf::from("root/03@ui#1-alpha.html.loi");
+        let root = PathBuf::from("root");
+        let meta = FileMetadata::from_path(&path, &root);
+
+        assert_eq!(meta.priority, Some(3));
+        assert_eq!(meta.name, "ui"); // Because 03 is the priority, "ui" is the name part
+        assert_eq!(meta.capability, Some("ui".to_string()));
+        assert_eq!(meta.version, 1);
+        assert_eq!(meta.tag, Some("alpha".to_string()));
+        assert_eq!(meta.extension, "loi");
+    }
+
+    #[test]
+    fn test_namespace_derivation() {
+        let path = PathBuf::from("root/api/v1/user@auth.json.loi");
+        let root = PathBuf::from("root");
+        let meta = FileMetadata::from_path(&path, &root);
+
+        assert_eq!(meta.namespace, vec!["api", "v1"]);
+        assert_eq!(meta.name, "user");
+        assert_eq!(meta.capability, Some("auth".to_string()));
+    }
+
+    #[test]
+    fn test_missing_name_part() {
+        let path = PathBuf::from("root/05.loi");
+        let root = PathBuf::from("root");
+        let meta = FileMetadata::from_path(&path, &root);
+
+        assert_eq!(meta.priority, Some(5));
+        assert_eq!(meta.name, "unknown");
     }
 }
