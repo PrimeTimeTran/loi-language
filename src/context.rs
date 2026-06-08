@@ -4,7 +4,7 @@
 // mod context;
 
 use crate::{
-    backend::{compiler_service::CompilerService, utter_registry::UtterRegistry},
+    backend::{compiler_service::CompilerService, utter::registry::UtterRegistry},
     registry::registry::Registry,
 };
 

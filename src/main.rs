@@ -1,24 +1,28 @@
 mod cmd;
+use std::env;
+
 use cmd::CliController;
 pub mod backend;
 pub mod context;
 pub mod frontend;
 pub mod middle;
 pub mod registry;
-// use loi::backend::compiler_service;
 use owo_colors::OwoColorize;
 
 use crate::{
-    backend::{compiler_service::CompilerService, utter_registry::UtterRegistry},
+    backend::{compiler_service::CompilerService, utter::registry::UtterRegistry},
     registry::registry::Registry,
 };
 
 fn main() {
-    let registry = Registry::scan(&std::env::current_dir().expect("Failed to get current dir"));
+    let mut target_dir = env::current_dir().expect("Failed to get current dir");
+    target_dir.push("targets");
+    target_dir.push("fs");
+    let registry = Registry::scan(&target_dir);
     let utters = UtterRegistry::new();
     let ctx = context::LoiContext {
+        compiler_service: CompilerService::new(registry.clone(), utters.clone()),
         registry: registry,
-        compiler_service: CompilerService::new(utters.clone()),
         utters: utters,
     };
 

@@ -6,7 +6,7 @@ Here is an expanded look at the **"Utter-Orchestration"** layer, capturing those
 
 You mentioned the "Environment Issue." In this model, an environment shouldn't be a global config file; it should be part of the file's identity.
 
-- Your `FileMetadata` already captures `capability` (e.g., `@ui`, `@lib`).
+- Your `FileMeta` already captures `capability` (e.g., `@ui`, `@lib`).
 - An `Utter` doesn't just parse the file; it reads the metadata to apply the **Environment Contract**.
 - If a file is `@ui`, the `Utter` enforces a browser-ready environment; if it’s `@node`, the `Utter` injects the necessary shims.
 

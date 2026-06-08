@@ -1,32 +1,40 @@
-use crate::backend::utter_registry::UtterRegistry;
-use crate::registry::file_meta::FileMetadata;
+use crate::backend::utter::registry::UtterRegistry;
+use crate::registry::file_meta::FileMeta;
 
 use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrderedManifest {
-    pub active: Vec<FileMetadata>,
-    pub archive: Vec<FileMetadata>,
+    pub active: Vec<FileMeta>,
+    pub archive: Vec<FileMeta>,
 }
-
+#[derive(Clone)]
 pub struct Registry {
-    pub files: Vec<FileMetadata>,
-    pub filesArchive: Vec<FileMetadata>,
+    pub files: Vec<FileMeta>,
+    pub files_archive: Vec<FileMeta>,
+    pub from_files: Vec<FileMeta>,
 }
 
 impl Registry {
-    pub fn find_file(&self, name: &str) -> Option<&FileMetadata> {
+    pub fn from_files(files: Vec<FileMeta>) -> Self {
+        Registry {
+            files,
+            files_archive: Vec::new(),
+            from_files: Vec::new(),
+        }
+    }
+    pub fn find_file(&self, name: &str) -> Option<&FileMeta> {
         // 1. Check active files first (most common case)
         self.files
             .iter()
             .find(|f| f.name == name)
             // 2. Fallback to archive if not found
-            .or_else(|| self.filesArchive.iter().find(|f| f.name == name))
+            .or_else(|| self.files_archive.iter().find(|f| f.name == name))
     }
 
     /// Explicitly find only in active files
-    pub fn find_active(&self, name: &str) -> Option<&FileMetadata> {
+    pub fn find_active(&self, name: &str) -> Option<&FileMeta> {
         self.files.iter().find(|f| f.name == name)
     }
     pub fn build_file(&self, name: &str, utter_reg: &UtterRegistry) {
@@ -40,21 +48,21 @@ impl Registry {
         }
     }
     // PHASE 1: Discovery - Just turn path to metadata
-    fn discover_files(root: &Path) -> Vec<FileMetadata> {
+    fn discover_files(root: &Path) -> Vec<FileMeta> {
         walkdir::WalkDir::new(root)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("loi"))
             // Pass 'root' into the closure here:
-            .map(|e| FileMetadata::from_path(e.path(), root))
+            .map(|e| FileMeta::from_path(e.path(), root))
             .collect()
     }
 
     // PHASE 2: Organize - Group metadata into Active vs Archive
-    fn organize(files: Vec<FileMetadata>) -> (Vec<FileMetadata>, Vec<FileMetadata>) {
+    fn organize(files: Vec<FileMeta>) -> (Vec<FileMeta>, Vec<FileMeta>) {
         let mut groups: HashMap<
             (Vec<String>, String, Option<String>, Option<String>),
-            Vec<FileMetadata>,
+            Vec<FileMeta>,
         > = HashMap::new();
 
         for file in files {
@@ -86,7 +94,8 @@ impl Registry {
 
         Registry {
             files: active,
-            filesArchive: archive,
+            files_archive: archive,
+            from_files: Vec::new(),
         }
     }
     pub fn list_all(&self) {
@@ -100,14 +109,14 @@ impl Registry {
         }
     }
 
-    pub fn get_active_by_name(&self, name: &str) -> Option<&FileMetadata> {
+    pub fn get_active_by_name(&self, name: &str) -> Option<&FileMeta> {
         self.files.iter().find(|f| f.name == name)
     }
 }
 
 #[cfg(test)]
 mod test_utils {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     pub fn get_test_root() -> PathBuf {
         PathBuf::from("/virtual/root")
@@ -116,7 +125,7 @@ mod test_utils {
 
 #[cfg(test)]
 mod tests {
-    use crate::registry::{file_meta::FileMetadata, registry::Registry};
+    use crate::registry::{file_meta::FileMeta, registry::Registry};
 
     use super::test_utils::get_test_root;
     use pretty_assertions::assert_eq;
@@ -149,7 +158,7 @@ mod tests {
 
         // Check the other 2 are in the archive
         assert_eq!(
-            registry.filesArchive.len(),
+            registry.files_archive.len(),
             2,
             "Should have 2 archived files"
         );
@@ -158,14 +167,15 @@ mod tests {
     #[test]
     fn test_metadata_parsing() {
         let path = Path::new("05.dashboard@ui#42.jsx.loi");
-        let meta = FileMetadata::from_path(path, &get_test_root());
+        let meta = FileMeta::from_path(path, &get_test_root());
+
         assert_eq!(meta.priority, Some(5));
-        assert_eq!(meta.name, "dashboard");
+        assert_eq!(meta.name, "dashboard"); // Correctly parsed via split_once('.')
         assert_eq!(meta.capability, Some("ui".to_string()));
         assert_eq!(meta.version, 42);
-        assert_eq!(meta.extension, "loi");
+        // This MUST be "jsx" because it is the functional extension
+        assert_eq!(meta.extension, "jsx");
     }
-
     #[test]
     fn test_version_auto_promotion() {
         let dir = tempdir().unwrap();
@@ -194,7 +204,7 @@ mod tests {
 
         // Check that the other two are in the archive
         assert_eq!(
-            registry.filesArchive.len(),
+            registry.files_archive.len(),
             2,
             "Should have 2 archived files"
         );
@@ -225,7 +235,7 @@ mod tests {
     #[test]
     fn test_complex_version_string() {
         let path = Path::new("00.core@lib#10-try-pnpm.js.loi");
-        let meta = FileMetadata::from_path(path, &get_test_root());
+        let meta = FileMeta::from_path(path, &get_test_root());
 
         assert_eq!(
             meta.version, 10,
@@ -244,7 +254,7 @@ mod tests {
 
         let mut results = Vec::new();
         for f in &files {
-            results.push(FileMetadata::from_path(Path::new(f), &get_test_root()).version);
+            results.push(FileMeta::from_path(Path::new(f), &get_test_root()).version);
         }
 
         dbg!("test_version_normalization_and_padding", &files);
@@ -275,7 +285,7 @@ mod tests {
         assert_eq!(registry.files.len(), 3);
 
         // Verify Archive counts (1 shadowed file: #1-alpha)
-        assert_eq!(registry.filesArchive.len(), 1);
+        assert_eq!(registry.files_archive.len(), 1);
 
         // Assert the order of the winners
         // Based on Ord: 1. Name, 2. Version (Asc), 3. Tag

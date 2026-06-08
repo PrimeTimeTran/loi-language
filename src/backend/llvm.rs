@@ -58,7 +58,6 @@ fn codegen_expr<'ctx>(
                 .unwrap()
                 .into_float_value()
         }
-        Expr::Number(_) => todo!(),
         Expr::Bool(_) => todo!(),
         Expr::String(_) => todo!(),
         Expr::Unary { op, expr } => todo!(),

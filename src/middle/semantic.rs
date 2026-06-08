@@ -25,20 +25,6 @@ pub fn analyze(ast: AST) -> Result<IROp, String> {
                     dynamic: matches!(kind, DeclKind::Dynamic),
                 });
             }
-
-            // -------------------------
-            // ASSIGNMENT
-            // -------------------------
-            Stmt::Let { name, kind, value } => {
-                assert_eq!(name, "x");
-                assert!(matches!(kind, DeclKind::MutableStatic));
-
-                match value {
-                    Expr::Number(n) => assert_eq!(n, 5.0),
-                    _ => panic!("expected number"),
-                }
-            }
-
             // -------------------------
             // PRINT
             // -------------------------

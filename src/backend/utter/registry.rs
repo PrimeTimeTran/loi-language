@@ -2,12 +2,26 @@ use std::collections::HashMap;
 
 use crate::backend::utter::handler::{CssHandler, Handler, HtmlHandler, JsHandler};
 use crate::backend::utter::utter::{CssUtter, HtmlUtter, JsUtter, UIUtter};
-use crate::{backend::utter::utter::Utter, registry::file_meta::FileMetadata};
+use crate::{backend::utter::utter::Utter, registry::file_meta::FileMeta};
 
 #[derive(Clone)]
 pub struct UtterRegistry {
     pub utters: HashMap<String, Box<dyn Utter>>,
     pub handlers: HashMap<String, Box<dyn Handler>>,
+}
+impl PartialEq for UtterRegistry {
+    fn eq(&self, other: &Self) -> bool {
+        if self.utters.len() != other.utters.len() {
+            return false;
+        }
+
+        self.utters.iter().all(|(k, v)| {
+            other
+                .utters
+                .get(k)
+                .map_or(false, |other_v| v.equals(other_v.as_ref()))
+        })
+    }
 }
 
 impl UtterRegistry {
@@ -38,7 +52,7 @@ impl UtterRegistry {
             .insert("js".to_string(), Box::new(JsHandler));
         registry
     }
-    pub fn resolve(&self, file: &FileMetadata) -> Option<&dyn Utter> {
+    pub fn resolve(&self, file: &FileMeta) -> Option<&dyn Utter> {
         // 1. Primary: Extension (e.g., "html")
         // If the extension points to a handler, we use that handler to process the utter.
         // Note: If Handler and Utter are different types, we need to decide

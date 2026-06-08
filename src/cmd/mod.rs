@@ -111,7 +111,7 @@ impl CliController {
 
         if let Some(file) = self.ctx.registry.files.iter().find(|f| f.name == name) {
             // 2. Build the actual path to the file
-            // Note: Assuming your FileMetadata has a 'path' field pointing to the source
+            // Note: Assuming your FileMeta has a 'path' field pointing to the source
             let path = &file.path;
 
             match fs::read_to_string(path) {
