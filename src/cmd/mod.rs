@@ -33,19 +33,6 @@ impl CliController {
         }
     }
 
-    fn build_indexed_view(&self) -> Vec<&FileMeta> {
-        let mut files: Vec<&FileMeta> = self
-            .ctx
-            .registry
-            .files
-            .iter()
-            .chain(self.ctx.registry.files_archive.iter())
-            .collect();
-
-        files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
-        files
-    }
-
     pub fn run(&mut self) {
         let mut rl = DefaultEditor::new().expect("Failed to create editor");
         let _ = rl.load_history(&self.history_path);
@@ -96,6 +83,31 @@ impl CliController {
         let _ = rl.save_history(&self.history_path);
     }
 
+    fn build_indexed_view(&self) -> Vec<&FileMeta> {
+        let mut files: Vec<&FileMeta> = self
+            .ctx
+            .registry
+            .files
+            .iter()
+            .chain(self.ctx.registry.files_archive.iter())
+            .collect();
+
+        files.sort_by(|a, b| a.get_fs_name().cmp(&b.get_fs_name()));
+        files
+    }
+
+    fn output_path(&self, file: &FileMeta) -> PathBuf {
+        let relative = file
+            .path
+            .strip_prefix(&self.ctx.dir_root)
+            .unwrap_or(&file.path);
+
+        let mut out = self.ctx.dir_out.clone();
+        out.push(relative);
+
+        out.set_extension("out");
+        out
+    }
     fn resolve_target<'a>(
         _registry: &'a Registry,
         files: &[&'a FileMeta],
@@ -157,6 +169,20 @@ impl CliController {
             Err(e) => println!("{}: {}", "❌ Build failed".red(), e),
         }
     }
+
+    fn handle_build_all(&self, target: &BuildAllArgs) {
+        for file in &self.ctx.registry.files {
+            if let Ok(artifact) = self.ctx.compiler_service.compile(file) {
+                let out = self.output_path(file);
+
+                if let Some(parent) = out.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+
+                let _ = fs::write(out, artifact.bytes());
+            }
+        }
+    }
     fn handle_view(&self, name_arg: Option<&str>) {
         let name = match name_arg {
             Some(n) => n,
@@ -209,6 +235,20 @@ pub struct CommandMeta {
     pub hidden: bool,
     pub weight: u32,
 }
+
+#[derive(Debug, Default, PartialEq)]
+pub struct BuildAllArgs {
+    pub target: Option<BuildTarget>,
+    pub flags: BuildFlags,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct BuildFlags {
+    pub force: bool,
+    pub ext: Option<String>,
+    pub filter: Option<String>,
+}
+
 #[derive(EnumIter, Display, Debug, PartialEq)]
 pub enum Command {
     List(ListFilter),
@@ -222,6 +262,10 @@ pub enum Command {
     Diff(String, String),
     #[strum(serialize = "build")]
     Build(BuildTarget),
+
+    #[strum(serialize = "build-all")]
+    BuildAll(BuildAllArgs),
+
     #[strum(serialize = "view")]
     View(String),
     #[strum(serialize = "clear")]
@@ -235,6 +279,13 @@ pub enum Command {
 impl Command {
     pub fn metadata(&self) -> CommandMeta {
         match self {
+            Command::BuildAll(_) => CommandMeta {
+                label: "build-all",
+                alias: Some("b-all"),
+                description: "Compile project",
+                hidden: false,
+                weight: 100,
+            },
             Command::List(_) => CommandMeta {
                 label: "ls",
                 alias: None,
@@ -327,6 +378,11 @@ impl Command {
 
     pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
         match cmd {
+            "build-all" => {
+                let input = arg.unwrap_or("");
+                Some(Command::BuildAll(Self::parse_build_all(input)))
+            }
+
             "ls" => Some(Command::List(ListFilter::Active)),
             "ls-all" => Some(Command::List(ListFilter::All)),
             "ls-archived" => Some(Command::List(ListFilter::Archived)),
@@ -336,6 +392,7 @@ impl Command {
             "help" => Some(Command::Help),
             "exit" | "quit" => Some(Command::Exit),
             "build" => arg.map(|a| Command::Build(Self::parse_build(a))),
+
             "view" => arg.map(|a| Command::View(a.to_string())),
             "history" => Some(Command::History(arg.map(|a| a.to_string()))),
 
@@ -382,6 +439,7 @@ impl Command {
             Command::CapabilityMap => ui.render_capability_map(registry),
             Command::Diff(a, b) => ui.render_diff(registry, a, b),
             Command::Build(name) => controller.handle_build(name),
+            Command::BuildAll(args) => controller.handle_build_all(args),
             Command::View(name) => controller.handle_view(Some(name)),
             Command::Clear => {
                 let _ = clearscreen::clear();
@@ -389,5 +447,42 @@ impl Command {
             Command::Help => Command::print_help(),
             Command::Exit => println!("Exiting..."),
         }
+    }
+    fn parse_build_all(input: &str) -> BuildAllArgs {
+        let mut flags = BuildFlags::default();
+        let mut target: Option<BuildTarget> = None;
+
+        for part in input.split_whitespace() {
+            match part {
+                "--force" => flags.force = true,
+
+                f if f.starts_with("--ext=") => {
+                    flags.ext = f.strip_prefix("--ext=").map(|s| s.to_string());
+                }
+
+                f if f.starts_with("--filter=") => {
+                    flags.filter = f.strip_prefix("--filter=").map(|s| s.to_string());
+                }
+
+                // positional arg
+                "-n" => {} // handled in next token (optional upgrade)
+
+                f if f.starts_with("-n") => {
+                    let num = f.trim_start_matches("-n");
+                    if let Ok(n) = num.parse::<usize>() {
+                        target = Some(BuildTarget::ByIndex(n));
+                    }
+                }
+
+                other => {
+                    // treat as name fallback
+                    if target.is_none() {
+                        target = Some(BuildTarget::ByName(other.to_string()));
+                    }
+                }
+            }
+        }
+
+        BuildAllArgs { target, flags }
     }
 }

@@ -24,6 +24,8 @@ mod test_utils {
             compiler_service: CompilerService::new(registry.clone(), utters.clone()),
             registry,
             utters,
+            dir_out: String::new().into(),
+            dir_root: String::new().into(),
         }
     }
 }

@@ -52,32 +52,32 @@ impl UtterRegistry {
             .insert("js".to_string(), Box::new(JsHandler));
         registry
     }
-    pub fn resolve(&self, file: &FileMeta) -> Option<&dyn Utter> {
-        // 1. Primary: Extension (e.g., "html")
-        // If the extension points to a handler, we use that handler to process the utter.
-        // Note: If Handler and Utter are different types, we need to decide
-        // how to pair them. Assuming for now we resolve to the Utter:
+    // pub fn resolve(&self, file: &FileMeta) -> Option<&dyn Utter> {
+    //     // 1. Primary: Extension (e.g., "html")
+    //     // If the extension points to a handler, we use that handler to process the utter.
+    //     // Note: If Handler and Utter are different types, we need to decide
+    //     // how to pair them. Assuming for now we resolve to the Utter:
 
-        // If you have a specific mapping, check that first:
-        if let Some(handler) = self.handlers.get(&file.ext) {}
+    //     // If you have a specific mapping, check that first:
+    //     if let Some(handler) = self.handlers.get(&file.ext) {}
 
-        // 2. Secondary: Utter (e.g., "ui")
-        if let Some(c) = file.utter.as_ref() {
-            if let Some(u) = self.utters.get(c) {
-                return Some(u.as_ref());
-            }
-        }
+    //     // 2. Secondary: Utter (e.g., "ui")
+    //     if let Some(c) = file.utter.as_ref() {
+    //         if let Some(u) = self.utters.get(c) {
+    //             return Some(u.as_ref());
+    //         }
+    //     }
 
-        None
-    }
+    //     None
+    // }
     pub fn get_utter(&self, capability: &str) -> Option<&dyn Utter> {
         self.utters.get(capability).map(|u| u.as_ref())
     }
-    pub fn resolve_from_filename(&self, name: &str) -> Option<&dyn Utter> {
-        // Example: index@ui.html.loi
-        // 1. Split by '.' to find the extension: "html"
-        // 2. Look up "html" in your registry
-        let ext = name.split('.').nth(1)?; // Returns "html"
-        self.get_utter(ext)
-    }
+    // pub fn resolve_from_filename(&self, name: &str) -> Option<&dyn Utter> {
+    //     // Example: index@ui.html.loi
+    //     // 1. Split by '.' to find the extension: "html"
+    //     // 2. Look up "html" in your registry
+    //     let ext = name.split('.').nth(1)?; // Returns "html"
+    //     self.get_utter(ext)
+    // }
 }

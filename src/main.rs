@@ -16,15 +16,20 @@ use crate::{
 };
 
 fn main() {
-    let mut target_dir = env::current_dir().expect("Failed to get current dir");
-    target_dir.push("targets");
-    target_dir.push("fs");
-    let registry = Registry::scan(&target_dir);
+    let mut dir_root = env::current_dir().expect("Failed to get current dir");
+    dir_root.push("targets");
+    dir_root.push("fs");
+    let mut dir_out = env::current_dir().expect("Failed to get current dir");
+    dir_out.push("targets");
+    dir_out.push("fs_out");
+    let registry = Registry::scan(&dir_root);
     let utters = UtterRegistry::new();
     let ctx = CompileContext {
         compiler_service: CompilerService::new(registry.clone(), utters.clone()),
         registry: registry,
         utters: utters,
+        dir_root,
+        dir_out,
     };
 
     let mut controller = CliController::new(ctx);

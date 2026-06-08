@@ -7,13 +7,14 @@ use crate::{
 };
 
 pub trait Handler: DynClone {
-    // Added symbols: &SymbolRegistry to the signature
     fn handle(
         &self,
         file: &FileMeta,
         utter: &dyn Utter,
         symbols: &SymbolRegistry,
     ) -> Result<IR, String>;
+
+    fn emit(&self, ir: &IR) -> Result<String, String>;
 }
 
 dyn_clone::clone_trait_object!(Handler);
@@ -28,6 +29,10 @@ impl Handler for HtmlHandler {
     ) -> Result<IR, String> {
         utter.to_ir(file, symbols)
     }
+
+    fn emit(&self, ir: &IR) -> Result<String, String> {
+        Ok(format!("<html>{:?}</html>", ir.body))
+    }
 }
 
 #[derive(Clone)]
@@ -41,6 +46,10 @@ impl Handler for CssHandler {
     ) -> Result<IR, String> {
         utter.to_ir(file, symbols)
     }
+
+    fn emit(&self, ir: &IR) -> Result<String, String> {
+        Ok(format!("/* css ir */\n{:?}", ir.body))
+    }
 }
 
 #[derive(Clone)]
@@ -53,5 +62,9 @@ impl Handler for JsHandler {
         symbols: &SymbolRegistry,
     ) -> Result<IR, String> {
         utter.to_ir(file, symbols)
+    }
+
+    fn emit(&self, ir: &IR) -> Result<String, String> {
+        Ok(format!("// js ir\n{:?}", ir.body))
     }
 }
