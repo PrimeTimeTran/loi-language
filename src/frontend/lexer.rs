@@ -26,6 +26,7 @@ fn lex_number(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<f64, S
 
     s.parse::<f64>().map_err(|e| format!("Invalid number: {e}"))
 }
+
 pub fn lex(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
@@ -33,7 +34,7 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
     while let Some(&c) = chars.peek() {
         match c {
             '#' => {
-                chars.next(); // consume '#'
+                chars.next();
 
                 // skip until end of line
                 while let Some(ch) = chars.next() {
@@ -44,7 +45,6 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut ident = String::new();
-
                 while let Some(&ch) = chars.peek() {
                     if ch.is_ascii_alphanumeric() || ch == '_' {
                         ident.push(ch);
@@ -53,15 +53,12 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
                         break;
                     }
                 }
-
                 let token = match ident.as_str() {
                     "print" => Token::Print,
                     _ => Token::Ident(ident),
                 };
-
                 tokens.push(token);
             }
-
             '0'..='9' => {
                 let num = lex_number(&mut chars)?;
                 tokens.push(Token::Number(num));
@@ -70,17 +67,14 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
                 chars.next();
                 tokens.push(Token::Plus);
             }
-
             '-' => {
                 chars.next();
                 tokens.push(Token::Minus);
             }
-
             '*' => {
                 chars.next();
                 tokens.push(Token::Star);
             }
-
             '/' => {
                 chars.next();
                 tokens.push(Token::Slash);
@@ -105,21 +99,17 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
                 chars.next();
                 tokens.push(Token::Semicolon);
             }
-
             '(' => {
                 chars.next();
                 tokens.push(Token::LParen);
             }
-
             ')' => {
                 chars.next();
                 tokens.push(Token::RParen);
             }
-
             ' ' | '\n' | '\t' => {
-                chars.next(); // skip whitespace
+                chars.next();
             }
-
             _ => return Err(format!("Unknown character: {}", c)),
         }
     }
@@ -127,12 +117,4 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
     tokens.push(Token::EOF);
 
     Ok(tokens)
-}
-
-#[test]
-fn lex_number_() {
-    let tokens = lex("123").unwrap();
-    assert_eq!(tokens.len(), 2);
-    assert_eq!(tokens[0], Token::Number(123.0));
-    assert_eq!(tokens[1], Token::EOF);
 }

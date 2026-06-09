@@ -1,18 +1,19 @@
 use colored::*;
 use owo_colors::OwoColorize;
 use rustyline::DefaultEditor;
-use std::fs;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 use strum::{Display, EnumIter, IntoEnumIterator};
-use tabled::Table;
-use tabled::settings::{Color, Modify, Style, object::Rows};
+use tabled::{
+    Table,
+    settings::{Color, Modify, Style, object::Rows},
+};
 pub mod display;
 use crate::cmd::display::ListFilter;
 use crate::registry::file_meta::FileMeta;
 use crate::registry::registry::Registry;
 use crate::{
-    cmd::display::{FileView, RegistryRenderer, RegistryUI},
     build_system::BuildSystem,
+    cmd::display::{FileView, RegistryRenderer, RegistryUI},
 };
 
 pub struct CliController {
@@ -39,7 +40,6 @@ impl CliController {
         let ui = RegistryRenderer;
 
         loop {
-            // 1. Top UI frame
             ui.render_header(&self.system.registry);
             let prompt = format!(
                 "\n{}",
@@ -166,7 +166,7 @@ impl CliController {
         for result in results {
             match result {
                 Ok((_, artifact)) => {
-                    for out in artifact.outputs {
+                    for out in artifact.bundle {
                         if let Some(parent) = out.path.parent() {
                             let _ = fs::create_dir_all(parent);
                         }
@@ -425,7 +425,6 @@ impl Command {
 
         println!();
     }
-    // Logic to handle execution by delegating to the UI or Controller
     pub fn execute(&self, controller: &CliController, ui: &RegistryRenderer) {
         let registry = &controller.system.registry;
         match self {

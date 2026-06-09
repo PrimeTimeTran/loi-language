@@ -1,13 +1,14 @@
-use crate::cmd::Command;
-use crate::registry::file_meta::FileMeta;
-use crate::registry::registry::FileStack;
-use crate::registry::registry::Registry;
 use colored::Colorize;
 use owo_colors::OwoColorize;
 use strum::IntoEnumIterator;
-use tabled::Table;
-use tabled::Tabled;
-use tabled::settings::{Color, Modify, Style, object::Rows};
+use tabled::{
+    Table, Tabled,
+    settings::{Color, Modify, Style, object::Rows},
+};
+
+use crate::cmd::Command;
+use crate::registry::file_meta::FileMeta;
+use crate::registry::registry::{FileStack, Registry};
 
 #[derive(Tabled)]
 pub struct FileView {

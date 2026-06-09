@@ -1,4 +1,5 @@
 mod cmd;
+use loi::cli;
 use owo_colors::OwoColorize;
 use std::env;
 
@@ -12,6 +13,7 @@ pub mod registry;
 use crate::build_system::BuildSystem;
 
 fn main() {
+    // cli::run();
     let mut dir_root = env::current_dir().unwrap();
     dir_root.push("targets/fs");
 

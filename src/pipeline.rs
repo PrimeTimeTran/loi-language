@@ -1,4 +1,3 @@
-// src/pipeline.rs
 use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
 use crate::cli::Config;

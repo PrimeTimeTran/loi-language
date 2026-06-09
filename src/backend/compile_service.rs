@@ -28,7 +28,7 @@ pub struct OutputArtifact {
 
 pub struct CompiledArtifact {
     pub ir: IR,
-    pub outputs: Vec<OutputArtifact>,
+    pub bundle: Vec<OutputArtifact>,
 }
 #[derive(Clone)]
 pub struct CompilerConfig {
@@ -67,35 +67,17 @@ impl CompilerService {
 
         let mut out = self.config.dir_out.clone();
         out.push(relative);
-
         let file_name = out.file_name()?.to_string_lossy();
-
-        let new_name = if file_name.ends_with(".html.loi") {
-            file_name.trim_end_matches(".loi").to_string()
-        } else if file_name.ends_with(".css.loi") {
-            file_name.trim_end_matches(".loi").to_string()
-        } else if file_name.ends_with(".js.loi") {
-            file_name.trim_end_matches(".loi").to_string()
-        } else {
-            return None;
-        };
-
-        out.set_file_name(new_name);
-        Some(out)
+        let base = file_name.strip_suffix(".loi")?;
+        let ext = base.rsplit('.').next()?;
+        match ext {
+            "html" | "css" | "js" => {
+                out.set_file_name(base.to_string());
+                Some(out)
+            }
+            _ => None,
+        }
     }
-
-    // fn loi_output_path(&self, file: &FileMeta) -> PathBuf {
-    //     let relative = file
-    //         .path
-    //         .strip_prefix(&self.config.dir_root)
-    //         .unwrap_or(&file.path);
-
-    //     let mut out = self.config.dir_out.clone();
-    //     out.push(relative);
-
-    //     out
-    // }
-
     fn loi_output_path(&self, file: &FileMeta) -> PathBuf {
         let relative = file
             .path
@@ -142,69 +124,48 @@ impl CompilerService {
 
         let ir = utter.to_ir(file, &self.symbols)?;
 
-        // 1. compiled output (html/css/js/etc)
         let web_output = handler.emit(&ir)?.into_bytes();
-
-        let mut outputs = Vec::new();
-
+        let mut bundle = Vec::new();
         let path_str = file.path.to_string_lossy();
         let is_loi = path_str.ends_with(".loi");
-
-        // strip ".loi" once to detect wrapper type
         let is_wrapped_loi = is_loi
             && (path_str.contains(".html.loi")
                 || path_str.contains(".css.loi")
                 || path_str.contains(".js.loi"));
-
         let web_output = handler.emit(&ir)?.into_bytes();
-
         let relative = file
             .path
             .strip_prefix(&self.config.dir_root)
             .unwrap_or(&file.path);
-
-        // --------------------------------------
-        // CASE 1: WRAPPED LOI (tsx-style)
-        // --------------------------------------
         if is_wrapped_loi {
-            // emit web file ONLY (no .loi output needed unless you explicitly want it)
-
             if let Some(web_path) = self.web_output_path(file) {
-                outputs.push(OutputArtifact {
+                bundle.push(OutputArtifact {
                     path: web_path,
                     bytes: web_output,
                     kind: OutputKind::Web,
                 });
             }
-        }
-        // --------------------------------------
-        // CASE 2: PURE LOI FILES
-        // --------------------------------------
-        else if is_loi {
+        } else if is_loi {
             let raw_bytes = std::fs::read(&file.path)
                 .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
 
             let mut out = self.config.dir_out.clone();
             out.push(relative);
 
-            outputs.push(OutputArtifact {
+            bundle.push(OutputArtifact {
                 path: out,
                 bytes: raw_bytes,
                 kind: OutputKind::Loi,
             });
-        }
-        // --------------------------------------
-        // CASE 3: NORMAL WEB FILES (optional fallback)
-        // --------------------------------------
-        else {
+        } else {
             if let Some(web_path) = self.web_output_path(file) {
-                outputs.push(OutputArtifact {
+                bundle.push(OutputArtifact {
                     path: web_path,
                     bytes: web_output,
                     kind: OutputKind::Web,
                 });
             }
         }
-        Ok(CompiledArtifact { ir, outputs })
+        Ok(CompiledArtifact { ir, bundle })
     }
 }

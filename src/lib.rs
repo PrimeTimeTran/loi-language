@@ -1,49 +1,17 @@
-// src/lib.rs
-
 #![allow(warnings)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
 #![allow(unused_must_use)]
 
-// =====================================================
-// CORE COMPILER MODULE TREE
-// =====================================================
-
-// -----------------------------
-// FRONTEND: lexer, parser, AST
-// -----------------------------
-pub mod frontend;
-
-// -----------------------------
-// MIDDLE: semantic analysis, IR, optimization
-// -----------------------------
-pub mod middle;
-
-// -----------------------------
-// BACKEND: code generation
-// -----------------------------
 pub mod backend;
-
-// =====================================================
-// TOOLING / INFRASTRUCTURE
-// =====================================================
-
-// Top-level pipeline orchestration
-pub mod pipeline;
-
-pub mod watcher;
-// CLI entry helpers (library reuse)
+mod build_system;
 pub mod cli;
 pub mod cmd;
-mod build_system;
-
-// Shared diagnostics + error system
 pub mod diagnostics;
-
-// Shared compiler utilities
-pub mod utils;
-
-// Shared compiler utilities
+pub mod frontend;
+pub mod middle;
+pub mod pipeline;
 pub mod registry;
-pub mod scanner;
+pub mod utils;
+pub mod watcher;
