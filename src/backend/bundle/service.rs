@@ -103,49 +103,43 @@ impl BundleService {
             .ok_or_else(|| format!("No handler for .{}", file.ext))?;
 
         let ir = utter.to_ir(file, &self.symbols)?;
+        let web_output = handler.emit(&ir)?.into_bytes();
 
-        let web_output = handler.emit(&ir)?.into_bytes();
         let mut bundle = Vec::new();
-        let path_str = file.path.to_string_lossy();
-        let is_loi = path_str.ends_with(".loi");
-        let is_wrapped_loi = is_loi
-            && (path_str.contains(".html.loi")
-                || path_str.contains(".css.loi")
-                || path_str.contains(".js.loi"));
-        let web_output = handler.emit(&ir)?.into_bytes();
-        let relative = file
-            .path
-            .strip_prefix(&self.config.dir_root)
-            .unwrap_or(&file.path);
-        if is_wrapped_loi {
-            if let Some(web_path) = self.web_output_path(file) {
+
+        match (file.is_loi(), file.is_wrapped_loi()) {
+            (_, true) => {
+                if let Some(web_path) = self.web_output_path(file) {
+                    bundle.push(Artifact {
+                        path: web_path,
+                        bytes: web_output,
+                        kind: ArtifactKind::Web,
+                    });
+                }
+            }
+
+            (true, false) => {
+                let raw_bytes = std::fs::read(&file.path)
+                    .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
+
                 bundle.push(Artifact {
-                    path: web_path,
-                    bytes: web_output,
-                    kind: ArtifactKind::Web,
+                    path: self.loi_output_path(file),
+                    bytes: raw_bytes,
+                    kind: ArtifactKind::Loi,
                 });
             }
-        } else if is_loi {
-            let raw_bytes = std::fs::read(&file.path)
-                .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
 
-            let mut out = self.config.dir_out.clone();
-            out.push(relative);
-
-            bundle.push(Artifact {
-                path: out,
-                bytes: raw_bytes,
-                kind: ArtifactKind::Loi,
-            });
-        } else {
-            if let Some(web_path) = self.web_output_path(file) {
-                bundle.push(Artifact {
-                    path: web_path,
-                    bytes: web_output,
-                    kind: ArtifactKind::Web,
-                });
+            (false, false) => {
+                if let Some(web_path) = self.web_output_path(file) {
+                    bundle.push(Artifact {
+                        path: web_path,
+                        bytes: web_output,
+                        kind: ArtifactKind::Web,
+                    });
+                }
             }
         }
+
         Ok(CompiledArtifact { ir, bundle })
     }
 }

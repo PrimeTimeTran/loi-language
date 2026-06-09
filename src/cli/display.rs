@@ -58,7 +58,7 @@ pub struct RegistryRenderer;
 impl RegistryUI for RegistryRenderer {
     fn render_header(&self, registry: &Registry) {
         let total_files = registry.files.len() + registry.files_archive.len();
-        let active_files = registry.files.iter().filter(|f| f.active).count();
+        let files = registry.files.iter().filter(|f| f.active).count();
 
         let total_utters = registry
             .files
@@ -70,7 +70,7 @@ impl RegistryUI for RegistryRenderer {
         println!("\n{}", Theme::header("--- Metrics ---"));
         println!(
             "files: {:<3} active: {:<3} versions: {:<3} utters:{:<3}",
-            total_files, active_files, total_versions, total_utters
+            total_files, files, total_versions, total_utters
         );
     }
     fn render_shortcuts(&self) {
@@ -114,7 +114,7 @@ impl RegistryUI for RegistryRenderer {
         // 🔥 FIX 1: sort inside each group BEFORE flattening
         // ---------------------------
         for stack in &mut stacks {
-            let mut sorted_archive: Vec<&FileMeta> = stack.archive_files.iter().collect();
+            let mut sorted_archive: Vec<&FileMeta> = stack.files.iter().collect();
 
             sorted_archive.sort_by(|a, b| a.version.cmp(&b.version));
 
