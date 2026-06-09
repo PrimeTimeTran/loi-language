@@ -1,46 +1,13 @@
+use std::collections::HashMap;
+use std::path::Path;
 use std::{fs, path::PathBuf};
 use tempfile::tempdir;
 
 use loi::backend::utter::registry::UtterRegistry;
 use loi::build_system::BuildSystem;
-use loi::registry::file_meta::FileMeta;
+use loi::registry::file_meta::{FileMeta, GroupKey};
 use loi::registry::registry::Registry;
-
-/*
- * Filename Parsing Pipeline Specification:
- * Phase 1 (Base): [namespace-]Name.ext
- * Phase 2 (Routing): Name@utter.ext
- * Phase 3 (Versioning): Name#Version[-Tag].ext
- * Phase 4 (Complex Integration): [namespace-]Name@utter#Version[-Tag].ext
- *
- * Logic Precedence (Right-to-Left):
- * 1. ext (via Path)
- * 2. Metadata (split '#') -> Version / Tag
- * 3. Routing (split '@')  -> utter
- * 4. Identifier (split '.' or '-') -> namespace / Name
- *
- * Example Files:
- * 1.  "01-arithmetic.loi"           (Phase 1: namespace 1, Name arithmetic)
- * 2.  "05.loi"                      (Phase 1: namespace 5, Name unknown)
- * 3.  "simple.loi"                  (Phase 1: Name simple)
- * 4.  "utils@helper.loi"            (Phase 2: Name utils, Cap helper)
- * 5.  "profile@ui.loi"              (Phase 2: Name profile, Cap ui)
- * 6.  "index@ui.html.loi"           (Phase 2: Name index, Cap ui, Ext html)
- * 7.  "test#0-run.loi"              (Phase 3: Name test, Ver 0, Tag run)
- * 8.  "base@core#1.loi"             (Phase 3: Name base, Cap core, Ver 1)
- * 9.  "app@web#5.js.loi"            (Phase 3: Name app, Cap web, Ver 5)
- * 10. "config#1-local.toml.loi"     (Phase 3: Name config, Ver 1, Tag local)
- * 11. "02@ui#1.html.loi"            (Phase 4: namespace 2, Name ui, Cap ui, Ver 1)
- * 12. "styles@ui#1.css.loi"         (Phase 4: Name styles, Cap ui, Ver 1, Ext css)
- * 13. "script@lib#2-beta.js.loi"    (Phase 4: Name script, Cap lib, Ver 2, Tag beta)
- * 14. "auth@api#10-prod.json.loi"   (Phase 4: Name auth, Cap api, Ver 10, Tag prod)
- * 15. "data@store#99-debug.bin.loi" (Phase 4: Name data, Cap store, Ver 99, Tag debug)
- * 16. "03@ui#1-alpha.html.loi"      (Phase 4: namespace 3, Name ui, Cap ui, Ver 1, Tag alpha)
- * 17. "api@v1#2.json.loi"           (Phase 4: Name api, Cap v1, Ver 2)
- * 18. "assets@cdn#0-static.png.loi" (Phase 4: Name assets, Cap cdn, Ver 0, Tag static)
- * 19. "ui@menu#4.html.loi"          (Phase 4: Name ui, Cap menu, Ver 4)
- * 20. "log@sys#12-prod.txt.loi"     (Phase 4: Name log, Cap sys, Ver 12, Tag prod)
- */
+use uuid::Uuid;
 
 fn root() -> PathBuf {
     std::env::temp_dir()
@@ -81,7 +48,7 @@ fn plain_file() {
 
 #[test]
 fn priority_prefix() {
-    let f = meta("00.file.loi");
+    let f = meta("00!file.loi");
 
     assert_eq!(f.name, "file");
     assert_eq!(f.namespace, "00");
@@ -132,31 +99,50 @@ fn version_does_not_affect_name() {
 // =========================================================
 
 #[test]
-fn tag_is_independent_of_version() {
+fn tag_is_independent_of_version_and_extension() {
     let f = meta("app#2-alpha.js.loi");
-
     assert_eq!(f.version, 2);
     assert_eq!(f.tag.as_deref(), Some("alpha"));
+    assert!(!f.tag.as_deref().unwrap().contains('.'));
+    assert!(!f.tag.as_deref().unwrap().contains('2'));
 }
 
 #[test]
-fn multiple_tags_are_distinct() {
-    let files = vec!["app.js.loi", "app#1-alpha.js.loi", "app#2-bravo.js.loi"];
+fn files_with_different_tags_but_same_identity_group_together_organize() {
+    let files = vec![
+        meta("app.js.loi"),
+        meta("app#1-alpha.js.loi"),
+        meta("app#2-bravo.js.loi"),
+    ];
 
-    let metas: Vec<_> = files.iter().map(|f| meta(f)).collect();
+    let stacks = Registry::organize(files);
 
-    let alpha = metas
-        .iter()
-        .find(|f| f.tag.as_deref() == Some("alpha"))
-        .expect("Alpha file missing");
+    assert_eq!(stacks.len(), 1);
+}
 
-    let bravo = metas
-        .iter()
-        .find(|f| f.tag.as_deref() == Some("bravo"))
-        .expect("Bravo file missing");
+#[test]
+fn files_with_different_tags_but_same_identity_group_together_scan() {
+    let dir = tempdir().unwrap();
 
-    assert_eq!(alpha.version, 1);
-    assert_eq!(bravo.version, 2);
+    fs::write(dir.path().join("app.js.loi"), "").unwrap();
+    fs::write(dir.path().join("app#1-alpha.js.loi"), "").unwrap();
+    fs::write(dir.path().join("app#2-bravo.js.loi"), "").unwrap();
+
+    let registry = Registry::scan(dir.path());
+
+    assert_eq!(registry.stacks.len(), 1);
+}
+
+#[test]
+fn tags_are_parsed_independently_of_grouping() {
+    let metas: Vec<_> = vec![
+        meta("app.js.loi"),
+        meta("app#1-alpha.js.loi"),
+        meta("app#2-bravo.js.loi"),
+    ];
+
+    assert_eq!(metas[1].tag.as_deref(), Some("alpha"));
+    assert_eq!(metas[2].tag.as_deref(), Some("bravo"));
 }
 
 // =========================================================
@@ -230,8 +216,8 @@ fn multiple_variants_in_same_version() {
 
 #[test]
 fn all_features_together_do_not_conflict() {
-    let f = meta("00.app@ui#3-feature$webpack.html.loi");
-
+    let f = meta("00!app@ui#3-feature$webpack.html.loi");
+    // sososo
     assert_eq!(f.name, "app");
     assert_eq!(f.namespace, "00");
     assert_eq!(f.utter.as_deref(), Some("ui"));
@@ -268,7 +254,6 @@ fn test_phase_3_versioning() {
 #[test]
 fn test_phase_4_complex_stress_test() {
     let root = PathBuf::from("root");
-    // "02@ui#1-alpha.html.loi" -> name: 02, utter: ui, version: 1, tag: alpha, ext: html
     let path = PathBuf::from("root/02@ui#1-alpha.html.loi");
     let m = FileMeta::from_path(&path, &root);
 

@@ -45,6 +45,15 @@ impl Default for FileMeta {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct GroupKey {
+    pub namespace: String,
+    pub name: String,
+    pub utter: Option<String>,
+    pub variant: Option<String>,
+    pub ext: String,
+}
+
 impl FileMeta {
     pub fn identity(&self) -> GroupKey {
         GroupKey {
@@ -59,68 +68,77 @@ impl FileMeta {
         self.identity()
     }
 
-    pub fn variant_key(&self) -> String {
-        format!(
-            "{}:{}:{}:{}:{}",
-            self.namespace,
-            self.name,
-            self.utter.as_deref().unwrap_or(""),
-            self.ext,
-            self.variant.as_deref().unwrap_or("")
-        )
-    }
-
-    pub fn from_path(path: &Path, _root: &Path) -> Self {
-        let filename: &str = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        let stem: &str = filename.strip_suffix(".loi").unwrap_or(filename);
-        let (_, meta) = stem.split_once('#').unwrap_or((stem, ""));
-        let name = Self::get_name(stem);
-        let namespace = Self::get_namespace(stem);
-
-        let id = Uuid::new_v4();
-
-        let ext = Self::get_ext(filename);
-        let version = Self::get_version(meta);
-        let tag = Self::get_tag(stem);
-        let variant = Self::get_variant(stem);
-        let utter = Self::get_utter(stem);
+    pub fn new(stem: &str, filename: String, path: PathBuf, dedup: bool) -> Self {
+        // Centralized parsing logic
+        let (identity, meta_part) = stem.split_once('#').unwrap_or((stem, ""));
 
         let mut file = Self {
-            id,
-            filename: filename.to_string(),
-            namespace,
-            name,
-            utter,
-            version,
-            tag,
-            variant,
-            ext: ext.clone(),
-            path: path.to_path_buf(),
+            id: Uuid::new_v4(),
+            filename: filename.clone(),
+            path,
+
+            // Map the parsed data directly into the struct
+            namespace: Self::get_namespace(stem),
+            name: Self::get_name(stem),
+            utter: Self::get_utter(identity),
+            version: Self::get_version(meta_part),
+            tag: Self::get_tag(stem),
+            variant: Self::get_variant(stem),
+
+            ext: Self::get_ext(&filename),
             active: true,
             capabilities: Vec::new(),
+            ..Default::default()
         };
 
         file.capabilities = Self::infer_capabilities(&file.ext);
-        file.capabilities.sort();
-        file.capabilities.dedup();
+
+        if dedup {
+            file.capabilities.sort();
+            file.capabilities.dedup();
+        }
 
         file
     }
+
+    pub fn mock(filename: &str) -> Self {
+        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
+        Self::new(stem, filename.to_string(), PathBuf::from(filename), false)
+    }
+
+    pub fn from_path(path: &Path, _root: &Path) -> Self {
+        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
+        Self::new(stem, filename.to_string(), path.to_path_buf(), true)
+    }
+
     fn get_name(input: &str) -> String {
-        let base = input.split(&['@', '$', '#'][..]).next().unwrap_or(input);
-        match base.rsplit_once('.') {
-            Some((_, name)) => name.to_string(),
-            None => base.to_string(),
-        }
+        // 1. shift origin if namespace exists
+        let after_namespace = match input.split_once('!') {
+            Some((_, rest)) => rest,
+            None => input,
+        };
+
+        // 2. name ends at first identity/meta delimiter
+        after_namespace
+            .split(&['@', '#', '$', '.'][..])
+            .next()
+            .unwrap_or(after_namespace)
+            .to_string()
     }
     fn get_namespace(input: &str) -> String {
-        let base = input.split(&['@', '$', '#'][..]).next().unwrap_or(input);
+        Self::parse_namespace(input)
+            .0
+            .unwrap_or_else(|| "core".to_string())
+    }
 
-        match base.rsplit_once('.') {
-            Some((ns, _)) => ns.to_string(),
-            None => base.to_string(),
+    fn parse_namespace(input: &str) -> (Option<String>, &str) {
+        match input.split_once('!') {
+            Some((ns, rest)) => (Some(ns.to_string()), rest),
+            None => (None, input),
         }
     }
+
     fn get_utter(identity_part: &str) -> Option<String> {
         let start = identity_part.find('@')? + 1;
         let end_anchors = ['#', '.', '-'];
@@ -145,15 +163,11 @@ impl FileMeta {
 
     fn get_variant(stem: &str) -> Option<String> {
         let start = stem.find('$')? + 1;
+        let s = &stem[start..];
 
-        let rest = &stem[start..];
+        let end = s.find(&['#', '.', '-'][..]).unwrap_or(s.len());
 
-        let end = rest
-            .find(|c| c == '#' || c == '.' || c == '-')
-            .map(|i| start + i)
-            .unwrap_or(stem.len());
-
-        let v = &stem[start..end];
+        let v = &s[..end];
 
         if v.is_empty() {
             None
@@ -284,48 +298,4 @@ impl From<&Path> for ParsedPath {
             is_ui,
         }
     }
-}
-
-impl FileMeta {
-    pub fn mock(filename: &str) -> Self {
-        let path = std::path::PathBuf::from(filename);
-        let filename = filename;
-        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
-        let (identity, meta) = stem.split_once('#').unwrap_or((stem, ""));
-        let name = Self::get_name(stem);
-        let namespace = Self::get_namespace(stem);
-        let version = Self::get_version(meta);
-        let tag = Self::get_tag(stem);
-        let variant = Self::get_variant(stem);
-        let ext = Self::get_ext(filename);
-        let utter = Self::get_utter(&filename);
-
-        let mut file = Self {
-            id: uuid::Uuid::new_v4(),
-            filename: filename.to_string(),
-            namespace,
-            name,
-            utter,
-            version,
-            tag,
-            variant,
-            ext,
-            path,
-            active: true,
-            capabilities: Vec::new(),
-        };
-
-        file.capabilities = Self::infer_capabilities(&file.ext);
-
-        file
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct GroupKey {
-    pub namespace: String,
-    pub name: String,
-    pub utter: Option<String>,
-    pub variant: Option<String>,
-    pub ext: String,
 }

@@ -34,34 +34,8 @@ impl Registry {
             active_by_group: HashMap::new(),
         }
     }
-    pub fn find_file(&self, name: &str) -> Option<&FileMeta> {
-        self.files
-            .iter()
-            .find(|f| f.name == name && f.utter.is_none())
-            .or_else(|| self.files_archive.iter().find(|f| f.name == name))
-    }
 
-    pub fn is_active(&self, f: &FileMeta) -> bool {
-        self.active_by_group
-            .get(&f.identity())
-            .is_some_and(|id| id == &f.id)
-    }
-
-    pub fn find_active(&self, group: &GroupKey) -> Option<&FileMeta> {
-        let id = self.active_by_group.get(group)?;
-        self.files.iter().find(|f| f.id == *id)
-    }
-
-    pub fn build_file(&self, name: &str, utter_reg: &UtterRegistry) {
-        if let Some(file) = self.get_active_by_name(name) {
-            if let Some(cap) = &file.utter {
-                if let Some(utter) = utter_reg.get_utter(cap) {
-                    println!("Found utter for {}: {}", name, utter.name());
-                }
-            }
-        }
-    }
-    fn discover_files(root: &Path) -> Vec<FileMeta> {
+    pub fn build_source(root: &Path) -> Vec<FileMeta> {
         walkdir::WalkDir::new(root)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -69,21 +43,17 @@ impl Registry {
             .map(|e| FileMeta::from_path(e.path(), root))
             .collect()
     }
+
     pub fn organize(files: Vec<FileMeta>) -> Vec<FileStack> {
         let mut groups: HashMap<GroupKey, Vec<FileMeta>> = HashMap::new();
-
         for file in files {
-            let key = file.group_key();
-            groups.entry(key).or_default().push(file);
+            groups.entry(file.group_key()).or_default().push(file);
         }
-
-        let mut group_vec: Vec<_> = groups.into_iter().collect();
-        group_vec.sort_by(|a, b| a.0.cmp(&b.0));
-
         let mut stacks = Vec::new();
+        for (_identity, mut group) in groups {
+            group.sort_by(|a, b| b.version.cmp(&a.version));
 
-        for (_key, group) in group_vec {
-            let active_file = group.iter().max_by_key(|f| f.version).unwrap().clone();
+            let active_file = group[0].clone();
 
             stacks.push(FileStack {
                 files: group,
@@ -93,38 +63,55 @@ impl Registry {
 
         stacks
     }
+
     pub fn scan(root: &Path) -> Self {
-        let all_files = Self::discover_files(root);
+        let all_files = Self::build_source(root);
+        let mut stacks = Self::organize(all_files);
 
-        let stacks = Self::organize(all_files);
+        let sort_logic = |a: &FileMeta, b: &FileMeta| {
+            let (ka, kb) = (a.group_key(), b.group_key());
+            ka.namespace.cmp(&kb.namespace).then_with(|| {
+                match (ka.name.parse::<u64>(), kb.name.parse::<u64>()) {
+                    (Ok(n1), Ok(n2)) => n1.cmp(&n2),
+                    _ => ka.name.cmp(&kb.name),
+                }
+            })
+        };
 
-        let active_by_group: HashMap<GroupKey, Uuid> = stacks
+        stacks.sort_by(|a, b| sort_logic(&a.active_file, &b.active_file));
+        let files = stacks.iter().map(|s| s.active_file.clone()).collect();
+        let files_archive = stacks
+            .iter()
+            .flat_map(|s| s.files.iter().cloned())
+            .collect();
+
+        let active_by_group = stacks
             .iter()
             .map(|s| (s.group_key(), s.active_file.id))
             .collect();
 
-        let active: Vec<FileMeta> = stacks.iter().map(|s| s.active_file.clone()).collect();
-
-        let archive: Vec<FileMeta> = stacks.iter().flat_map(|s| s.files.clone()).collect();
-
         Registry {
             active_by_group,
-            files: active,
-            files_archive: archive,
+            files,
+            files_archive,
             from_files: Vec::new(),
             stacks,
         }
+    }
+
+    pub fn is_active(&self, f: &FileMeta) -> bool {
+        self.active_by_group.get(&f.group_key()) == Some(&f.id)
+    }
+
+    pub fn find_active_by_name(&self, name: &str) -> Option<&FileMeta> {
+        self.stacks
+            .iter()
+            .find(|s| s.active_file.name == name)
+            .map(|s| &s.active_file)
     }
     pub fn list_all(&self) {
         for file in &self.files {
             println!("[{}] {} (ver: {})", file.namespace, file.name, file.version);
         }
-    }
-
-    pub fn get_active_by_name(&self, name: &str) -> Option<&FileMeta> {
-        self.stacks
-            .iter()
-            .find(|s| s.active_file.name == name)
-            .map(|s| &s.active_file)
     }
 }
