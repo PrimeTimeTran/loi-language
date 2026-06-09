@@ -9,7 +9,7 @@ pub struct FileMeta {
     pub id: Uuid,
     pub filename: String,
 
-    // <priority/namespace>.<name>@<utter>#<version>-<tag>$<variant>.<ext>.loi
+    // <priority/namespace>.<name>@<utter>$<variant>#<version>-<tag>.<ext>.loi
     pub namespace: String,
     pub name: String,
     pub utter: Option<String>,
@@ -51,7 +51,7 @@ impl FileMeta {
             namespace: self.namespace.clone(),
             name: self.name.clone(),
             utter: self.utter.clone(),
-            variant: self.variant.clone(),
+            variant: None,
             ext: self.ext.clone(),
         }
     }
@@ -71,16 +71,19 @@ impl FileMeta {
     }
 
     pub fn from_path(path: &Path, _root: &Path) -> Self {
-        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
-        let (identity_part, meta_part) = stem.split_once('#').unwrap_or((stem, ""));
-        let (namespace, name, _, _) = Self::parse_identity(identity_part);
-        let version = Self::get_version(meta_part);
+        let filename: &str = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let stem: &str = filename.strip_suffix(".loi").unwrap_or(filename);
+        let (_, meta) = stem.split_once('#').unwrap_or((stem, ""));
+        let name = Self::get_name(stem);
+        let namespace = Self::get_namespace(stem);
+
+        let id = Uuid::new_v4();
+
+        let ext = Self::get_ext(filename);
+        let version = Self::get_version(meta);
         let tag = Self::get_tag(stem);
         let variant = Self::get_variant(stem);
-        let ext = Self::get_ext(stem);
-        let utter = Self::get_utter(filename);
-        let id = Uuid::new_v4();
+        let utter = Self::get_utter(stem);
 
         let mut file = Self {
             id,
@@ -98,11 +101,25 @@ impl FileMeta {
         };
 
         file.capabilities = Self::infer_capabilities(&file.ext);
-
         file.capabilities.sort();
         file.capabilities.dedup();
 
         file
+    }
+    fn get_name(input: &str) -> String {
+        let base = input.split(&['@', '$', '#'][..]).next().unwrap_or(input);
+        match base.rsplit_once('.') {
+            Some((_, name)) => name.to_string(),
+            None => base.to_string(),
+        }
+    }
+    fn get_namespace(input: &str) -> String {
+        let base = input.split(&['@', '$', '#'][..]).next().unwrap_or(input);
+
+        match base.rsplit_once('.') {
+            Some((ns, _)) => ns.to_string(),
+            None => base.to_string(),
+        }
     }
     fn get_utter(identity_part: &str) -> Option<String> {
         let start = identity_part.find('@')? + 1;
@@ -126,38 +143,22 @@ impl FileMeta {
         version_str.parse::<u32>().unwrap_or(0)
     }
 
-    fn parse_identity(identity: &str) -> (String, String, Option<String>, String) {
-        let known_extensions = ["html", "js", "css", "json"];
-        let mut core = identity;
-        let mut ext = "loi";
-        for e in &known_extensions {
-            if identity.ends_with(&format!(".{}", e)) {
-                core = &identity[..identity.len() - (e.len() + 1)];
-                ext = e;
-                break;
-            }
-        }
-
-        let (namespace, name_with_utter) = match core.split_once('.') {
-            Some((ns, n)) => (ns.to_string(), n.to_string()),
-            None => ("core".to_string(), core.to_string()),
-        };
-
-        let (name, utter) = match name_with_utter.split_once('@') {
-            Some((n, u)) => (n.to_string(), Some(u.to_string())),
-            None => (name_with_utter, None),
-        };
-
-        (namespace, name, utter, ext.to_string())
-    }
-
     fn get_variant(stem: &str) -> Option<String> {
-        let after_dollar = stem.split('$').nth(1)?;
-        let variant = after_dollar.split('.').next()?;
-        if variant.is_empty() {
+        let start = stem.find('$')? + 1;
+
+        let rest = &stem[start..];
+
+        let end = rest
+            .find(|c| c == '#' || c == '.' || c == '-')
+            .map(|i| start + i)
+            .unwrap_or(stem.len());
+
+        let v = &stem[start..end];
+
+        if v.is_empty() {
             None
         } else {
-            Some(format!("${}", variant))
+            Some(format!("${}", v))
         }
     }
 
@@ -173,17 +174,18 @@ impl FileMeta {
     }
 
     fn get_ext(filename: &str) -> String {
+        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
         let whitelist = ["html", "json", "js", "jsx", "ts", "tsx", "md", "mdx", "css"];
-        let parts: Vec<&str> = filename.split('.').collect();
-        for i in (0..parts.len()).rev() {
-            if whitelist.contains(&parts[i]) {
-                return parts[i].to_string();
-            }
+
+        // find last "." segment
+        let last = stem.rsplit('.').next().unwrap_or("");
+
+        if whitelist.contains(&last) {
+            return last.to_string();
         }
 
         "loi".to_string()
     }
-
     fn capabilities(&self, parsed: &ParsedPath) -> Vec<String> {
         let mut caps = vec![];
         if parsed.variant.as_deref() == Some("ui") {
@@ -287,35 +289,27 @@ impl From<&Path> for ParsedPath {
 impl FileMeta {
     pub fn mock(filename: &str) -> Self {
         let path = std::path::PathBuf::from(filename);
-
-        let filename_str = filename.to_string();
-
+        let filename = filename;
         let stem = filename.strip_suffix(".loi").unwrap_or(filename);
-
         let (identity, meta) = stem.split_once('#').unwrap_or((stem, ""));
-
-        let (namespace, name, _, _) = Self::parse_identity(identity);
-
+        let name = Self::get_name(stem);
+        let namespace = Self::get_namespace(stem);
         let version = Self::get_version(meta);
         let tag = Self::get_tag(stem);
         let variant = Self::get_variant(stem);
-        let ext = Self::get_ext(stem);
-        let utter = Self::get_utter(&filename_str);
+        let ext = Self::get_ext(filename);
+        let utter = Self::get_utter(&filename);
 
         let mut file = Self {
             id: uuid::Uuid::new_v4(),
-
-            filename: filename_str,
+            filename: filename.to_string(),
             namespace,
             name,
             utter,
-
             version,
             tag,
             variant,
-
             ext,
-
             path,
             active: true,
             capabilities: Vec::new(),

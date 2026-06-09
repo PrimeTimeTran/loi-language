@@ -209,7 +209,7 @@ fn strips_version_and_tag() {
 #[test]
 fn preserves_non_version_names() {
     let key = FileMeta::mock("index.loi").group_key();
-
+    // hello
     assert_eq!(key, FileMeta::mock("about.loi").group_key());
 }
 

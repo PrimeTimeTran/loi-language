@@ -69,20 +69,7 @@ impl Registry {
             .map(|e| FileMeta::from_path(e.path(), root))
             .collect()
     }
-
-    fn group_key(file: &FileMeta) -> String {
-        format!(
-            "{}:{}:{}:{}",
-            file.namespace,
-            file.name,
-            file.utter.as_deref().unwrap_or(""),
-            file.ext
-        )
-    }
-
     pub fn organize(files: Vec<FileMeta>) -> Vec<FileStack> {
-        use std::collections::HashMap;
-
         let mut groups: HashMap<GroupKey, Vec<FileMeta>> = HashMap::new();
 
         for file in files {
@@ -95,18 +82,14 @@ impl Registry {
 
         let mut stacks = Vec::new();
 
-        for (group_key, mut group) in group_vec {
-            group.sort_by(|a, b| b.version.cmp(&a.version));
-
-            let active_file = group.remove(0);
+        for (_key, group) in group_vec {
+            let active_file = group.iter().max_by_key(|f| f.version).unwrap().clone();
 
             stacks.push(FileStack {
                 files: group,
                 active_file,
             });
         }
-
-        stacks.sort_by(|a, b| a.active_file.path.cmp(&b.active_file.path));
 
         stacks
     }

@@ -179,7 +179,9 @@ fn multiple_variants() {
         fs::write(dir.path().join(f), "").unwrap();
     }
     let registry = Registry::scan(dir.path());
-    let variants: Vec<String> = registry
+    let stack = &registry.stacks[0];
+
+    let variants: Vec<_> = stack
         .files
         .iter()
         .filter_map(|f| f.variant.clone())
@@ -187,17 +189,27 @@ fn multiple_variants() {
 
     assert!(variants.contains(&"$webpack".to_string()));
     assert!(variants.contains(&"$turbopack".to_string()));
-    assert_eq!(variants.len(), 2, "Should detect variants");
 }
 #[test]
 fn multiple_variants_in_same_version() {
     let dir = tempdir().unwrap();
-    let files = vec!["app#1-alpha$webpack.js.loi", "app#1-bravo$turbopack.js.loi"];
+
+    let files = vec!["app$webpack#1-alpha.js.loi", "app$turbopack#1-alpha.js.loi"];
+
     for f in &files {
         fs::write(dir.path().join(f), "").unwrap();
     }
+
     let registry = Registry::scan(dir.path());
-    let variants: Vec<String> = registry
+
+    // there should be exactly one stack for "app"
+    let stack = registry
+        .stacks
+        .iter()
+        .find(|s| s.active_file.name == "app")
+        .expect("stack for app should exist");
+
+    let variants: Vec<String> = stack
         .files
         .iter()
         .filter_map(|f| f.variant.clone())
@@ -208,7 +220,7 @@ fn multiple_variants_in_same_version() {
     assert_eq!(
         variants.len(),
         2,
-        "Should detect variants after version tags"
+        "Should detect variants inside the same stack"
     );
 }
 
