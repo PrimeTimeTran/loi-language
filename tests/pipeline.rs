@@ -1,4 +1,4 @@
-use loi::{cli::Config, pipeline::compile_targets};
+use loi::{cli::ir_runner::Config, pipeline::compile_targets};
 use std::path::PathBuf;
 
 #[test]

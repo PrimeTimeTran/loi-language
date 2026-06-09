@@ -10,8 +10,7 @@ pub mod test_helpers {
 #[cfg(test)]
 mod test_utils {
     use crate::{
-        backend::{compile_service::CompilerService, utter::registry::UtterRegistry},
-        build_system::BuildSystem,
+        backend::utter::registry::UtterRegistry, build_system::BuildSystem,
         registry::registry::Registry,
     };
 

@@ -1,16 +1,17 @@
-mod cmd;
-use loi::cli;
 use owo_colors::OwoColorize;
 use std::env;
 
-use cmd::CliController;
 pub mod backend;
 pub mod build_system;
+pub mod cli;
 pub mod frontend;
 pub mod middle;
+pub mod pipeline;
 pub mod registry;
+pub mod watcher;
 
 use crate::build_system::BuildSystem;
+use crate::cli::controller::CliController;
 
 fn main() {
     // cli::run();

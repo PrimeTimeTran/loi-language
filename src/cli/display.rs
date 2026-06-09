@@ -6,9 +6,11 @@ use tabled::{
     settings::{Color, Modify, Style, object::Rows},
 };
 
-use crate::cmd::Command;
-use crate::registry::file_meta::FileMeta;
-use crate::registry::registry::{FileStack, Registry};
+use crate::{
+    cli::command::Command,
+    registry::file_meta::FileMeta,
+    registry::registry::{FileStack, Registry},
+};
 
 #[derive(Tabled)]
 pub struct FileView {

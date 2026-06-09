@@ -1,6 +1,6 @@
 use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
-use crate::cli::Config;
+use crate::cli::ir_runner::Config;
 use crate::frontend::{lexer, parser};
 use crate::middle::semantic::analyze;
 use rayon::prelude::*;
@@ -30,7 +30,6 @@ pub trait CompilerPass<Input, Output> {
 }
 
 pub fn compile_targets(config: &Config) -> Result<(), Vec<CompilerError>> {
-    // 1. Collect all files to process
     let files: Vec<PathBuf> = WalkDir::new(&config.input)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -38,7 +37,6 @@ pub fn compile_targets(config: &Config) -> Result<(), Vec<CompilerError>> {
         .map(|e| e.path().to_path_buf())
         .collect();
 
-    // 2. Parallel execution using Rayon
     let errors: Vec<CompilerError> = files
         .par_iter()
         .filter_map(|path| {
@@ -71,11 +69,9 @@ pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), CompilerError>
         .unwrap_or("output");
     let out_base = output_dir.join(file_name);
 
-    // Orchestration Logic:
     let tokens = lexer::lex(&source).map_err(CompilerError::Lexer)?;
     let ast = parser::parse(tokens).map_err(CompilerError::Parser)?;
     let ir = analyze(ast).map_err(CompilerError::Analysis)?;
-
     let bc_path = compile(ir, &out_base, file_name).map_err(CompilerError::Backend)?;
     link_with_clang(Path::new(&bc_path), &out_base).map_err(CompilerError::Backend)?;
 

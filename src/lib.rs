@@ -5,9 +5,8 @@
 #![allow(unused_must_use)]
 
 pub mod backend;
-mod build_system;
+pub mod build_system;
 pub mod cli;
-pub mod cmd;
 pub mod diagnostics;
 pub mod frontend;
 pub mod middle;

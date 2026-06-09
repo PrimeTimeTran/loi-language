@@ -1,6 +1,6 @@
 use crate::{
     backend::{
-        symbol_registry::SymbolRegistry,
+        symbol::registry::SymbolRegistry,
         utter::{handler::Handler, utter::Utter},
     },
     middle::ir::IR,

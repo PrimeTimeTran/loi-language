@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::backend::render_target::{GenericHandler, RenderTarget};
+use crate::backend::bundle::target::{GenericHandler, RenderTarget};
 use crate::backend::utter::handler::Handler;
 use crate::backend::utter::utter::{
     CssUtter, HtmlUtter, IdentityUtter, JsUtter, LoiUtter, UIUtter,

@@ -1,3 +1,4 @@
+use crate::backend::compile;
 use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IROp, TypedExpr};
 use inkwell::context::Context;
@@ -260,10 +261,7 @@ pub fn lower_ir_to_llvm<'ctx>(
 #[test]
 fn generates_bitcode() {
     let ir = IROp::Module { body: vec![] };
-
     let dir = tempfile::tempdir().unwrap();
-
-    let out = crate::backend::compile(ir, dir.path().join("test").as_path(), "test");
-
+    let out = compile(ir, dir.path().join("test").as_path(), "test");
     assert!(out.is_ok());
 }

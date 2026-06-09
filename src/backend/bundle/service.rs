@@ -2,49 +2,29 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     backend::{
-        symbol_registry::SymbolRegistry,
+        bundle::artifact::{Artifact, ArtifactKind, CompiledArtifact},
+        symbol::registry::SymbolRegistry,
         utter::{handler::Handler, registry::UtterRegistry, utter::Utter},
     },
     middle::ir::IR,
     registry::{file_meta::FileMeta, registry::Registry},
 };
 
-pub trait UtterProvider {
-    fn get_utter_for(&self, file: &FileMeta) -> Option<Box<dyn Utter>>;
-}
-
-#[derive(Clone, Debug)]
-pub enum OutputKind {
-    Web,
-    Loi,
-}
-
-#[derive(Clone, Debug)]
-pub struct OutputArtifact {
-    pub path: PathBuf,
-    pub bytes: Vec<u8>,
-    pub kind: OutputKind,
-}
-
-pub struct CompiledArtifact {
-    pub ir: IR,
-    pub bundle: Vec<OutputArtifact>,
-}
 #[derive(Clone)]
-pub struct CompilerConfig {
+pub struct BundleConfig {
     pub dir_root: PathBuf,
     pub dir_out: PathBuf,
 }
 
-pub struct CompilerService {
+pub struct BundleService {
     pub registry: Registry,
     pub utter_registry: UtterRegistry,
     pub symbols: SymbolRegistry,
-    pub config: CompilerConfig,
+    pub config: BundleConfig,
 }
 
-impl CompilerService {
-    pub fn new(registry: Registry, utter_registry: UtterRegistry, config: CompilerConfig) -> Self {
+impl BundleService {
+    pub fn new(registry: Registry, utter_registry: UtterRegistry, config: BundleConfig) -> Self {
         let mut symbols = SymbolRegistry {
             table: HashMap::new(),
         };
@@ -139,10 +119,10 @@ impl CompilerService {
             .unwrap_or(&file.path);
         if is_wrapped_loi {
             if let Some(web_path) = self.web_output_path(file) {
-                bundle.push(OutputArtifact {
+                bundle.push(Artifact {
                     path: web_path,
                     bytes: web_output,
-                    kind: OutputKind::Web,
+                    kind: ArtifactKind::Web,
                 });
             }
         } else if is_loi {
@@ -152,17 +132,17 @@ impl CompilerService {
             let mut out = self.config.dir_out.clone();
             out.push(relative);
 
-            bundle.push(OutputArtifact {
+            bundle.push(Artifact {
                 path: out,
                 bytes: raw_bytes,
-                kind: OutputKind::Loi,
+                kind: ArtifactKind::Loi,
             });
         } else {
             if let Some(web_path) = self.web_output_path(file) {
-                bundle.push(OutputArtifact {
+                bundle.push(Artifact {
                     path: web_path,
                     bytes: web_output,
-                    kind: OutputKind::Web,
+                    kind: ArtifactKind::Web,
                 });
             }
         }

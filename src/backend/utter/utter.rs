@@ -1,4 +1,4 @@
-use crate::backend::symbol_registry::{Symbol, SymbolKind, SymbolRegistry};
+use crate::backend::symbol::registry::{Symbol, SymbolKind, SymbolRegistry};
 use crate::middle::ir::IR;
 use crate::registry::file_meta::FileMeta;
 use std::collections::HashMap;
@@ -14,19 +14,15 @@ pub struct UtterFlags {
 
 pub trait Utter: DynClone {
     fn name(&self) -> &str;
-
     fn flags(&self) -> UtterFlags;
-
     fn to_ir(&self, metadata: &FileMeta, symbols: &SymbolRegistry) -> Result<IR, String>;
-
-    // Return structured symbols, not strings
     fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol>;
 
     fn equals(&self, other: &dyn Utter) -> bool {
         self.name() == other.name()
     }
 }
-// dyn_clone::clone_trait_object!(Utter);
+
 dyn_clone::clone_trait_object!(Utter);
 
 #[derive(Clone)]

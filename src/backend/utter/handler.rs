@@ -1,7 +1,7 @@
 use dyn_clone::DynClone;
 
 use crate::{
-    backend::{symbol_registry::SymbolRegistry, utter::utter::Utter},
+    backend::{symbol::registry::SymbolRegistry, utter::utter::Utter},
     middle::ir::IR,
     registry::file_meta::FileMeta,
 };

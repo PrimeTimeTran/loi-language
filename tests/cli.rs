@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use loi::{cli::Config, pipeline::compile_targets};
+use loi::{cli::ir_runner::Config, pipeline::compile_targets};
 
 #[test]
 fn cli_compiles_fixture() {
