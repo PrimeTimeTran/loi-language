@@ -14,9 +14,16 @@ pub trait UtterProvider {
 }
 
 #[derive(Clone, Debug)]
+pub enum OutputKind {
+    Web,
+    Loi,
+}
+
+#[derive(Clone, Debug)]
 pub struct OutputArtifact {
     pub path: PathBuf,
     pub bytes: Vec<u8>,
+    pub kind: OutputKind,
 }
 
 pub struct CompiledArtifact {
@@ -61,15 +68,33 @@ impl CompilerService {
         let mut out = self.config.dir_out.clone();
         out.push(relative);
 
-        match file.ext.as_str() {
-            "html" | "css" | "js" => {
-                let s = out.to_string_lossy();
-                let stripped = s.strip_suffix(".loi")?;
-                Some(PathBuf::from(stripped))
-            }
-            _ => None,
-        }
+        let file_name = out.file_name()?.to_string_lossy();
+
+        let new_name = if file_name.ends_with(".html.loi") {
+            file_name.trim_end_matches(".loi").to_string()
+        } else if file_name.ends_with(".css.loi") {
+            file_name.trim_end_matches(".loi").to_string()
+        } else if file_name.ends_with(".js.loi") {
+            file_name.trim_end_matches(".loi").to_string()
+        } else {
+            return None;
+        };
+
+        out.set_file_name(new_name);
+        Some(out)
     }
+
+    // fn loi_output_path(&self, file: &FileMeta) -> PathBuf {
+    //     let relative = file
+    //         .path
+    //         .strip_prefix(&self.config.dir_root)
+    //         .unwrap_or(&file.path);
+
+    //     let mut out = self.config.dir_out.clone();
+    //     out.push(relative);
+
+    //     out
+    // }
 
     fn loi_output_path(&self, file: &FileMeta) -> PathBuf {
         let relative = file
@@ -122,65 +147,64 @@ impl CompilerService {
 
         let mut outputs = Vec::new();
 
-        // 2. ALWAYS include original file (runtime .loi)
-        let raw_bytes = std::fs::read(&file.path)
-            .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
+        let path_str = file.path.to_string_lossy();
+        let is_loi = path_str.ends_with(".loi");
 
-        outputs.push(OutputArtifact {
-            path: self.loi_output_path(file),
-            bytes: raw_bytes,
-        });
+        // strip ".loi" once to detect wrapper type
+        let is_wrapped_loi = is_loi
+            && (path_str.contains(".html.loi")
+                || path_str.contains(".css.loi")
+                || path_str.contains(".js.loi"));
 
-        // 3. optional web output
-        if let Some(web_path) = self.web_output_path(file) {
+        let web_output = handler.emit(&ir)?.into_bytes();
+
+        let relative = file
+            .path
+            .strip_prefix(&self.config.dir_root)
+            .unwrap_or(&file.path);
+
+        // --------------------------------------
+        // CASE 1: WRAPPED LOI (tsx-style)
+        // --------------------------------------
+        if is_wrapped_loi {
+            // emit web file ONLY (no .loi output needed unless you explicitly want it)
+
+            if let Some(web_path) = self.web_output_path(file) {
+                outputs.push(OutputArtifact {
+                    path: web_path,
+                    bytes: web_output,
+                    kind: OutputKind::Web,
+                });
+            }
+        }
+        // --------------------------------------
+        // CASE 2: PURE LOI FILES
+        // --------------------------------------
+        else if is_loi {
+            let raw_bytes = std::fs::read(&file.path)
+                .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
+
+            let mut out = self.config.dir_out.clone();
+            out.push(relative);
+
             outputs.push(OutputArtifact {
-                path: web_path,
-                bytes: web_output,
+                path: out,
+                bytes: raw_bytes,
+                kind: OutputKind::Loi,
             });
         }
-
+        // --------------------------------------
+        // CASE 3: NORMAL WEB FILES (optional fallback)
+        // --------------------------------------
+        else {
+            if let Some(web_path) = self.web_output_path(file) {
+                outputs.push(OutputArtifact {
+                    path: web_path,
+                    bytes: web_output,
+                    kind: OutputKind::Web,
+                });
+            }
+        }
         Ok(CompiledArtifact { ir, outputs })
     }
-
-    // pub fn compile(&self, file: &FileMeta) -> Result<CompiledArtifact, String> {
-    //     // 1. Resolve utter (default → identity engine)
-    //     let cap = file.utter.as_deref().unwrap_or("identity");
-
-    //     let utter = self
-    //         .utter_registry
-    //         .utters
-    //         .get(cap)
-    //         .or_else(|| self.utter_registry.utters.get("identity"))
-    //         .ok_or_else(|| {
-    //             format!(
-    //                 "No utter engine for '{}' (and no identity fallback registered)",
-    //                 cap
-    //             )
-    //         })?;
-
-    //     // 2. Resolve handler (default → identity handler)
-    //     let handler = self
-    //         .utter_registry
-    //         .handlers
-    //         .get(&file.ext)
-    //         .or_else(|| self.utter_registry.handlers.get("identity"))
-    //         .ok_or_else(|| format!("No handler for .{} (and no identity handler)", file.ext))?;
-
-    //     println!(
-    //         "⚡ Compiling '{}' with utter '{}' + handler '{}'",
-    //         file.name, cap, file.ext
-    //     );
-
-    //     // 3. IR stage (NEVER fails the pipeline for missing semantics)
-    //     let ir = utter.to_ir(file, &self.symbols)?;
-
-    //     // 4. Emit stage
-    //     let output = handler.emit(&ir)?;
-
-    //     Ok(CompiledArtifact {
-    //         ir,
-    //         output,
-    //         extension: file.ext.clone(),
-    //     })
-    // }
 }

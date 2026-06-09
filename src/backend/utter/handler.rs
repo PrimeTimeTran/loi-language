@@ -19,9 +19,9 @@ pub trait Handler: DynClone {
 
 dyn_clone::clone_trait_object!(Handler);
 
-
 #[derive(Clone)]
 pub struct LoiHandler;
+
 impl Handler for LoiHandler {
     fn handle(
         &self,
@@ -33,19 +33,18 @@ impl Handler for LoiHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        let body = match ir {
-            IR::Raw(s) => s,
-            IR::Structured { body, .. } => {
-                // temporary debug rendering of structured IR
-                &format!("{:?}", body)
-            }
-        };
+        // LOI is NOT a web format
+        // this is ONLY for debugging fallback if accidentally routed
 
-        Ok(format!("<loi>{}</loi>", body))
+        match ir {
+            IR::Raw(s) => Ok(s.clone()),
+            IR::Structured { body, .. } => Ok(format!("{:#?}", body)),
+        }
     }
 }
 #[derive(Clone)]
 pub struct HtmlHandler;
+
 impl Handler for HtmlHandler {
     fn handle(
         &self,
@@ -57,20 +56,16 @@ impl Handler for HtmlHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        let body = match ir {
-            IR::Raw(s) => s,
-            IR::Structured { body, .. } => {
-                // temporary debug rendering of structured IR
-                &format!("{:?}", body)
-            }
-        };
-
-        Ok(format!("<html>{}</html>", body))
+        Ok(match ir {
+            IR::Raw(s) => s.clone(),
+            IR::Structured { body, .. } => format!("{:?}", body),
+        })
     }
 }
 
 #[derive(Clone)]
 pub struct CssHandler;
+
 impl Handler for CssHandler {
     fn handle(
         &self,
@@ -82,17 +77,16 @@ impl Handler for CssHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        let body = match ir {
-            IR::Raw(s) => s,
-            IR::Structured { body, .. } => &format!("{:?}", body),
-        };
-
-        Ok(format!("/* css ir */\n{}", body))
+        Ok(match ir {
+            IR::Raw(s) => s.clone(),
+            IR::Structured { body, .. } => format!("{:?}", body),
+        })
     }
 }
 
 #[derive(Clone)]
 pub struct JsHandler;
+
 impl Handler for JsHandler {
     fn handle(
         &self,
@@ -104,11 +98,9 @@ impl Handler for JsHandler {
     }
 
     fn emit(&self, ir: &IR) -> Result<String, String> {
-        let body = match ir {
-            IR::Raw(s) => s,
-            IR::Structured { body, .. } => &format!("{:?}", body),
-        };
-
-        Ok(format!("// js ir\n{}", body))
+        Ok(match ir {
+            IR::Raw(s) => s.clone(),
+            IR::Structured { body, .. } => format!("{:?}", body),
+        })
     }
 }

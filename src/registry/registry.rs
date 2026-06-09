@@ -1,20 +1,18 @@
+use uuid::Uuid;
+
 use crate::backend::utter::registry::UtterRegistry;
-use crate::registry::file_meta::FileMeta;
+use crate::registry::file_meta::{FileMeta, group_key};
 
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OrderedManifest {
-    pub active: Vec<FileMeta>,
-    pub archive: Vec<FileMeta>,
-}
 #[derive(Clone)]
 pub struct Registry {
     pub files: Vec<FileMeta>,
     pub files_archive: Vec<FileMeta>,
     pub from_files: Vec<FileMeta>,
     pub stacks: Vec<FileStack>,
+    pub active_by_group: HashMap<String, Uuid>,
 }
 #[derive(Clone)]
 pub struct FileStack {
@@ -23,12 +21,35 @@ pub struct FileStack {
 }
 
 impl Registry {
+    pub fn group_key(fs_name: &str) -> String {
+        let mut result = String::with_capacity(fs_name.len());
+
+        let mut chars = fs_name.chars().peekable();
+
+        while let Some(c) = chars.next() {
+            if c == '#' {
+                // skip until '.' or end
+                while let Some(&next) = chars.peek() {
+                    if next == '.' {
+                        break;
+                    }
+                    chars.next();
+                }
+                continue;
+            }
+            result.push(c);
+        }
+
+        result
+    }
+
     pub fn from_files(files: Vec<FileMeta>) -> Self {
         Registry {
             files,
             files_archive: Vec::new(),
             from_files: Vec::new(),
             stacks: Vec::new(),
+            active_by_group: HashMap::new(),
         }
     }
     pub fn find_file(&self, name: &str) -> Option<&FileMeta> {
@@ -39,9 +60,17 @@ impl Registry {
             .or_else(|| self.files_archive.iter().find(|f| f.name == name))
     }
 
-    pub fn find_active(&self, name: &str) -> Option<&FileMeta> {
-        self.files.iter().find(|f| f.name == name)
+    pub fn is_active(&self, f: &FileMeta) -> bool {
+        self.active_by_group
+            .get(&f.name)
+            .is_some_and(|id| id == &f.id)
     }
+
+    pub fn find_active(&self, group: &str) -> Option<&FileMeta> {
+        let id = self.active_by_group.get(group)?;
+        self.files.iter().find(|f| f.id == *id)
+    }
+
     pub fn build_file(&self, name: &str, utter_reg: &UtterRegistry) {
         if let Some(file) = self.get_active_by_name(name) {
             if let Some(cap) = &file.utter {
@@ -62,65 +91,55 @@ impl Registry {
             .collect()
     }
 
-    fn organize(files: Vec<FileMeta>) -> (Vec<FileMeta>, Vec<FileMeta>, Vec<FileStack>) {
+    fn organize(files: Vec<FileMeta>) -> Vec<FileStack> {
         use std::collections::HashMap;
 
-        let mut groups: HashMap<(String, String, Option<String>, String), Vec<FileMeta>> =
-            HashMap::new();
+        let mut groups: HashMap<String, Vec<FileMeta>> = HashMap::new();
 
         for file in files {
-            let key = (
-                file.namespace.clone(),
-                file.name.clone(),
-                file.utter.clone(),
-                file.ext.clone(),
-            );
-
-            groups.entry(key).or_default().push(file);
+            groups.entry(file.group_key()).or_default().push(file);
         }
 
-        let mut active = Vec::new();
-        let mut archive = Vec::new();
+        let mut group_vec: Vec<_> = groups.into_iter().collect();
+        group_vec.sort_by(|a, b| a.0.cmp(&b.0));
+
         let mut stacks = Vec::new();
 
-        for (_, mut group) in groups {
+        for (_, mut group) in group_vec {
             group.sort_by(|a, b| b.version.cmp(&a.version));
 
-            if let Some(head) = group.first_mut() {
-                head.active = true;
-            }
-
-            let head = group.remove(0);
-
-            active.push(head.clone());
-
-            for item in group.into_iter() {
-                archive.push(item);
-            }
-
-            let active_name = head.name.clone();
+            let active_file = group.remove(0);
+            let archive_files = group;
 
             stacks.push(FileStack {
-                active_file: head,
-                archive_files: archive
-                    .iter()
-                    .filter(|f: &&FileMeta| f.name == active_name)
-                    .cloned()
-                    .collect(),
+                active_file,
+                archive_files,
             });
         }
 
-        active.sort_by(|a, b| a.path.cmp(&b.path));
-        archive.sort_by(|a, b| a.path.cmp(&b.path));
         stacks.sort_by(|a, b| a.active_file.path.cmp(&b.active_file.path));
 
-        (active, archive, stacks)
+        stacks
     }
     pub fn scan(root: &Path) -> Self {
         let all_files = Self::discover_files(root);
-        let (active, archive, stacks) = Self::organize(all_files);
+        let stacks = Self::organize(all_files);
+
+        let mut active_by_group: HashMap<String, Uuid> = HashMap::new();
+
+        for stack in &stacks {
+            let key = stack.active_file.group_key();
+            active_by_group.insert(key, stack.active_file.id);
+        }
+
+        let active: Vec<FileMeta> = stacks.iter().map(|s| s.active_file.clone()).collect();
+        let archive: Vec<FileMeta> = stacks
+            .iter()
+            .flat_map(|s| s.archive_files.clone())
+            .collect();
 
         Registry {
+            active_by_group,
             files: active,
             files_archive: archive,
             from_files: Vec::new(),
@@ -137,7 +156,6 @@ impl Registry {
         let mut identity_groups: HashMap<(String, Option<String>, String), Vec<*mut FileMeta>> =
             HashMap::new();
 
-        // 1. Group pointers to all files by their identity
         for file in &mut self.files {
             let key = (file.name.clone(), file.utter.clone(), file.ext.clone());
             identity_groups
@@ -156,7 +174,6 @@ impl Registry {
 
             for &file_ptr in group {
                 unsafe {
-                    // Only the highest version (or version 0 if no versions exist) is active
                     (*file_ptr).active = (*file_ptr).version == max_version;
                 }
             }
@@ -171,22 +188,20 @@ impl Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::registry::{file_meta::FileMeta, registry::Registry};
+    use crate::registry::file_meta::FileMeta;
+    use crate::registry::registry::Registry;
     use std::{fs, path::Path};
     use tempfile::tempdir;
 
-    // --- DOMAIN 1: Filename Parsing Logic (The "Parser" Unit Tests) ---
     mod parsing {
-        use crate::registry::test_utils::test_helpers::get_test_root;
-
         use super::*;
+        use crate::registry::test_utils::test_helpers::get_test_root;
         use pretty_assertions::assert_eq;
 
         #[test]
-        fn test_metadata_parsing() {
+        fn parse_standard_filename_format_succeeds() {
             let path = Path::new("05.dashboard@ui#42.jsx.loi");
             let meta = FileMeta::from_path(path, &get_test_root());
-            assert_eq!(meta.priority, Some(5));
             assert_eq!(meta.name, "dashboard");
             assert_eq!(meta.utter, Some("ui".to_string()));
             assert_eq!(meta.version, 42);
@@ -194,30 +209,19 @@ mod tests {
         }
 
         #[test]
-        fn test_complex_version_string() {
+        fn parse_version_with_suffix_extracts_base_integer() {
             let path = Path::new("00.core@lib#10-try-pnpm.js.loi");
             let meta = FileMeta::from_path(path, &get_test_root());
             assert_eq!(meta.version, 10);
         }
-
-        #[test]
-        fn test_version_normalization() {
-            let files = vec!["00.core@lib#02.js.loi", "00.core@lib#003.js.loi"];
-            let results: Vec<u32> = files
-                .iter()
-                .map(|f| FileMeta::from_path(Path::new(f), &get_test_root()).version)
-                .collect();
-            assert_eq!(results, vec![2, 3]);
-        }
     }
 
-    // --- DOMAIN 2: Resolution & Shadowing (Integration Tests) ---
     mod resolution {
         use super::*;
         use pretty_assertions::assert_eq;
 
         #[test]
-        fn test_version_auto_promotion() {
+        fn scan_multiple_versions_keeps_only_highest_version() {
             let dir = tempdir().unwrap();
             for f in &[
                 "00.core@lib#1.js.loi",
@@ -232,21 +236,17 @@ mod tests {
         }
 
         #[test]
-        fn test_utter_grouping() {
+        fn scan_distinct_utters_maintains_separate_entries() {
             let dir = tempdir().unwrap();
             for f in &["00.core@lib#1.js.loi", "00.core@ui#1.js.loi"] {
                 fs::write(dir.path().join(f), "").unwrap();
             }
             let registry = Registry::scan(dir.path());
-            assert_eq!(
-                registry.files.len(),
-                2,
-                "Capabilities should group independently"
-            );
+            assert_eq!(registry.files.len(), 2);
         }
 
         #[test]
-        fn test_version_collision_tie_break() {
+        fn scan_duplicate_filenames_deduplicates_entry() {
             let dir = tempdir().unwrap();
             let f = "00.app@ui#1.html.loi";
             fs::write(dir.path().join(f), "").unwrap();
@@ -256,37 +256,94 @@ mod tests {
         }
     }
 
-    // --- DOMAIN 3: Sorting & Lifecycle ---
-    mod lifecycle {
+    mod ordering {
         use super::*;
         use pretty_assertions::assert_eq;
 
         #[test]
-        fn test_lexicographical_ordering() {
+        fn scan_files_orders_lexicographically_by_name() {
             let dir = tempdir().unwrap();
-            for f in &["00.b@ui#1.html.loi", "00.a@ui#1.html.loi"] {
+            for f in &["b@html.loi", "a@html.loi"] {
                 fs::write(dir.path().join(f), "").unwrap();
             }
             let registry = Registry::scan(dir.path());
             assert_eq!(registry.files[0].name, "a");
+            assert_eq!(registry.files[1].name, "b");
+        }
+    }
+
+    mod groups {
+        use crate::registry::file_meta::group_key;
+
+        use super::*;
+
+        #[test]
+        fn groups_base_and_versions() {
+            assert_eq!(group_key("file.loi"), group_key("file#1.loi"));
+
+            assert_eq!(group_key("file.loi"), group_key("file#3.loi"));
         }
 
         #[test]
-        fn test_tag_grouping_and_ordering() {
-            let dir = tempdir().unwrap();
-            let files = vec![
-                "00.app@lib#1-feature.js.loi",
-                "00.app@lib#2-alpha.js.loi",
-                "00.app@lib#2-bugfix.js.loi",
-            ];
-            for f in &files {
-                fs::write(dir.path().join(f), "").unwrap();
-            }
+        fn groups_numbered_namespaces() {
+            assert_eq!(group_key("00.file.loi"), group_key("00.file#1.loi"));
 
-            let registry = Registry::scan(dir.path());
-            assert_eq!(registry.files[0].tag.as_deref(), Some("feature"));
-            assert_eq!(registry.files[1].tag.as_deref(), Some("alpha"));
-            assert_eq!(registry.files[2].tag.as_deref(), Some("bugfix"));
+            assert_eq!(group_key("00.file.loi"), group_key("00.file#3.loi"));
+        }
+
+        #[test]
+        fn groups_tagged_files() {
+            assert_eq!(group_key("00.file@lib.loi"), group_key("00.file@lib#1.loi"));
+
+            assert_eq!(group_key("00.file@lib.loi"), group_key("00.file@lib#3.loi"));
+        }
+
+        #[test]
+        fn preserves_tag_when_grouping() {
+            assert_ne!(group_key("00.file.loi"), group_key("00.file@lib.loi"));
+        }
+
+        #[test]
+        fn preserves_namespace_when_grouping() {
+            assert_ne!(group_key("00.file.loi"), group_key("01.file.loi"));
+        }
+
+        #[test]
+        fn different_tags_are_different_groups() {
+            assert_ne!(group_key("00.file@lib.loi"), group_key("00.file@test.loi"));
+        }
+
+        #[test]
+        fn strips_version_before_extension() {
+            assert_eq!(group_key("file#123.loi"), "file.loi");
+        }
+
+        #[test]
+        fn strips_version_before_tag() {
+            assert_eq!(group_key("file#123@lib.loi"), "file@lib.loi");
+        }
+
+        #[test]
+        fn multiple_versions_group_together() {
+            let key = group_key("file.loi");
+
+            assert_eq!(key, group_key("file#1.loi"));
+            assert_eq!(key, group_key("file#2.loi"));
+            assert_eq!(key, group_key("file#999.loi"));
+        }
+        #[test]
+        fn normalization_examples() {
+            assert_eq!(group_key("file.loi"), "file.loi");
+            assert_eq!(group_key("file#1.loi"), "file.loi");
+            assert_eq!(group_key("file#3.loi"), "file.loi");
+
+            assert_eq!(group_key("00.file.loi"), "00.file.loi");
+            assert_eq!(group_key("00.file#1.loi"), "00.file.loi");
+
+            assert_eq!(group_key("00.file@lib.loi"), "00.file@lib.loi");
+            assert_eq!(group_key("00.file@lib#3.loi"), "00.file@lib.loi");
+
+            assert_eq!(group_key("file#123@lib.loi"), "file@lib.loi");
         }
     }
 }

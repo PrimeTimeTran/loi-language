@@ -1,5 +1,6 @@
 use crate::cmd::Command;
 use crate::registry::file_meta::FileMeta;
+use crate::registry::registry::FileStack;
 use crate::registry::registry::Registry;
 use colored::Colorize;
 use owo_colors::OwoColorize;
@@ -13,12 +14,10 @@ pub struct FileView {
     pub namespace: String,
     #[tabled(rename = "#")]
     pub index: usize,
-    #[tabled(rename = "FS Name")]
-    pub fs_name: String,
+    #[tabled(rename = "Name")]
+    pub filename: String,
     #[tabled(rename = "Active")]
     pub active: String,
-    #[tabled(rename = "Priority")]
-    pub priority: String,
     #[tabled(rename = "Name")]
     pub name: String,
     #[tabled(rename = "Utter")]
@@ -95,57 +94,79 @@ impl RegistryUI for RegistryRenderer {
         println!("\n");
     }
     fn render_list(&self, registry: &Registry, filter: ListFilter) {
-        let mut all_files: Vec<&FileMeta> = match filter {
-            ListFilter::Active => registry.files.iter().collect(),
+        let mut rows: Vec<FileView> = Vec::new();
+        let mut flat: Vec<(&FileMeta, bool)> = Vec::new();
 
-            ListFilter::Archived => registry.files_archive.iter().collect(),
+        let mut stacks: Vec<&FileStack> = registry.stacks.iter().collect();
 
-            ListFilter::All => registry
-                .files
-                .iter()
-                .chain(registry.files_archive.iter())
-                .collect(),
-        };
-
-        all_files.sort_by(|a, b| {
-            a.name
-                .cmp(&b.name)
-                .then_with(|| a.version.cmp(&b.version))
-                .then_with(|| a.tag.cmp(&b.tag))
-                .then_with(|| {
-                    let a_base = !a.get_fs_name().contains('#');
-                    let b_base = !b.get_fs_name().contains('#');
-
-                    b_base.cmp(&a_base)
-                })
+        // group order (DESC by version)
+        stacks.sort_by(|a, b| {
+            b.active_file
+                .version
+                .cmp(&a.active_file.version)
+                .then_with(|| b.active_file.name.cmp(&a.active_file.name))
         });
 
-        let data: Vec<FileView> = all_files
-            .iter()
-            .enumerate()
-            .map(|(i, f)| FileView {
+        // ---------------------------
+        // 🔥 FIX 1: sort inside each group BEFORE flattening
+        // ---------------------------
+        for stack in &mut stacks {
+            let mut sorted_archive: Vec<&FileMeta> = stack.archive_files.iter().collect();
+
+            sorted_archive.sort_by(|a, b| a.version.cmp(&b.version));
+
+            // rebuild order: archive → active (active always last)
+            let group = sorted_archive
+                .into_iter()
+                .chain(std::iter::once(&stack.active_file));
+
+            for f in group {
+                let is_active = f.id == stack.active_file.id;
+
+                let should_show = match filter {
+                    ListFilter::Active => is_active,
+                    ListFilter::Archived => !is_active,
+                    ListFilter::All => true,
+                };
+
+                if should_show {
+                    flat.push((f, is_active));
+                }
+            }
+        }
+
+        // ---------------------------
+        // 2. BUILD ROWS
+        // ---------------------------
+        for (i, (f, is_active)) in flat.iter().enumerate() {
+            rows.push(FileView {
                 index: i + 1,
-                fs_name: f.get_fs_name(),
+                filename: f.filename.clone(),
                 namespace: f.namespace.clone(),
-                active: registry.files.contains(f).to_string(),
-                priority: f.priority.map(|p| p.to_string()).unwrap_or_default(),
+                active: is_active.to_string(),
                 name: f.name.clone(),
                 utter: f.utter.clone().unwrap_or_default(),
-                ext: f.get_ext(),
+                ext: f.ext.clone(),
                 version: f.version.to_string(),
                 tag: f.tag.clone().unwrap_or_default(),
                 capabilities: f.capabilities.concat(),
-            })
-            .collect();
-        let mut table = Table::new(data);
+            });
+        }
+
+        let mut table = Table::new(rows);
         table.with(Style::modern());
-        for (i, file) in all_files.iter().enumerate() {
-            if !registry.files.contains(file) {
+
+        // ---------------------------
+        // 3. DIMMING (aligned with flat)
+        // ---------------------------
+        for (i, (_, is_active)) in flat.iter().enumerate() {
+            if !is_active {
                 table.with(
                     Modify::new(Rows::new(i + 1..i + 2)).with(Color::FG_BLACK | Color::BG_BLACK),
                 );
             }
         }
+
         println!("\n{}", Theme::header("--- Registry Status ---"));
         println!("{}\n", table);
     }
