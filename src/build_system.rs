@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use crate::{
     backend::{
@@ -8,54 +8,55 @@ use crate::{
     registry::registry::Registry,
 };
 
-pub struct BuildSystem {
-    pub compiler_service: BundleService,
-    pub dir_out: PathBuf,
+pub struct BuildContext {
+    pub build_id: u64,
+    pub started_at: Instant,
     pub dir_root: PathBuf,
-    pub utters: UtterRegistry,
-    pub registry: Registry,
+    pub dir_out: PathBuf,
     pub watch: bool,
+    pub clean: bool,
+    pub verbose: bool,
+}
+
+pub struct BuildSystem {
+    pub context: BuildContext,
+    pub registry: Registry,
+    pub utters: UtterRegistry,
+    pub bundle_service: BundleService,
 }
 
 impl BuildSystem {
     pub fn new(dir_root: PathBuf, dir_out: PathBuf) -> Self {
         let registry = Registry::scan(&dir_root);
         let utters = UtterRegistry::new();
+
         let config = BundleConfig {
             dir_root: dir_root.clone(),
             dir_out: dir_out.clone(),
         };
 
-        let compiler_service = BundleService::new(registry.clone(), utters.clone(), config);
+        let bundle_service = BundleService::new(registry.clone(), utters.clone(), config);
 
         Self {
+            context: BuildContext {
+                build_id: 0,
+                started_at: Instant::now(),
+                dir_root,
+                dir_out,
+                watch: false,
+                clean: false,
+                verbose: false,
+            },
+
             registry,
             utters,
-            dir_root,
-            dir_out,
-            compiler_service,
-            watch: false,
+            bundle_service,
         }
     }
 
     pub fn test() -> Self {
-        let dir_root = std::env::current_dir().unwrap().join("targets/fs");
-        let dir_out = std::env::current_dir().unwrap().join("targets/fs_out_test");
-        let registry = Registry::scan(&dir_root);
-        let utters = UtterRegistry::new();
-        let config = BundleConfig {
-            dir_root: dir_root.clone(),
-            dir_out: dir_out.clone(),
-        };
-        let compiler_service = BundleService::new(registry.clone(), utters.clone(), config);
+        let cwd = std::env::current_dir().unwrap();
 
-        Self {
-            watch: false,
-            compiler_service,
-            registry,
-            utters,
-            dir_root,
-            dir_out,
-        }
+        Self::new(cwd.join("targets/fs"), cwd.join("targets/fs_out_test"))
     }
 }

@@ -149,7 +149,7 @@ impl CliController {
             }
         };
 
-        match self.system.compiler_service.compile(file) {
+        match self.system.bundle_service.compile(file) {
             Ok(_) => println!("{}", "✅ Build completed successfully!".green()),
             Err(e) => println!("{}: {}", "❌ Build failed".red(), e),
         }
@@ -157,7 +157,7 @@ impl CliController {
     pub fn handle_build_all(&self, target: &BuildAllArgs) {
         let results = self
             .system
-            .compiler_service
+            .bundle_service
             .compile_all(&self.system.registry.files);
 
         for result in results {
