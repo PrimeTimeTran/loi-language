@@ -1,0 +1,9 @@
+# Purpose: Verify keywords are distinct tokens, not part of identifiers.
+# The lexer should emit specific tokens for each word.
+if (x) {
+    while (true) {
+        fn test() {
+            return
+        }
+    }
+}

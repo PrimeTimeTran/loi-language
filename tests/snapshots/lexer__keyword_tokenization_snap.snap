@@ -1,0 +1,30 @@
+---
+source: tests/lexer.rs
+expression: tokens
+---
+[
+    If,
+    LParen,
+    Ident(
+        "x",
+    ),
+    RParen,
+    LBrace,
+    While,
+    LParen,
+    True,
+    RParen,
+    LBrace,
+    Function,
+    Ident(
+        "test",
+    ),
+    LParen,
+    RParen,
+    LBrace,
+    Return,
+    RBrace,
+    RBrace,
+    RBrace,
+    EOF,
+]

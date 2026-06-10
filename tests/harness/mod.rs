@@ -1,12 +1,36 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use loi::{
     backend::{
         symbol::registry::{Symbol, SymbolKind, SymbolRegistry},
         utter::utter::{MockEngine, Utter},
     },
+    frontend::{lexer, parser},
+    middle::semantic,
     registry::{file_meta::FileMeta, registry::Registry},
 };
+
+pub fn run_test(file_path: &Path) {
+    let content = fs::read_to_string(file_path).unwrap();
+    let tokens = lexer::lex(&content).expect("Lexer failed");
+
+    // Strategy: Filter by path component
+    let path_str = file_path.to_string_lossy();
+
+    // 1. Lexical Tests: Stop here
+    if path_str.contains("lexical/") {
+        return;
+    }
+
+    // 2. Syntax/Parser Tests
+    let ast = parser::parse(tokens).expect("Parser failed");
+    if path_str.contains("syntax/") {
+        return;
+    }
+
+    // 3. Full Pipeline/Semantic Tests
+    semantic::analyze(ast).expect("Semantic check failed");
+}
 
 pub fn make_registry(files: &[&str]) -> Registry {
     let mut registry = Registry::new();

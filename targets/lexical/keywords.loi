@@ -1,0 +1,4 @@
+# TEST: Tokenization of language keywords
+# Purpose: Verify Lexer reserves these words so they are not treated 
+# as user-defined variable identifiers.
+if else while do until loop break continue for in of func return

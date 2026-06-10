@@ -1,4 +1,7 @@
-use loi::frontend::{lexer::lex, token::Token};
+use std::{fs, path::Path};
+
+use loi::frontend::lexer::lex;
+use loi::frontend::token::Token;
 
 #[test]
 fn lex_number() {
@@ -10,7 +13,6 @@ fn lex_number() {
 #[test]
 fn lex_basic_math() {
     let tokens = lex("1 + 2").unwrap();
-
     assert_eq!(
         tokens,
         vec![

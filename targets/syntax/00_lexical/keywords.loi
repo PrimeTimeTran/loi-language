@@ -1,4 +1,4 @@
-# TEST: Tokenization of language keywords
-# Purpose: Verify Lexer reserves these words so they are not treated 
-# as user-defined variable identifiers.
-if else while do until loop break continue for in of func return
+# This test checks if the lexer can identify keywords even when packed tight
+if(x){else}
+while(true){break}
+func test(a){return a}
