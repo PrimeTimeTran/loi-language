@@ -103,6 +103,7 @@ impl Utter for GenericUtter {
                         symbols.push(Symbol {
                             name: name_match.as_str().to_string(),
                             kind: *kind,
+                            value: String::new(),
                             file: metadata.clone(),
                             origin: self.name.clone(),
                             metadata: HashMap::new(),
@@ -113,24 +114,6 @@ impl Utter for GenericUtter {
         }
         symbols
     }
-    // fn optimize(&self, content: String, minify: bool, remove_comments: bool) -> String {
-    //     let mut processed = content;
-
-    //     if remove_comments {
-    //         processed = match self.name() {
-    //             "js_engine" | "ts_engine" | "css_engine" => self.strip_c_style_comments(processed),
-    //             "html_engine" => self.strip_html_comments(processed),
-    //             "loi_engine" => self.strip_loi_comments(processed),
-    //             _ => processed,
-    //         };
-    //     }
-
-    //     if minify {
-    //         processed = self.minify_whitespace(processed);
-    //     }
-
-    //     processed
-    // }
 }
 
 pub fn get_language_definitions() -> Vec<GenericUtter> {
@@ -239,4 +222,52 @@ pub fn get_language_definitions() -> Vec<GenericUtter> {
             ..Default::default()
         }),
     ]
+}
+
+#[derive(Clone)]
+pub struct MockEngine {
+    name: String,
+    registry: HashMap<String, Vec<Symbol>>,
+}
+
+impl MockEngine {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            registry: HashMap::new(),
+        }
+    }
+    pub fn add_symbol(&mut self, filename: &str, symbol: Symbol) {
+        self.registry
+            .entry(filename.to_string())
+            .or_default()
+            .push(symbol);
+    }
+}
+
+impl Utter for MockEngine {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn flags(&self) -> UtterFlags {
+        UtterFlags {
+            browser_dom: false,
+            allow_network: false,
+            fs_access: false,
+            db_access: false,
+        }
+    }
+
+    fn to_ir(&self, _metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
+        Ok(IR::default()) // Return a default IR object
+    }
+
+    fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
+        // Return whatever was pre-loaded for this specific file
+        self.registry
+            .get(&metadata.filename)
+            .cloned()
+            .unwrap_or_default()
+    }
 }

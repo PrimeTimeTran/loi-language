@@ -13,7 +13,9 @@ impl RegistryDisplay for Registry {
         );
         println!("{:-<60}", "");
 
-        for file in &self.files {
+        // FIX: Remove the (_, ) destructuring.
+        // .values() returns an iterator of &FileMeta directly.
+        for file in self.files.values() {
             println!(
                 "{:<20} | {:<10} | {:<10} | {:<10}",
                 format!("/{}", file.namespace),

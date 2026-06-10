@@ -12,6 +12,15 @@ pub struct UtterRegistry {
     pub utters: HashMap<String, Box<dyn Utter>>,
     pub handlers: HashMap<String, Box<dyn Handler>>,
 }
+impl Default for UtterRegistry {
+    fn default() -> Self {
+        Self {
+            utters: HashMap::new(),
+            handlers: HashMap::new(),
+        }
+    }
+}
+
 impl PartialEq for UtterRegistry {
     fn eq(&self, other: &Self) -> bool {
         if self.utters.len() != other.utters.len() {

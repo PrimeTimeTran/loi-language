@@ -62,17 +62,20 @@ impl BundleService {
         utter_registry: UtterRegistry,
         manifest: BundleManifest,
     ) -> Self {
-        let mut symbols = SymbolRegistry {
-            table: HashMap::new(),
-        };
-        symbols.build(&registry, &utter_registry.utters);
-
+        let mut symbols = SymbolRegistry::new();
+        symbols.build_all(&registry, &utter_registry.utters);
         Self {
             registry,
             utter_registry,
             symbols,
             manifest,
         }
+    }
+
+    pub fn rebuild_symbols(&mut self) {
+        self.symbols.reset();
+        self.symbols
+            .build_all(&self.registry, &self.utter_registry.utters);
     }
 
     fn get_stripped_base_name(&self, meta: &FileMeta) -> String {

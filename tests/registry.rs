@@ -56,8 +56,12 @@ fn scan_multiple_versions_keeps_only_highest_version() {
         fs::write(dir.path().join(f), "").unwrap();
     }
     let registry = Registry::scan(dir.path());
-    assert_eq!(registry.files.len(), 1);
-    assert_eq!(registry.files[0].version, 3);
+
+    // Convert values to a Vec and find the one that should be active
+    let active_files: Vec<&FileMeta> = registry.files.values().collect();
+
+    assert_eq!(active_files.len(), 1);
+    assert_eq!(active_files[0].version, 3);
 }
 
 #[test]
@@ -67,7 +71,7 @@ fn scan_distinct_utters_maintains_separate_entries() {
         fs::write(dir.path().join(f), "").unwrap();
     }
     let registry = Registry::scan(dir.path());
-    assert_eq!(registry.files.len(), 2);
+    assert_eq!(registry.files.values().len(), 2);
 }
 
 #[test]
@@ -77,7 +81,7 @@ fn scan_duplicate_filenames_deduplicates_entry() {
     fs::write(dir.path().join(f), "").unwrap();
     fs::write(dir.path().join(f), "").unwrap();
     let registry = Registry::scan(dir.path());
-    assert_eq!(registry.files.len(), 1);
+    assert_eq!(registry.files.values().len(), 1);
 }
 
 #[test]
@@ -87,12 +91,13 @@ fn scan_files_orders_lexicographically_by_name() {
         fs::write(dir.path().join(f), "").unwrap();
     }
     let registry = Registry::scan(dir.path());
-    assert_eq!(registry.files[0].name, "a");
-    assert_eq!(registry.files[1].name, "b");
+
+    // Sort logic is applied to stacks, not the HashMap
+    assert_eq!(registry.stacks[0].active_file.name, "a");
+    assert_eq!(registry.stacks[1].active_file.name, "b");
 }
 #[test]
 fn test_lexicographical_and_numeric_sorting() {
-    // Helper to generate a registry from names
     let create_registry = |names: Vec<&str>| {
         let dir = tempdir().unwrap();
         for name in names {
@@ -102,26 +107,25 @@ fn test_lexicographical_and_numeric_sorting() {
     };
 
     // 1. Basic lexicographical: a! before b!
+    // We check registry.stacks[i].active_file.name instead of registry.files.values()[i]
     let reg1 = create_registry(vec!["b!html.loi", "a!html.loi"]);
-    assert_eq!(reg1.files[0].name, "a");
-    assert_eq!(reg1.files[1].name, "b");
+    assert_eq!(reg1.stacks[0].active_file.name, "a");
+    assert_eq!(reg1.stacks[1].active_file.name, "b");
 
     // 2. Numeric: 00! before 01!
     let reg2 = create_registry(vec!["01!html.loi", "00!html.loi"]);
-    assert_eq!(reg2.files[0].name, "00");
-    assert_eq!(reg2.files[1].name, "01");
+    assert_eq!(reg2.stacks[0].active_file.name, "00");
+    assert_eq!(reg2.stacks[1].active_file.name, "01");
 
-    // 3. Numeric: 1! before 2! (or 00001! before 2!)
-    // Note: If your current implementation fails this, you need to parse
-    // the name as an integer for the comparison.
+    // 3. Numeric: 00001! before 2!
     let reg3 = create_registry(vec!["2!html.loi", "00001!html.loi"]);
-    assert_eq!(reg3.files[0].name, "00001");
-    assert_eq!(reg3.files[1].name, "2");
+    assert_eq!(reg3.stacks[0].active_file.name, "00001");
+    assert_eq!(reg3.stacks[1].active_file.name, "2");
 
     // 4. Mixed/Length: aaaaaaaa! before ab!
     let reg4 = create_registry(vec!["ab!html.loi", "aaaaaaaa!html.loi"]);
-    assert_eq!(reg4.files[0].name, "aaaaaaaa");
-    assert_eq!(reg4.files[1].name, "ab");
+    assert_eq!(reg4.stacks[0].active_file.name, "aaaaaaaa");
+    assert_eq!(reg4.stacks[1].active_file.name, "ab");
 }
 
 #[test]
@@ -266,9 +270,7 @@ fn groups_versioned_files_into_single_stack() {
 
     assert_eq!(stacks.len(), 1);
 
-    let stack = &stacks[0];
-
-    assert_eq!(stack.files.len(), 4);
+    assert_eq!(stacks[0].files.len(), 4);
 }
 
 #[test]

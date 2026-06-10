@@ -47,6 +47,12 @@ pub enum IR {
     },
 }
 
+impl Default for IR {
+    fn default() -> Self {
+        Self::Raw(String::new())
+    }
+}
+
 use std::fmt;
 
 impl fmt::Display for IR {

@@ -101,11 +101,6 @@ impl FileMeta {
         file
     }
 
-    pub fn mock(filename: &str) -> Self {
-        let stem = filename.strip_suffix(".loi").unwrap_or(filename);
-        Self::new(stem, filename.to_string(), PathBuf::from(filename), false)
-    }
-
     pub fn from_path(path: &Path, _root: &Path) -> Self {
         let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let stem = filename.strip_suffix(".loi").unwrap_or(filename);
@@ -297,5 +292,15 @@ impl From<&Path> for ParsedPath {
             is_versioned,
             is_ui,
         }
+    }
+}
+
+impl FileMeta {
+    pub fn mock(filename: &str) -> Self {
+        let stem = filename
+            .strip_suffix(".loi")
+            .unwrap_or(filename)
+            .to_string();
+        Self::new(&stem, filename.to_string(), PathBuf::from(filename), true)
     }
 }

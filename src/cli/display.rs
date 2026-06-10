@@ -58,15 +58,15 @@ pub struct RegistryRenderer;
 impl RegistryUI for RegistryRenderer {
     fn render_header(&self, registry: &Registry) {
         let total_files = registry.files.len() + registry.files_archive.len();
-        let files = registry.files.iter().filter(|f| f.active).count();
+        let files = registry.files.values().filter(|f| f.active).count();
 
         let total_utters = registry
             .files
-            .iter()
+            .values()
             .filter_map(|f| f.utter.as_ref())
             .count();
 
-        let total_versions = registry.files.iter().filter(|f| f.version > 0).count();
+        let total_versions = registry.files.values().filter(|f| f.version > 0).count();
         println!("\n{}", Theme::header("--- Metrics ---"));
         println!(
             "files: {:<3} active: {:<3} versions: {:<3} utters:{:<3}",
@@ -184,9 +184,20 @@ impl RegistryUI for RegistryRenderer {
         // let mut map: BTreeMap<String, Vec<&FileMeta>> = BTreeMap::new();
         let mut map: BTreeMap<String, Vec<&FileMeta>> = BTreeMap::new();
 
-        for f in &registry.files {
+        // 1. Before
+        // for f in &registry.files {
+        //     map.entry(f.namespace.clone()).or_default().push(f);
+        // }
+
+        // 2. Now
+        for f in registry.files.values() {
             map.entry(f.namespace.clone()).or_default().push(f);
         }
+
+        // 3. Optional
+        // for (_, f) in &registry.files {
+        //     println!("ID: {} | Name: {}", id, file.name);
+        // }
 
         for (ns, files) in map {
             println!("\n{}", ns.bold().cyan());
@@ -217,8 +228,11 @@ impl RegistryUI for RegistryRenderer {
             return;
         };
 
-        let mut versions: Vec<&FileMeta> =
-            registry.files.iter().filter(|f| f.name == target).collect();
+        let mut versions: Vec<&FileMeta> = registry
+            .files
+            .values()
+            .filter(|f| f.name == target)
+            .collect();
 
         if versions.is_empty() {
             println!("{}", "No history found".red());
@@ -252,7 +266,7 @@ impl RegistryUI for RegistryRenderer {
 
         let mut map: BTreeMap<String, Vec<&FileMeta>> = BTreeMap::new();
 
-        for f in &registry.files {
+        for f in registry.files.values() {
             for cap in &f.capabilities {
                 map.entry(cap.clone()).or_default().push(f);
             }
@@ -273,8 +287,8 @@ impl RegistryUI for RegistryRenderer {
     fn render_diff(&self, registry: &Registry, a: &str, b: &str) {
         println!("\n{}", Theme::header("--- Semantic Diff ---"));
 
-        let a = registry.files.iter().find(|f| f.name == a);
-        let b = registry.files.iter().find(|f| f.name == b);
+        let a = registry.files.values().find(|f| f.name == a);
+        let b = registry.files.values().find(|f| f.name == b);
 
         match (a, b) {
             (Some(a), Some(b)) => {

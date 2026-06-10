@@ -85,7 +85,7 @@ impl CliController {
             .system
             .registry
             .files
-            .iter()
+            .values()
             .chain(self.system.registry.files_archive.iter())
             .collect();
 
@@ -127,7 +127,7 @@ impl CliController {
             .system
             .registry
             .files
-            .iter()
+            .values()
             .chain(self.system.registry.files_archive.iter())
             .collect();
 
@@ -155,10 +155,10 @@ impl CliController {
         }
     }
     pub fn handle_build_all(&self, target: &BuildAllArgs) {
-        let results = self
-            .system
-            .bundle_service
-            .compile_all(&self.system.registry.files);
+        let files_to_compile: Vec<FileMeta> =
+            self.system.registry.files.values().cloned().collect();
+
+        let results = self.system.bundle_service.compile_all(&files_to_compile);
 
         for result in results {
             match result {
@@ -185,7 +185,7 @@ impl CliController {
             }
         };
 
-        if let Some(file) = self.system.registry.files.iter().find(|f| f.name == name) {
+        if let Some(file) = self.system.registry.files.values().find(|f| f.name == name) {
             // 2. Build the actual path to the file
             // Note: Assuming your FileMeta has a 'path' field pointing to the source
             let path = &file.path;

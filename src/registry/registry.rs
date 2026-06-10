@@ -7,7 +7,7 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct Registry {
-    pub files: Vec<FileMeta>,
+    pub files: HashMap<Uuid, FileMeta>,
     pub files_archive: Vec<FileMeta>,
     pub from_files: Vec<FileMeta>,
     pub stacks: Vec<FileStack>,
@@ -25,14 +25,30 @@ impl FileStack {
 }
 
 impl Registry {
-    pub fn from_files(files: Vec<FileMeta>) -> Self {
-        Registry {
-            files,
+    pub fn new() -> Self {
+        Self {
+            files: HashMap::new(),
             files_archive: Vec::new(),
             from_files: Vec::new(),
             stacks: Vec::new(),
             active_by_group: HashMap::new(),
         }
+    }
+
+    pub fn from_files(files: Vec<FileMeta>) -> Self {
+        // Convert the Vec into a HashMap
+        let file_map = files.into_iter().map(|f| (f.id, f)).collect();
+
+        Registry {
+            files: file_map,
+            files_archive: Vec::new(),
+            from_files: Vec::new(),
+            stacks: Vec::new(),
+            active_by_group: HashMap::new(),
+        }
+    }
+    pub fn add_file(&mut self, meta: FileMeta) {
+        self.files.insert(meta.id, meta);
     }
 
     pub fn build_source(root: &Path) -> Vec<FileMeta> {
@@ -68,21 +84,27 @@ impl Registry {
         let all_files = Self::build_source(root);
         let mut stacks = Self::organize(all_files);
 
-        let sort_logic = |a: &FileMeta, b: &FileMeta| {
-            let (ka, kb) = (a.group_key(), b.group_key());
-            ka.namespace.cmp(&kb.namespace).then_with(|| {
-                match (ka.name.parse::<u64>(), kb.name.parse::<u64>()) {
-                    (Ok(n1), Ok(n2)) => n1.cmp(&n2),
-                    _ => ka.name.cmp(&kb.name),
-                }
-            })
-        };
+        stacks.sort_by(|a, b| Self::compare_stacks(&a.active_file, &b.active_file));
 
-        stacks.sort_by(|a, b| sort_logic(&a.active_file, &b.active_file));
-        let files = stacks.iter().map(|s| s.active_file.clone()).collect();
-        let files_archive = stacks
+        let files: HashMap<Uuid, FileMeta> = stacks
             .iter()
-            .flat_map(|s| s.files.iter().cloned())
+            .flat_map(|s| {
+                let mut all = s.files.clone();
+                all.push(s.active_file.clone());
+                all
+            })
+            .map(|f| (f.id, f))
+            .collect();
+
+        // 2. Archive is ONLY files that are NOT the active one
+        let files_archive: Vec<FileMeta> = stacks
+            .iter()
+            .flat_map(|s| {
+                s.files
+                    .iter()
+                    .filter(|f| f.id != s.active_file.id) // Ensure archive excludes active
+                    .cloned()
+            })
             .collect();
 
         let active_by_group = stacks
@@ -109,8 +131,19 @@ impl Registry {
             .find(|s| s.active_file.name == name)
             .map(|s| &s.active_file)
     }
+
+    fn compare_stacks(a: &FileMeta, b: &FileMeta) -> std::cmp::Ordering {
+        let (ka, kb) = (a.group_key(), b.group_key());
+        ka.namespace.cmp(&kb.namespace).then_with(|| {
+            match (ka.name.parse::<u64>(), kb.name.parse::<u64>()) {
+                (Ok(n1), Ok(n2)) => n1.cmp(&n2),
+                _ => ka.name.cmp(&kb.name),
+            }
+        })
+    }
+
     pub fn list_all(&self) {
-        for file in &self.files {
+        for file in self.files.values() {
             println!("[{}] {} (ver: {})", file.namespace, file.name, file.version);
         }
     }
