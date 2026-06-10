@@ -2,7 +2,7 @@ use loi::frontend::{lexer, parser};
 
 #[test]
 fn test_compiler_snapshots() {
-    let examples = std::fs::read_dir("targets/examples").unwrap();
+    let examples = std::fs::read_dir("targets/syntax").unwrap();
     for entry in examples {
         let path = entry.unwrap().path();
         if path.extension().and_then(|s| s.to_str()) != Some("loi") {

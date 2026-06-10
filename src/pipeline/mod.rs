@@ -62,13 +62,16 @@ pub fn compile_targets(config: &Config) -> Result<(), Vec<CompilerError>> {
 }
 
 pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), CompilerError> {
+    if !output_dir.exists() {
+        std::fs::create_dir_all(output_dir).map_err(CompilerError::Io)?;
+    }
     let source = std::fs::read_to_string(path)?;
     let file_name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("output");
     let out_base = output_dir.join(file_name);
-
+    println!("DEBUG: Writing output to: {:?}", out_base);
     let tokens = lexer::lex(&source).map_err(CompilerError::Lexer)?;
     let ast = parser::parse(tokens).map_err(CompilerError::Parser)?;
     let ir = analyze(ast).map_err(CompilerError::Analysis)?;

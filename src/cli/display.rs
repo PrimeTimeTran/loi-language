@@ -17,7 +17,7 @@ pub struct FileView {
     pub namespace: String,
     #[tabled(rename = "#")]
     pub index: usize,
-    #[tabled(rename = "Name")]
+    #[tabled(rename = "FS Name")]
     pub filename: String,
     #[tabled(rename = "Active")]
     pub active: String,
@@ -114,11 +114,14 @@ impl RegistryUI for RegistryRenderer {
         // 🔥 FIX 1: sort inside each group BEFORE flattening
         // ---------------------------
         for stack in &mut stacks {
-            let mut sorted_archive: Vec<&FileMeta> = stack.files.iter().collect();
+            let mut sorted_archive: Vec<&FileMeta> = stack
+                .files
+                .iter()
+                .filter(|f| f.id != stack.active_file.id) // <--- ADD THIS FILTER
+                .collect();
 
             sorted_archive.sort_by(|a, b| a.version.cmp(&b.version));
 
-            // rebuild order: archive → active (active always last)
             let group = sorted_archive
                 .into_iter()
                 .chain(std::iter::once(&stack.active_file));

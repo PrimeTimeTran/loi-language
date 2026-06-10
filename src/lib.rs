@@ -12,5 +12,4 @@ pub mod frontend;
 pub mod middle;
 pub mod pipeline;
 pub mod registry;
-pub mod utils;
 pub mod watcher;

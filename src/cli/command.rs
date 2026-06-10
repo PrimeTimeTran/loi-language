@@ -1,5 +1,6 @@
 use crate::cli::controller::CliController;
 use crate::cli::display::{ListFilter, RegistryUI};
+use crate::cli::ir_runner::Config;
 use crate::registry::file_meta::FileMeta;
 use crate::registry::registry::Registry;
 use crate::{build_system::BuildSystem, cli::display::RegistryRenderer};
@@ -48,6 +49,9 @@ pub struct BuildFlags {
 
 #[derive(EnumIter, Display, Debug, PartialEq)]
 pub enum Command {
+    #[strum(serialize = "mode")]
+    Mode(String),
+
     List(ListFilter),
     #[strum(serialize = "tree")]
     Tree,
@@ -74,8 +78,51 @@ pub enum Command {
 }
 
 impl Command {
+    pub fn execute(&self, controller: &CliController, ui: &RegistryRenderer) {
+        let registry = &controller.system.registry;
+        match self {
+            Command::Mode(m) => {
+                match m.as_str() {
+                    "batch" => {
+                        println!("🚀 Switching to batch mode...");
+                        // Trigger your existing batch runner
+                        // Note: You might need to pass the controller's system
+                        // if the runner needs the current state
+                        let config = Config {
+                            input: PathBuf::from("targets/syntax"),
+                            output: PathBuf::from("output/syntax"),
+                            watch: false,
+                        };
+                        crate::cli::ir_runner::run(config);
+                    }
+                    "interactive" => println!("Already in interactive mode."),
+                    _ => println!("Unknown mode: {}. Use 'mode batch'.", m),
+                }
+            }
+            Command::BuildAll(args) => controller.handle_build_all(args),
+            Command::List(filter) => ui.render_list(registry, *filter),
+            Command::Tree => ui.render_tree(registry),
+            Command::History(target) => ui.render_version_history(registry, target.as_deref()),
+            Command::CapabilityMap => ui.render_capability_map(registry),
+            Command::Diff(a, b) => ui.render_diff(registry, a, b),
+            Command::Build(name) => controller.handle_build(name),
+            Command::View(name) => controller.handle_view(Some(name)),
+            Command::Clear => {
+                let _ = clearscreen::clear();
+            }
+            Command::Help => Command::print_help(),
+            Command::Exit => println!("Exiting..."),
+        }
+    }
     pub fn metadata(&self) -> CommandMeta {
         match self {
+            Command::Mode(_) => CommandMeta {
+                label: "mode",
+                alias: None,
+                description: "Switch compiler execution mode (batch|interactive)",
+                hidden: false,
+                weight: 5,
+            },
             Command::BuildAll(_) => CommandMeta {
                 label: "build-all",
                 alias: Some("b-all"),
@@ -90,7 +137,6 @@ impl Command {
                 hidden: false,
                 weight: 10,
             },
-
             Command::Tree => CommandMeta {
                 label: "tree",
                 alias: None,
@@ -98,7 +144,6 @@ impl Command {
                 hidden: false,
                 weight: 20,
             },
-
             Command::History(_) => CommandMeta {
                 label: "history",
                 alias: None,
@@ -106,7 +151,6 @@ impl Command {
                 hidden: false,
                 weight: 5,
             },
-
             Command::CapabilityMap => CommandMeta {
                 label: "caps",
                 alias: None,
@@ -114,7 +158,6 @@ impl Command {
                 hidden: false,
                 weight: 15,
             },
-
             Command::Diff(_, _) => CommandMeta {
                 label: "diff",
                 alias: None,
@@ -122,7 +165,6 @@ impl Command {
                 hidden: false,
                 weight: 30,
             },
-
             Command::Build(_) => CommandMeta {
                 label: "build",
                 alias: Some("b"),
@@ -130,7 +172,6 @@ impl Command {
                 hidden: false,
                 weight: 100,
             },
-
             Command::View(_) => CommandMeta {
                 label: "view",
                 alias: Some("v"),
@@ -138,7 +179,6 @@ impl Command {
                 hidden: false,
                 weight: 40,
             },
-
             Command::Clear => CommandMeta {
                 label: "clear",
                 alias: None,
@@ -146,7 +186,6 @@ impl Command {
                 hidden: true,
                 weight: 1,
             },
-
             Command::Help => CommandMeta {
                 label: "help",
                 alias: None,
@@ -154,7 +193,6 @@ impl Command {
                 hidden: false,
                 weight: 0,
             },
-
             Command::Exit => CommandMeta {
                 label: "exit",
                 alias: None,
@@ -170,78 +208,6 @@ impl Command {
             BuildTarget::ByIndex(num.parse().unwrap_or(1))
         } else {
             BuildTarget::ByName(arg.to_string())
-        }
-    }
-
-    pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
-        match cmd {
-            "build-all" => {
-                let input = arg.unwrap_or("");
-                Some(Command::BuildAll(Self::parse_build_all(input)))
-            }
-
-            "ls" => Some(Command::List(ListFilter::Active)),
-            "ls-all" => Some(Command::List(ListFilter::All)),
-            "ls-archived" => Some(Command::List(ListFilter::Archived)),
-            "tree" => Some(Command::Tree),
-            "caps" => Some(Command::CapabilityMap),
-            "clear" => Some(Command::Clear),
-            "help" => Some(Command::Help),
-            "exit" | "quit" => Some(Command::Exit),
-            "build" => arg.map(|a| Command::Build(Self::parse_build(a))),
-
-            "view" => arg.map(|a| Command::View(a.to_string())),
-            "history" => Some(Command::History(arg.map(|a| a.to_string()))),
-
-            "diff" => arg.and_then(|a| {
-                let parts: Vec<&str> = a.split_whitespace().collect();
-                if parts.len() == 2 {
-                    Some(Command::Diff(parts[0].to_string(), parts[1].to_string()))
-                } else {
-                    println!("{}", "Usage: diff <file_a> <file_b>".yellow());
-                    None
-                }
-            }),
-
-            _ => None,
-        }
-    }
-
-    pub fn print_help() {
-        println!("\n{}", "=== Available Commands ===".bold().cyan());
-
-        let seen_list = false;
-
-        let mut cmds: Vec<_> = Command::iter()
-            .map(|c| c.metadata())
-            .filter(|m| !m.hidden)
-            .collect();
-
-        // optional: sort by importance (same idea as shortcuts)
-        cmds.sort_by(|a, b| b.weight.cmp(&a.weight));
-
-        for cmd in cmds {
-            println!("  {:<15} - {}", cmd.label.yellow(), cmd.description);
-        }
-
-        println!();
-    }
-    pub fn execute(&self, controller: &CliController, ui: &RegistryRenderer) {
-        let registry = &controller.system.registry;
-        match self {
-            Command::List(filter) => ui.render_list(registry, *filter),
-            Command::Tree => ui.render_tree(registry),
-            Command::History(target) => ui.render_version_history(registry, target.as_deref()),
-            Command::CapabilityMap => ui.render_capability_map(registry),
-            Command::Diff(a, b) => ui.render_diff(registry, a, b),
-            Command::Build(name) => controller.handle_build(name),
-            Command::BuildAll(args) => controller.handle_build_all(args),
-            Command::View(name) => controller.handle_view(Some(name)),
-            Command::Clear => {
-                let _ = clearscreen::clear();
-            }
-            Command::Help => Command::print_help(),
-            Command::Exit => println!("Exiting..."),
         }
     }
     fn parse_build_all(input: &str) -> BuildAllArgs {
@@ -277,5 +243,56 @@ impl Command {
         }
 
         BuildAllArgs { target, flags }
+    }
+    pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
+        match cmd {
+            "mode" => arg.map(|a| Command::Mode(a.to_string())),
+            "build-all" => {
+                let input = arg.unwrap_or("");
+                Some(Command::BuildAll(Self::parse_build_all(input)))
+            }
+
+            "ls" => Some(Command::List(ListFilter::Active)),
+            "ls-all" => Some(Command::List(ListFilter::All)),
+            "ls-archived" => Some(Command::List(ListFilter::Archived)),
+            "tree" => Some(Command::Tree),
+            "caps" => Some(Command::CapabilityMap),
+            "clear" => Some(Command::Clear),
+            "help" => Some(Command::Help),
+            "exit" | "quit" => Some(Command::Exit),
+            "build" => arg.map(|a| Command::Build(Self::parse_build(a))),
+
+            "view" => arg.map(|a| Command::View(a.to_string())),
+            "history" => Some(Command::History(arg.map(|a| a.to_string()))),
+
+            "diff" => arg.and_then(|a| {
+                let parts: Vec<&str> = a.split_whitespace().collect();
+                if parts.len() == 2 {
+                    Some(Command::Diff(parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    println!("{}", "Usage: diff <file_a> <file_b>".yellow());
+                    None
+                }
+            }),
+
+            _ => None,
+        }
+    }
+    pub fn print_help() {
+        println!("\n{}", "=== Available Commands ===".bold().cyan());
+
+        let mut cmds: Vec<_> = Command::iter()
+            .map(|c| c.metadata())
+            .filter(|m| !m.hidden)
+            .collect();
+
+        // optional: sort by importance (same idea as shortcuts)
+        cmds.sort_by(|a, b| b.weight.cmp(&a.weight));
+
+        for cmd in cmds {
+            println!("  {:<15} - {}", cmd.label.yellow(), cmd.description);
+        }
+
+        println!();
     }
 }

@@ -4,22 +4,22 @@ use std::path::PathBuf;
 use crate::pipeline::compile_targets;
 use crate::watcher;
 
-// use crate::pipeline;
-
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 pub struct Config {
-    #[arg(short, long, default_value = "targets/examples")]
+    #[arg(short, long, default_value = "output/syntax")]
     pub input: PathBuf,
-    #[arg(short, long, default_value = "tmp/output")]
+    #[arg(short, long, default_value = "output/syntax")]
     pub output: PathBuf,
     #[arg(short, long)]
     pub watch: bool,
 }
-
-pub fn run() {
+pub fn run_cli() {
     let config = Config::parse();
+    run(config);
+}
 
+pub fn run(config: Config) {
     if config.watch {
         return watcher::watch(config).unwrap();
     }

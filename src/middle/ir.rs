@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use inkwell::object_file::Symbol;
+// use inkwell::object_file::Symbol;
 use serde::Serialize;
 
 use frontend::ast::Expr;
 
-use crate::frontend;
+use crate::{backend::symbol::registry::Symbol, frontend};
 
-// -------------------------------------------------
-// TYPE SYSTEM
-// -------------------------------------------------
 #[derive(Debug, Clone)]
 pub enum Type {
     I32,
@@ -21,9 +18,6 @@ pub enum Type {
     Unknown,
 }
 
-// -------------------------------------------------
-// TYPED EXPRESSION (semantic result of lowering)
-// -------------------------------------------------
 #[derive(Clone)]
 pub struct TypedExpr(pub Expr, pub Type);
 
@@ -45,23 +39,11 @@ pub enum Op {
     Div,
     Cmp,
 }
-// -------------------------------------------------
-// IR ROOT
-// -------------------------------------------------
-
-// 1. The container that holds the "Global" metadata for the module/file
-// pub struct IR {
-//     pub body: Vec<IROp>,
-//     pub symbols: HashMap<String, String>,
-//     pub metadata: HashMap<String, String>,
-// }
-
-// use std::collections::HashMap;
-
 pub enum IR {
     Raw(String),
     Structured {
         body: Vec<IROp>,
+        // Now using your custom Symbol struct
         symbols: HashMap<String, Symbol>,
         metadata: HashMap<String, String>,
     },
