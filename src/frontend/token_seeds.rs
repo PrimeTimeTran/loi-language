@@ -3,6 +3,11 @@
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
+pub enum Comments {
+    #[regex(r"#[^\n]*", logos::skip)]
+    Comment,
+}
+#[derive(Logos, Debug, PartialEq, Clone)]
 pub enum KeywordScope {
     #[token("dep")]
     Dependency,

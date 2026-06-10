@@ -6,6 +6,7 @@ use std::process::Command;
 use syn::{File, Item, Variant, parse_file};
 
 const GROUPS: &[&str] = &[
+    "Comments",
     "KeywordScope",
     "Keyword",
     "Declarations",

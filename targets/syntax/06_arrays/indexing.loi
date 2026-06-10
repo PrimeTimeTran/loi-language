@@ -1,0 +1,5 @@
+arr = [1, 2, 3, 4]
+val = arr[0]
+arr[1] = 10
+matrix = [[1, 2], [3, 4]]
+val2 = matrix[0][1]

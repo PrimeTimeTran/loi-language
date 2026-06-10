@@ -1,0 +1,9 @@
+if (x > 5) {
+  y = 10
+} else {
+  y = 0
+}
+
+if (a == b) {
+  print(a)
+}

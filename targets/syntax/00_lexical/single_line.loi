@@ -1,0 +1,4 @@
+# This is a single line comment
+x = 10  # This comment is at the end of a line
+# The parser should ignore everything after the # until the newline
+y = 20

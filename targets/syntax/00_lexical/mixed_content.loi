@@ -1,0 +1,12 @@
+# Initialize variables
+x = 10
+`
+This is a block comment.
+It should be ignored by the compiler.
+`
+y = 20 # Another comment
+`
+Another block 
+comment here
+`
+z = x + y

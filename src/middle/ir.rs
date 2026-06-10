@@ -6,7 +6,7 @@ use frontend::ast::Expr;
 
 use crate::{backend::symbol::registry::Symbol, frontend};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     I32,
     F64,
@@ -14,6 +14,8 @@ pub enum Type {
     Str,
     Void,
     Ptr(Box<Type>),
+    Array(Box<Type>),
+
     Unknown,
 }
 
@@ -167,10 +169,6 @@ pub enum IROp {
         then_branch: Vec<IROp>,
         else_branch: Vec<IROp>,
     },
-    While {
-        condition: TypedExpr,
-        body: Vec<IROp>,
-    },
     Return {
         value: Option<TypedExpr>,
     },
@@ -189,6 +187,26 @@ pub enum IROp {
 
     ModuleScope {
         name: String,
+        body: Vec<IROp>,
+    },
+
+    While {
+        condition: TypedExpr,
+        body: Vec<IROp>,
+    },
+
+    DoWhile {
+        body: Vec<IROp>,
+        condition: TypedExpr,
+    },
+
+    Loop {
+        body: Vec<IROp>,
+    },
+
+    For {
+        iterator: String,
+        iterable: TypedExpr,
         body: Vec<IROp>,
     },
 

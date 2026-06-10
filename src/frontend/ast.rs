@@ -35,6 +35,45 @@ pub enum Stmt {
     ExprStmt {
         expr: Expr,
     },
+
+    Function {
+        name: String,
+        params: Vec<String>,
+        body: Vec<Stmt>,
+    },
+
+    // Return {
+    //     expr: Option<Expr>,
+    // },
+    Return {
+        value: Option<Expr>,
+    },
+
+    If {
+        condition: Expr,
+        then_branch: Vec<Stmt>,
+        else_branch: Option<Vec<Stmt>>,
+    },
+
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+    },
+
+    Loop {
+        body: Vec<Stmt>,
+    },
+
+    For {
+        iterator: String,
+        iterable: Expr,
+        body: Vec<Stmt>,
+    },
+
+    DoWhile {
+        body: Vec<Stmt>,
+        condition: Expr,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -55,6 +94,7 @@ pub enum BinOp {
 pub enum UnOp {
     Neg,
     Not,
+    AddrOf,
 }
 
 // -------------------------------------------------
@@ -66,6 +106,8 @@ pub enum Expr {
     Bool(bool),
     String(String),
     Var(String),
+
+    Array(Vec<Expr>),
 
     Binary {
         left: Box<Expr>,

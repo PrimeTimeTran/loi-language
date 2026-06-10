@@ -1,6 +1,7 @@
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FloatType;
+use inkwell::values::BasicValueEnum;
 use inkwell::values::FloatValue;
 use inkwell::values::{FunctionValue, IntValue};
 use inkwell::{builder::Builder, values::PointerValue};
@@ -10,26 +11,22 @@ use crate::backend::compile;
 use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
 
-enum LLVMValue<'ctx> {
-    Float(FloatValue<'ctx>),
-    Int(IntValue<'ctx>),
-}
-
 fn codegen_expr<'ctx>(
     expr: &Expr,
     ty: &Type,
     context: &'ctx Context,
     builder: &Builder<'ctx>,
     env: &mut HashMap<String, PointerValue<'ctx>>,
-) -> FloatValue<'ctx> {
+) -> BasicValueEnum<'ctx> {
     match expr {
         Expr::Number(n) => match ty {
-            Type::F64 => context.f64_type().const_float(*n),
+            Type::F64 => context.f64_type().const_float(*n).into(),
 
             Type::I32 => context
                 .i32_type()
                 .const_int(*n as u64, false)
-                .const_signed_to_float(context.f64_type()),
+                .const_signed_to_float(context.f64_type())
+                .into(),
 
             _ => panic!("unsupported numeric type"),
         },
@@ -38,24 +35,63 @@ fn codegen_expr<'ctx>(
             let lhs = codegen_expr(left, ty, context, builder, env);
             let rhs = codegen_expr(right, ty, context, builder, env);
 
-            match op {
-                BinOp::Add => builder.build_float_add(lhs, rhs, "addtmp").unwrap(),
-                BinOp::Sub => builder.build_float_sub(lhs, rhs, "subtmp").unwrap(),
-                BinOp::Mul => builder.build_float_mul(lhs, rhs, "multmp").unwrap(),
-                BinOp::Div => builder.build_float_div(lhs, rhs, "divtmp").unwrap(),
+            let lhs = match lhs {
+                BasicValueEnum::FloatValue(v) => v,
+                _ => panic!("expected float lhs"),
+            };
+
+            let rhs = match rhs {
+                BasicValueEnum::FloatValue(v) => v,
+                _ => panic!("expected float rhs"),
+            };
+
+            let result = match op {
+                BinOp::Add => builder.build_float_add(lhs, rhs, "addtmp"),
+                BinOp::Sub => builder.build_float_sub(lhs, rhs, "subtmp"),
+                BinOp::Mul => builder.build_float_mul(lhs, rhs, "multmp"),
+                BinOp::Div => builder.build_float_div(lhs, rhs, "divtmp"),
                 _ => todo!(),
-            }
+            };
+
+            result.unwrap().into()
         }
 
         Expr::Var(name) => {
-            let ptr = *env
-                .get(name)
-                .unwrap_or_else(|| panic!("undefined variable: {}", name));
+            let ptr = *env.get(name).expect("undefined variable");
 
             builder
                 .build_load(context.f64_type(), ptr, name)
                 .unwrap()
-                .into_float_value()
+                .into()
+        }
+        Expr::Array(items) => {
+            let elem_ty = context.f64_type();
+
+            let array_len = items.len() as u32;
+            let array_ty = elem_ty.array_type(array_len);
+
+            let ptr = builder.build_alloca(array_ty, "arrtmp").unwrap();
+
+            for (i, item) in items.iter().enumerate() {
+                let val = codegen_expr(item, ty, context, builder, env).into_float_value();
+
+                let idx = context.i32_type().const_int(i as u64, false);
+
+                unsafe {
+                    let gep = builder
+                        .build_in_bounds_gep(
+                            array_ty,
+                            ptr,
+                            &[context.i32_type().const_zero(), idx],
+                            "eltptr",
+                        )
+                        .unwrap();
+
+                    builder.build_store(gep, val).unwrap();
+                }
+            }
+
+            ptr.into()
         }
         Expr::Bool(_) => todo!(),
         Expr::String(_) => todo!(),
@@ -269,16 +305,16 @@ pub fn lower_ir_to_llvm<'ctx>(
 
     let zero = i32_type.const_int(0, false);
 
-    println!(
-        "IR BODY LEN = {}",
-        match &ir {
-            IROp::Module { body } => body.len(),
-            _ => 0,
-        }
-    );
+    // println!(
+    //     "IR BODY LEN = {}",
+    //     match &ir {
+    //         IROp::Module { body } => body.len(),
+    //         _ => 0,
+    //     }
+    // );
 
     let mut env: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-    println!("{:#?}", ir);
+    // println!("{:#?}", ir);
     lower_ir(context, module, builder, ir, fmt, printf_fn, zero, &mut env)?;
     module.print_to_stderr();
     if builder

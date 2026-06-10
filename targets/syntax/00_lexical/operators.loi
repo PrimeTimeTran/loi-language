@@ -1,0 +1,4 @@
+# TEST: Tokenization of all supported operators
+# Purpose: Verify Lexer identifies multi-character (==, !=, <=, >=, &&, ||) 
+# and single-character (+, -, *, /, <, >, !, =) operators correctly.
++ - * / == != < > <= >= && || ! =

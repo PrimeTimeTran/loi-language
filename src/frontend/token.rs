@@ -3,6 +3,8 @@ use logos::Logos;
 #[logos(skip r"[ \t\n\f\r]+")]
 #[logos(skip r"#[^\n]\*")]
 pub enum Token {
+    #[regex(r"#[^\n]*", logos::skip)]
+    Comment,
     #[token("dep")]
     Dependency,
     #[token("pkg")]

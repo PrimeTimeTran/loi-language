@@ -1,0 +1,29 @@
+# Conditional Loops
+while (x < 10) {
+    x = x + 1
+}
+
+do {
+    print("do")
+} until (finished)
+
+# Infinite Loop with Control Flow
+loop {
+    print("loop")
+    if (done) { break }
+    continue
+}
+
+# Iterator/Collection Loops
+for (item in items) {
+    print(item)
+}
+
+for (value of collection) {
+    print(value)
+}
+
+# C-style classic loop
+for (i = 0; i < 10; i = i + 1) {
+    print(i)
+}
