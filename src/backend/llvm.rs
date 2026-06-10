@@ -109,7 +109,7 @@ pub fn setup_module<'ctx>(
 }
 
 // Helper to load a variable from the environment
-fn load_var<'ctx>(
+pub fn load_var<'ctx>(
     context: &'ctx Context,
     builder: &Builder<'ctx>,
     env: &HashMap<String, PointerValue<'ctx>>,
@@ -124,7 +124,7 @@ fn load_var<'ctx>(
         .into_float_value()
 }
 
-fn lower_ir<'ctx>(
+pub fn lower_ir<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,

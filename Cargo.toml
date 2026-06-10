@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
+syn = { version = "2", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 console = "0.15"
 indicatif = "0.17"
@@ -43,6 +44,7 @@ strum = { version = "0.26", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }
 tower-lsp = "0.20.0"
 regex = "1.12.4"
+swc = "66.0.1"
 
 [dev-dependencies]
 criterion = "0.5"

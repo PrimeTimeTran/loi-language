@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use crate::backend::bundle::target::{GenericHandler, RenderTarget};
 use crate::backend::utter::{
-    handler::Handler,
+    handler::{GenericHandler, Handler, RenderTarget},
     utter::{Utter, UtterFlags, get_language_definitions},
 };
 use crate::registry::file_meta::FileMeta;

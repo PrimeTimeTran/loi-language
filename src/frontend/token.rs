@@ -1,13 +1,10 @@
 use logos::Logos;
-
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\n\f\r]+")]
-#[logos(skip r"#[^\n]*")]
+#[logos(skip r"#[^\n]\*")]
 pub enum Token {
-    // Keywords
     #[token("print")]
     Print,
-    // New Keywords
     #[token("if")]
     If,
     #[token("else")]
@@ -32,8 +29,14 @@ pub enum Token {
     Return,
     #[token("fn")]
     Function,
-
-    // Scope
+    #[token("pkg")]
+    Package,
+    #[token("mod")]
+    Module,
+    #[token("pub")]
+    Public,
+    #[token("priv")]
+    Private,
     #[token("{")]
     LBrace,
     #[token("}")]
@@ -50,15 +53,11 @@ pub enum Token {
     Semicolon,
     #[token(",")]
     Comma,
-
-    // Logic
     #[token("=!")]
     EqualsBang,
     #[token("=?")]
     EqualsQ,
     #[token("=:")]
-    ColonEq,
-    #[token("=")]
     Equals,
     #[token("==")]
     Equality,
@@ -68,8 +67,8 @@ pub enum Token {
     Ampersand,
     #[token(":")]
     Colon,
-
-    // Arithmetic
+    #[token("=")]
+    ColonEq,
     #[token("%")]
     Modulo,
     #[token("+")]
@@ -85,13 +84,15 @@ pub enum Token {
     #[token("<")]
     LessThan,
 
-    // Patterns
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),
+
     #[regex(r#""[^"]*""#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
     String(String),
+
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Ident(String),
+
     Error,
     EOF,
 }

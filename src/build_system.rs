@@ -1,10 +1,8 @@
 use std::{path::PathBuf, time::Instant};
 
 use crate::{
-    backend::{
-        bundle::service::{BundleConfig, BundleManifest, BundleService},
-        utter::registry::UtterRegistry,
-    },
+    backend::utter::registry::UtterRegistry,
+    build::service::{BundleManifest, BundleService},
     registry::registry::Registry,
 };
 

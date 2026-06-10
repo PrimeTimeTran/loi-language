@@ -1,5 +1,4 @@
-const PI = 3.14159265359;
 const working = true;
 function helloWorld() {
-  console.log('Go!')
+  const PI = 3.14159265359;
 }

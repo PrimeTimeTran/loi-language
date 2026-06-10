@@ -1,4 +1,3 @@
-pub mod bundle;
 pub mod compile;
 pub mod link_with_clang;
 pub mod llvm;

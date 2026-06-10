@@ -26,8 +26,3 @@ pub struct CompiledArtifact {
     pub ir: IR,
     pub bundle: Vec<Artifact>,
 }
-#[derive(Clone)]
-pub struct BundleConfig {
-    pub dir_root: PathBuf,
-    pub dir_out: PathBuf,
-}

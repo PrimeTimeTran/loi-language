@@ -2,9 +2,11 @@ use regex::Regex;
 use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
+use crate::build::artifact::{Artifact, ArtifactKind, CompiledArtifact};
+use crate::build::asset_optimizer::AssetOptimizer;
+use crate::build::output_resolver::OutputResolver;
 use crate::{
     backend::{
-        bundle::artifact::{Artifact, ArtifactKind, CompiledArtifact},
         symbol::registry::SymbolRegistry,
         utter::{handler::Handler, registry::UtterRegistry, utter::Utter},
     },
@@ -14,11 +16,8 @@ use crate::{
 
 #[derive(Clone)]
 pub struct BundleManifest {
-    // Environment (Runtime)
     pub dir_root: PathBuf,
     pub dir_out: PathBuf,
-
-    // Transformation Rules (Profile)
     pub strip_namespace: bool,
     pub strip_tag: bool,
     pub strip_utter: bool,
@@ -151,108 +150,5 @@ impl BundleService {
         }
 
         Ok(CompiledArtifact { ir, bundle })
-    }
-}
-
-pub struct OutputResolver {
-    manifest: BundleManifest,
-}
-
-impl OutputResolver {
-    pub fn new(manifest: BundleManifest) -> Self {
-        Self { manifest }
-    }
-
-    pub fn get_web_path(&self, file: &FileMeta) -> Option<PathBuf> {
-        let relative_dir = file
-            .path
-            .parent()?
-            .strip_prefix(&self.manifest.dir_root)
-            .ok()?;
-
-        let mut out = self.manifest.dir_out.join(relative_dir);
-        let base_name = self.get_stripped_base_name(file);
-
-        out.push(format!("{}.{}", base_name, file.ext));
-        Some(out)
-    }
-
-    pub fn get_loi_path(&self, file: &FileMeta) -> PathBuf {
-        let relative_dir = file
-            .path
-            .parent()
-            .and_then(|p| p.strip_prefix(&self.manifest.dir_root).ok())
-            .unwrap_or_else(|| Path::new(""));
-
-        let mut out = self.manifest.dir_out.join(relative_dir);
-        out.push(format!("{}.loi", self.get_stripped_base_name(file)));
-        out
-    }
-
-    fn get_stripped_base_name(&self, meta: &FileMeta) -> String {
-        let mut parts = Vec::new();
-        let m = &self.manifest;
-
-        if !m.strip_namespace {
-            parts.push(meta.namespace.clone());
-        }
-        parts.push(meta.name.clone());
-        if !m.strip_utter
-            && let Some(u) = &meta.utter
-        {
-            parts.push(u.clone());
-        }
-        if !m.strip_variant
-            && let Some(v) = &meta.variant
-        {
-            parts.push(v.clone());
-        }
-        if !m.strip_version {
-            parts.push(format!("v{}", meta.version));
-        }
-        if !m.strip_tag
-            && let Some(t) = &meta.tag
-        {
-            parts.push(t.clone());
-        }
-
-        parts.join(".")
-    }
-}
-
-pub struct AssetOptimizer {
-    pub minify: bool,
-    pub remove_comments: bool,
-}
-
-impl AssetOptimizer {
-    pub fn optimize(&self, ir: IR, ext: &str) -> IR {
-        match ir {
-            IR::Raw(content) => {
-                let mut optimized = content;
-
-                // Use the flags stored in the struct!
-                if self.remove_comments {
-                    optimized = self.strip_comments(&optimized, ext);
-                }
-                if self.minify {
-                    optimized = optimized.split_whitespace().collect::<Vec<_>>().join(" ");
-                }
-
-                IR::Raw(optimized)
-            }
-            // Return complex IR as-is
-            ir => ir,
-        }
-    }
-    fn strip_comments(&self, content: &str, lang: &str) -> String {
-        let pattern = match lang {
-            "js" | "ts" | "css" => r"(?s)(//.*?\n|/\*.*?\*/)",
-            _ => return content.to_string(),
-        };
-        // Note: In production, compile the Regex once and store it in the struct
-        regex::Regex::new(pattern)
-            .map(|re| re.replace_all(content, "").to_string())
-            .unwrap_or_else(|_| content.to_string())
     }
 }
