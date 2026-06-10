@@ -12,6 +12,9 @@ pub enum RenderTarget {
     Html,
     Css,
     Js,
+    Ts,
+    Json,
+    Md,
     Loi,
 }
 
@@ -46,6 +49,9 @@ impl Handler for GenericHandler {
             RenderTarget::Html => Ok(format!("<html>{}</html>", out)),
             RenderTarget::Css => Ok(format!("/* css */\n{}", out)),
             RenderTarget::Js => Ok(format!("// js\n{}", out)),
+            RenderTarget::Ts => Ok(format!("// js\n{}", out)),
+            RenderTarget::Json => Ok(format!("// js\n{}", out)),
+            RenderTarget::Md => Ok(format!("// js\n{}", out)),
             RenderTarget::Loi => Ok(out),
         }
     }

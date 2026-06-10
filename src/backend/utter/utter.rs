@@ -1,9 +1,14 @@
+use dyn_clone::DynClone;
+use regex::Regex;
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use crate::backend::symbol::registry::{Symbol, SymbolKind, SymbolRegistry};
 use crate::middle::ir::IR;
 use crate::registry::file_meta::FileMeta;
-use std::collections::HashMap;
 
-use dyn_clone::DynClone;
+pub type ToIrFn = Arc<dyn Fn(&FileMeta, &SymbolRegistry) -> Result<IR, String> + Send + Sync>;
+
 #[derive(Debug, Clone)]
 pub struct UtterFlags {
     pub browser_dom: bool,
@@ -11,7 +16,6 @@ pub struct UtterFlags {
     pub fs_access: bool,
     pub db_access: bool,
 }
-
 pub trait Utter: DynClone {
     fn name(&self) -> &str;
     fn flags(&self) -> UtterFlags;
@@ -25,238 +29,193 @@ pub trait Utter: DynClone {
 
 dyn_clone::clone_trait_object!(Utter);
 
-#[derive(Clone)]
-pub struct LoiUtter;
-
-impl Utter for LoiUtter {
-    fn name(&self) -> &str {
-        "identity"
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: false,
-            allow_network: false,
-            fs_access: true,
-            db_access: false,
-        }
-    }
-
-    fn to_ir(&self, file: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        let content = std::fs::read_to_string(&file.path)
-            .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
-
-        Ok(IR::Raw(content))
-    }
-
-    fn get_exported_symbols(&self, _metadata: &FileMeta) -> Vec<Symbol> {
-        Vec::new()
-    }
-}
-
-#[derive(Clone)]
-pub struct IdentityUtter;
-
-impl Utter for IdentityUtter {
-    fn name(&self) -> &str {
-        "identity"
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: false,
-            allow_network: false,
-            fs_access: true,
-            db_access: false,
-        }
-    }
-
-    fn to_ir(&self, file: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        let content = std::fs::read_to_string(&file.path)
-            .map_err(|e| format!("Failed to read {}: {}", file.path.display(), e))?;
-
-        Ok(IR::Raw(content))
-    }
-
-    fn get_exported_symbols(&self, _metadata: &FileMeta) -> Vec<Symbol> {
-        Vec::new()
-    }
-}
-#[derive(Clone)]
-pub struct UIUtter;
-
-impl Utter for UIUtter {
-    fn name(&self) -> &str {
-        "html_ui"
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: true,
-            allow_network: true,
-            fs_access: false,
-            db_access: false,
-        }
-    }
-
-    fn to_ir(&self, metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        println!("Compiling UI module: {}", metadata.name);
-        Ok(IR::new())
-    }
-
-    fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
-        let content = std::fs::read_to_string(&metadata.path).unwrap_or_default();
-
-        content
-            .lines()
-            .filter(|l| l.contains("id=\""))
-            .filter_map(|l| {
-                let id = l.split("id=\"").nth(1)?.split('"').next()?;
-                Some(Symbol {
-                    name: id.to_string(),
-                    kind: SymbolKind::Component,
-                    file: metadata.clone(),
-                    origin: "html_ui".to_string(),
-                    metadata: HashMap::new(),
-                })
-            })
-            .collect()
-    }
-}
-
-#[derive(Clone)]
-pub struct HtmlUtter;
-
-impl Utter for HtmlUtter {
-    fn name(&self) -> &str {
-        "html_engine"
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: true,
-            allow_network: true,
-            fs_access: false,
-            db_access: false,
-        }
-    }
-
-    fn to_ir(&self, metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        println!("Compiling HTML module: {}", metadata.name);
-        Ok(IR::new())
-    }
-
-    fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
-        let content = std::fs::read_to_string(&metadata.path).unwrap_or_default();
-
-        content
-            .lines()
-            .filter(|l| l.contains("id=\""))
-            .filter_map(|l| {
-                let id = l.split("id=\"").nth(1)?.split('"').next()?;
-                Some(Symbol {
-                    name: id.to_string(),
-                    kind: SymbolKind::Component,
-                    file: metadata.clone(),
-                    origin: "html_engine".to_string(),
-                    metadata: HashMap::new(),
-                })
-            })
-            .collect()
-    }
-}
-#[derive(Clone)]
-pub struct CssUtter;
-
-impl Utter for CssUtter {
-    fn name(&self) -> &str {
-        "css_engine"
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
+impl Default for UtterFlags {
+    fn default() -> Self {
+        Self {
             browser_dom: false,
             allow_network: false,
             fs_access: false,
             db_access: false,
         }
     }
+}
 
-    fn to_ir(&self, _metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        Ok(IR::new())
-    }
+#[derive(Clone)]
+pub struct LanguageConfig {
+    pub name: String,
+    pub flags: UtterFlags,
+    pub symbol_patterns: Vec<(&'static str, SymbolKind)>,
+    pub to_ir: Option<ToIrFn>,
+}
 
-    fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
-        let content = std::fs::read_to_string(&metadata.path).unwrap_or_default();
-
-        content
-            .lines()
-            .filter(|l| l.trim_start().starts_with('.'))
-            .filter_map(|l| {
-                let class = l.split('{').next()?.trim().strip_prefix('.')?;
-                Some(Symbol {
-                    name: class.to_string(),
-                    kind: SymbolKind::Style,
-                    file: metadata.clone(),
-                    origin: "css_engine".to_string(),
-                    metadata: HashMap::new(),
-                })
-            })
-            .collect()
+impl Default for LanguageConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            flags: UtterFlags::default(),
+            symbol_patterns: Vec::new(),
+            to_ir: None,
+        }
     }
 }
-#[derive(Clone)]
-pub struct JsUtter;
 
-impl Utter for JsUtter {
+#[derive(Clone)]
+pub struct GenericUtter {
+    name: String,
+    config: LanguageConfig,
+}
+
+impl GenericUtter {
+    pub fn new(config: LanguageConfig) -> Self {
+        let name = config.name.clone();
+        Self { name, config }
+    }
+}
+
+impl Utter for GenericUtter {
     fn name(&self) -> &str {
-        "js_engine"
+        &self.name
+    }
+    fn flags(&self) -> UtterFlags {
+        self.config.flags.clone()
     }
 
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: true,
-            allow_network: true,
-            fs_access: false,
-            db_access: false,
+    fn to_ir(&self, metadata: &FileMeta, symbols: &SymbolRegistry) -> Result<IR, String> {
+        if let Some(ref custom_logic) = self.config.to_ir {
+            custom_logic(metadata, symbols)
+        } else {
+            println!("Compiling {} (Default): {}", self.name(), metadata.name);
+            Ok(IR::new())
         }
     }
 
-    fn to_ir(&self, _metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        Ok(IR::new())
-    }
-
     fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
         let content = std::fs::read_to_string(&metadata.path).unwrap_or_default();
+        let mut symbols = Vec::new();
 
-        let mut out = Vec::new();
-
-        for line in content.lines() {
-            let trimmed = line.trim();
-
-            let patterns = ["const ", "let ", "var ", "function "];
-
-            for pattern in patterns {
-                if trimmed.starts_with(pattern) {
-                    let remaining = &trimmed[pattern.len()..];
-                    if let Some(name) = remaining
-                        .split(|c: char| !c.is_alphanumeric() && c != '_')
-                        .next()
-                    {
-                        if !name.is_empty() {
-                            out.push(Symbol {
-                                name: name.to_string(),
-                                kind: SymbolKind::Function,
-                                file: metadata.clone(),
-                                origin: "js_engine".to_string(),
-                                metadata: HashMap::new(),
-                            });
-                        }
+        for (pattern, kind) in &self.config.symbol_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                for cap in re.captures_iter(&content) {
+                    if let Some(name_match) = cap.get(1) {
+                        symbols.push(Symbol {
+                            name: name_match.as_str().to_string(),
+                            kind: *kind,
+                            file: metadata.clone(),
+                            origin: self.name.clone(),
+                            metadata: HashMap::new(),
+                        });
                     }
                 }
             }
         }
-
-        out
+        symbols
     }
+}
+
+pub fn get_language_definitions() -> Vec<GenericUtter> {
+    vec![
+        GenericUtter::new(LanguageConfig {
+            name: "identity".to_string(),
+            flags: UtterFlags {
+                fs_access: true,
+                ..Default::default()
+            },
+            to_ir: Some(Arc::new(|meta, _| {
+                let content = std::fs::read_to_string(&meta.path).map_err(|e| e.to_string())?;
+                Ok(IR::Raw(content))
+            })),
+            ..Default::default()
+        }),
+        GenericUtter::new(LanguageConfig {
+            name: "ui".to_string(),
+            flags: UtterFlags {
+                browser_dom: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        }),
+        GenericUtter::new(LanguageConfig {
+            name: "lib".to_string(), // Matches your error
+            flags: UtterFlags {
+                ..Default::default()
+            },
+            symbol_patterns: vec![],
+            ..Default::default()
+        }),
+        // JavaScript
+        GenericUtter::new(LanguageConfig {
+            name: "js_engine".to_string(),
+            flags: UtterFlags {
+                browser_dom: true,
+                allow_network: true,
+                ..Default::default()
+            },
+            symbol_patterns: vec![(
+                r"(?:const|let|var|function)\s+([a-zA-Z_]\w*)",
+                SymbolKind::Function,
+            )],
+            ..Default::default()
+        }),
+        // TypeScript
+        GenericUtter::new(LanguageConfig {
+            name: "ts_engine".to_string(),
+            flags: UtterFlags {
+                browser_dom: true,
+                allow_network: true,
+                ..Default::default()
+            },
+            symbol_patterns: vec![(
+                r"(?:const|let|var|function|interface|type|class)\s+([a-zA-Z_]\w*)",
+                SymbolKind::Function,
+            )],
+            ..Default::default()
+        }),
+        // CSS
+        GenericUtter::new(LanguageConfig {
+            name: "css_engine".to_string(),
+            flags: UtterFlags {
+                ..Default::default()
+            },
+            symbol_patterns: vec![(r"\.([a-zA-Z_]\w*)\s*\{", SymbolKind::Style)],
+            ..Default::default()
+        }),
+        // HTML
+        GenericUtter::new(LanguageConfig {
+            name: "html_engine".to_string(),
+            flags: UtterFlags {
+                browser_dom: true,
+                ..Default::default()
+            },
+            symbol_patterns: vec![(r#"id="([^"]+)""#, SymbolKind::Component)],
+            ..Default::default()
+        }),
+        // Markdown
+        GenericUtter::new(LanguageConfig {
+            name: "md_engine".to_string(),
+            flags: UtterFlags {
+                ..Default::default()
+            },
+            symbol_patterns: vec![(r"^#+\s+(.*)", SymbolKind::Component)],
+            ..Default::default()
+        }),
+        // JSON
+        GenericUtter::new(LanguageConfig {
+            name: "json_engine".to_string(),
+            flags: UtterFlags {
+                ..Default::default()
+            },
+            symbol_patterns: vec![(r#""([^"]+)"\s*:"#, SymbolKind::Component)],
+            ..Default::default()
+        }),
+        // .loi (Your Language)
+        GenericUtter::new(LanguageConfig {
+            name: "loi_engine".to_string(),
+            flags: UtterFlags {
+                fs_access: true,
+                ..Default::default()
+            },
+            symbol_patterns: vec![(r"fn\s+([a-zA-Z_]\w*)", SymbolKind::Function)],
+            ..Default::default()
+        }),
+    ]
 }

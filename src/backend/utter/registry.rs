@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::backend::bundle::target::{GenericHandler, RenderTarget};
-use crate::backend::utter::handler::Handler;
-use crate::backend::utter::utter::{
-    CssUtter, HtmlUtter, IdentityUtter, JsUtter, LoiUtter, UIUtter,
+use crate::backend::utter::{
+    handler::Handler,
+    utter::{Utter, UtterFlags, get_language_definitions},
 };
-use crate::{backend::utter::utter::Utter, registry::file_meta::FileMeta};
+use crate::registry::file_meta::FileMeta;
 
 #[derive(Clone)]
 pub struct UtterRegistry {
@@ -34,22 +34,13 @@ impl UtterRegistry {
             handlers: HashMap::new(),
         };
 
-        registry.utters.insert("ui".to_string(), Box::new(UIUtter));
+        let definitions = get_language_definitions();
 
-        registry
-            .utters
-            .insert("loi".to_string(), Box::new(LoiUtter));
-        registry
-            .utters
-            .insert("identity".to_string(), Box::new(IdentityUtter));
-        registry
-            .utters
-            .insert("html".to_string(), Box::new(HtmlUtter));
-        registry
-            .utters
-            .insert("css".to_string(), Box::new(CssUtter));
-
-        registry.utters.insert("js".to_string(), Box::new(JsUtter));
+        for utter in definitions {
+            registry
+                .utters
+                .insert(utter.name().to_string(), Box::new(utter));
+        }
 
         registry.handlers.insert(
             "loi".to_string(),
@@ -74,6 +65,12 @@ impl UtterRegistry {
 
         registry.handlers.insert(
             "js".to_string(),
+            Box::new(GenericHandler {
+                target: RenderTarget::Js,
+            }),
+        );
+        registry.handlers.insert(
+            "ts".to_string(),
             Box::new(GenericHandler {
                 target: RenderTarget::Js,
             }),

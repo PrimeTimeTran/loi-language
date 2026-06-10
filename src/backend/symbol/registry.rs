@@ -5,7 +5,7 @@ use crate::{
     registry::{file_meta::FileMeta, registry::Registry},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SymbolKind {
     Function,
     Variable,
