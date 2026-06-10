@@ -1,0 +1,4 @@
+# TEST: Tokenization of all structural delimiters
+# Purpose: Verify Lexer identifies brackets, braces, and punctuation.
+# Crucial for defining the boundaries of blocks, arrays, and expressions.
+( ) { } [ ] , ;

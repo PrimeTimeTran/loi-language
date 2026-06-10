@@ -56,11 +56,11 @@ where
                 _ => Err("Expected ')'".into()),
             }
         }
-        Some(Token::OpenBracket) => {
+        Some(Token::LBracket) => {
             let mut items = vec![];
 
             while let Some(tok) = tokens.peek() {
-                if matches!(tok, Token::CloseBracket) {
+                if matches!(tok, Token::RBracket) {
                     tokens.next();
                     break;
                 }
@@ -249,7 +249,7 @@ where
 
     loop {
         let op = match tokens.peek() {
-            Some(Token::Equality) => BinOp::Eq,
+            Some(Token::BooleanEquality) => BinOp::Eq,
             Some(Token::NotEqual) => BinOp::Neq,
             Some(Token::LessThan) => BinOp::Lt,
             Some(Token::GreaterThan) => BinOp::Gt,
@@ -356,7 +356,7 @@ where
     let mut items = vec![];
 
     while let Some(tok) = tokens.peek() {
-        if matches!(tok, Token::CloseBracket) {
+        if matches!(tok, Token::RBracket) {
             tokens.next();
             break;
         }
@@ -565,7 +565,7 @@ fn is_expr_start(tok: Option<&Token>) -> bool {
             | Some(Token::String(_))
             | Some(Token::Ident(_))
             | Some(Token::LParen)
-            | Some(Token::OpenBracket)
+            | Some(Token::LBracket)
             | Some(Token::Ampersand)
     )
 }

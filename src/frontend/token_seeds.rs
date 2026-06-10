@@ -48,7 +48,7 @@ pub enum Keyword {
     Match,
 
     #[token("pipe")]
-    Pipe,
+    Pipeline,
 
     // Functions
     #[token("fn")]
@@ -147,9 +147,9 @@ pub enum Scope {
     #[token("}")]
     RBrace,
     #[token("[")]
-    OpenBracket,
+    LBracket,
     #[token("]")]
-    CloseBracket,
+    RBracket,
     #[token("(")]
     LParen,
     #[token(")")]
@@ -162,136 +162,41 @@ pub enum Scope {
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Logic {
+    #[token("==")]
+    BooleanEquality,
+    #[token("&&")]
+    BooleanAnd,
+    #[token("||")]
+    BooleanOr,
     #[token("!=")]
     NotEqual,
-    #[token("==")]
-    Equality,
     #[token("!")]
     Not,
     #[token("&")]
     Ampersand,
     #[token(":")]
     Colon,
+    #[token("|")]
+    Pipe,
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Arithmetic {
     #[token("+=")]
     Increment,
-    #[token("+")]
-    Plus,
     #[token("-=")]
     Decrement,
-    #[token("-")]
-    Minus,
     #[token("//")]
     Floor,
-    #[token("/")]
-    Slash,
     #[token(">=")]
     GreaterThanOrEqual,
-    #[token(">")]
-    GreaterThan,
     #[token("<=")]
     LessThanOrEqual,
-    #[token("<")]
-    LessThan,
 
-    #[token("*")]
-    Star,
-    #[token("%")]
-    Modulo,
-}
-
-#[derive(Logos, Debug, PartialEq, Clone)]
-pub enum Pattern {
-    // Patterns
-    #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
-    Number(f64),
-    #[regex(r#""[^"]*""#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
-    String(String),
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
-    Ident(String),
-    Error,
-    EOF,
-}
-
-#[derive(Logos, Debug, PartialEq, Clone)]
-#[logos(skip r"[ \t\n\f\r]+")]
-#[logos(skip r"#[^\n]*")]
-pub enum Token {
-    #[token("print")]
-    Print,
-    #[token("if")]
-    If,
-    #[token("else")]
-    Else,
-    #[token("while")]
-    While,
-    #[token("for")]
-    For,
-    #[token("loop")]
-    Loop,
-    #[token("switch")]
-    Switch,
-    #[token("case")]
-    Case,
-    #[token("default")]
-    Default,
-    #[token("break")]
-    Break,
-    #[token("continue")]
-    Continue,
-    #[token("return")]
-    Return,
-    #[token("fn")]
-    Function,
-
-    // Scope
-    #[token("{")]
-    LBrace,
-    #[token("}")]
-    RBrace,
-    #[token("[")]
-    OpenBracket,
-    #[token("]")]
-    CloseBracket,
-    #[token("(")]
-    LParen,
-    #[token(")")]
-    RParen,
-    #[token(";")]
-    Semicolon,
-    #[token(",")]
-    Comma,
-
-    // Logic
-    #[token("=!")]
-    EqualsBang,
-    #[token("=?")]
-    EqualsQ,
-    #[token("=:")]
-    ColonEq,
-    #[token("==")]
-    Equality,
-    #[token("=")]
-    Equals,
-    #[token("!")]
-    Not,
-    #[token("&")]
-    Ampersand,
-    #[token(":")]
-    Colon,
-
-    // Arithmetic
-    #[token("%")]
-    Modulo,
     #[token("+")]
     Plus,
     #[token("-")]
     Minus,
-    #[token("*")]
-    Star,
     #[token("/")]
     Slash,
     #[token(">")]
@@ -299,13 +204,8 @@ pub enum Token {
     #[token("<")]
     LessThan,
 
-    // Patterns
-    #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
-    Number(f64),
-    #[regex(r#""[^"]*""#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
-    String(String),
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
-    Ident(String),
-    Error,
-    EOF,
+    #[token("*")]
+    Star,
+    #[token("%")]
+    Modulo,
 }

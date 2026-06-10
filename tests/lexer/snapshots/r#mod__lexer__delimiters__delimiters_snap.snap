@@ -1,0 +1,15 @@
+---
+source: tests/lexer/delimiters.rs
+expression: tokens
+---
+[
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
+    Comma,
+    Semicolon,
+    EOF,
+]

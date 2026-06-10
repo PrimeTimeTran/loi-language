@@ -14,4 +14,8 @@ cargo watch -x 'nextest run --no-fail-fast --test-threads 1'
 
 # Run only these tests...
 cargo watch -x 'nextest run --test registry --test file_meta --no-fail-fast'
+
+
+# Only specific group of tests
+cargo nextest run --filter-expr 'test(lexer::)'
 ```

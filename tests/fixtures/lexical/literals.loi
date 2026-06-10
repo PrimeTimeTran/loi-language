@@ -1,0 +1,4 @@
+# TEST: Tokenization of data literals
+# Purpose: Verify Lexer distinguishes between numeric constants, 
+# boolean types, and string constants.
+123 45.67 "string_literal" true false

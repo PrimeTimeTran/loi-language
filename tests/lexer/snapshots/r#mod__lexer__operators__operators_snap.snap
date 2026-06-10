@@ -1,0 +1,21 @@
+---
+source: tests/lexer/operators.rs
+expression: tokens
+---
+[
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    BooleanEquality,
+    NotEqual,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+    BooleanAnd,
+    BooleanOr,
+    Not,
+    Equals,
+    EOF,
+]

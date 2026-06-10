@@ -1,0 +1,21 @@
+---
+source: tests/lexer/single_line.rs
+expression: tokens
+---
+[
+    Ident(
+        "x",
+    ),
+    Equals,
+    Number(
+        10.0,
+    ),
+    Ident(
+        "y",
+    ),
+    Equals,
+    Number(
+        20.0,
+    ),
+    EOF,
+]

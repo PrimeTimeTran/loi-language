@@ -34,7 +34,7 @@ pub enum Token {
     #[token("match")]
     Match,
     #[token("pipe")]
-    Pipe,
+    Pipeline,
     #[token("fn")]
     Function,
     #[token("yield")]
@@ -104,9 +104,9 @@ pub enum Token {
     #[token("}")]
     RBrace,
     #[token("[")]
-    OpenBracket,
+    LBracket,
     #[token("]")]
-    CloseBracket,
+    RBracket,
     #[token("(")]
     LParen,
     #[token(")")]
@@ -115,34 +115,40 @@ pub enum Token {
     Semicolon,
     #[token(",")]
     Comma,
+    #[token("==")]
+    BooleanEquality,
+    #[token("&&")]
+    BooleanAnd,
+    #[token("||")]
+    BooleanOr,
     #[token("!=")]
     NotEqual,
-    #[token("==")]
-    Equality,
     #[token("!")]
     Not,
     #[token("&")]
     Ampersand,
     #[token(":")]
     Colon,
+    #[token("|")]
+    Pipe,
     #[token("+=")]
     Increment,
-    #[token("+")]
-    Plus,
     #[token("-=")]
     Decrement,
-    #[token("-")]
-    Minus,
     #[token("//")]
     Floor,
-    #[token("/")]
-    Slash,
     #[token(">=")]
     GreaterThanOrEqual,
-    #[token(">")]
-    GreaterThan,
     #[token("<=")]
     LessThanOrEqual,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("/")]
+    Slash,
+    #[token(">")]
+    GreaterThan,
     #[token("<")]
     LessThan,
     #[token("*")]
