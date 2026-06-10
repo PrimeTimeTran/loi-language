@@ -143,7 +143,7 @@ impl SymbolRegistry {
         for stack in &registry.stacks {
             if let Some(cap) = stack.active_file.utter.as_ref() {
                 if let Some(engine) = engines.get(cap) {
-                    self.build_step(stack, engine.as_ref());
+                    self.build_incremental(stack, engine.as_ref());
                 }
             }
         }
@@ -182,5 +182,22 @@ impl SymbolRegistry {
             }
         }
         self.warnings.clone()
+    }
+
+    pub fn add_symbols(&mut self, symbols: Vec<Symbol>, source_file: &str) {
+        for symbol in symbols {
+            let id = SymbolId {
+                name: symbol.name.clone(),
+                origin: symbol.origin.clone(),
+            };
+
+            if self.table.contains_key(&id) {
+                self.warnings.push(format!(
+                    "Warning: Symbol '{}' in {} redefined",
+                    symbol.name, source_file
+                ));
+            }
+            self.table.insert(id, symbol);
+        }
     }
 }

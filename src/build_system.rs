@@ -30,19 +30,18 @@ impl BuildSystem {
         let registry = Registry::scan(&dir_root);
         let utters = UtterRegistry::new();
 
-        let config = BundleManifest {
+        let manifest = BundleManifest {
             dir_root: dir_root.clone(),
             dir_out: dir_out.clone(),
             strip_namespace: false,
-            strip_tag: true,
-            strip_utter: true,
-            strip_variant: true,
-            strip_version: true,
+            strip_tag: false,
+            strip_utter: false,
+            strip_variant: false,
+            strip_version: false,
             minify: true,
             remove_comments: true,
         };
-
-        let bundle_service = BundleService::new(registry.clone(), utters.clone(), config);
+        let bundle_service = BundleService::new(registry.clone(), manifest, utters.clone());
 
         Self {
             context: BuildContext {
