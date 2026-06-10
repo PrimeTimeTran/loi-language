@@ -47,6 +47,37 @@ pub enum IR {
     },
 }
 
+use std::fmt;
+
+impl fmt::Display for IR {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IR::Raw(content) => write!(f, "{}", content),
+            IR::Structured {
+                body,
+                symbols,
+                metadata,
+            } => {
+                // Example of how to flatten structured IR into a string
+                // You can customize this format based on your needs
+                writeln!(f, "--- Metadata ---")?;
+                for (k, v) in metadata {
+                    writeln!(f, "{}: {}", k, v)?;
+                }
+                writeln!(f, "--- Symbols ---")?;
+                for name in symbols.keys() {
+                    writeln!(f, "Export: {}", name)?;
+                }
+                writeln!(f, "--- Body ---")?;
+                for op in body {
+                    writeln!(f, "{:?}", op)?; // Assumes IROp implements Debug
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl IR {
     pub fn new() -> Self {
         IR::Structured {

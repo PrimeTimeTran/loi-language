@@ -25,6 +25,9 @@ pub trait Utter: DynClone {
     fn equals(&self, other: &dyn Utter) -> bool {
         self.name() == other.name()
     }
+    fn optimize(&self, content: String, minify: bool, remove_comments: bool) -> String {
+        content
+    }
 }
 
 dyn_clone::clone_trait_object!(Utter);
@@ -110,6 +113,24 @@ impl Utter for GenericUtter {
         }
         symbols
     }
+    // fn optimize(&self, content: String, minify: bool, remove_comments: bool) -> String {
+    //     let mut processed = content;
+
+    //     if remove_comments {
+    //         processed = match self.name() {
+    //             "js_engine" | "ts_engine" | "css_engine" => self.strip_c_style_comments(processed),
+    //             "html_engine" => self.strip_html_comments(processed),
+    //             "loi_engine" => self.strip_loi_comments(processed),
+    //             _ => processed,
+    //         };
+    //     }
+
+    //     if minify {
+    //         processed = self.minify_whitespace(processed);
+    //     }
+
+    //     processed
+    // }
 }
 
 pub fn get_language_definitions() -> Vec<GenericUtter> {

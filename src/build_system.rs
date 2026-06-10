@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Instant};
 
 use crate::{
     backend::{
-        bundle::service::{BundleConfig, BundleService},
+        bundle::service::{BundleConfig, BundleManifest, BundleService},
         utter::registry::UtterRegistry,
     },
     registry::registry::Registry,
@@ -30,9 +30,16 @@ impl BuildSystem {
         let registry = Registry::scan(&dir_root);
         let utters = UtterRegistry::new();
 
-        let config = BundleConfig {
+        let config = BundleManifest {
             dir_root: dir_root.clone(),
             dir_out: dir_out.clone(),
+            strip_namespace: false,
+            strip_tag: true,
+            strip_utter: true,
+            strip_variant: true,
+            strip_version: true,
+            minify: true,
+            remove_comments: true,
         };
 
         let bundle_service = BundleService::new(registry.clone(), utters.clone(), config);
