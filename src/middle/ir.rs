@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-// use inkwell::object_file::Symbol;
 use serde::Serialize;
 
 use frontend::ast::Expr;
@@ -43,7 +42,6 @@ pub enum IR {
     Raw(String),
     Structured {
         body: Vec<IROp>,
-        // Now using your custom Symbol struct
         symbols: HashMap<String, Symbol>,
         metadata: HashMap<String, String>,
     },
@@ -72,66 +70,7 @@ impl IR {
 }
 
 #[derive(Debug, Clone)]
-pub enum IROp {
-    Module {
-        body: Vec<IROp>,
-    },
-
-    // VARIABLES
-    Declare {
-        name: String,
-        value: TypedExpr,
-        mutable: bool,
-        dynamic: bool,
-    },
-    Assign {
-        name: String,
-        value: TypedExpr,
-    },
-    Load {
-        name: String,
-    },
-
-    // EXPRESSIONS
-    ExprStmt {
-        expr: TypedExpr,
-    },
-
-    // I/O
-    Print {
-        value: TypedExpr,
-    },
-
-    // CONTROL FLOW
-    If {
-        condition: TypedExpr,
-        then_branch: Vec<IROp>,
-        else_branch: Vec<IROp>,
-    },
-    While {
-        condition: TypedExpr,
-        body: Vec<IROp>,
-    },
-    Block {
-        body: Vec<IROp>,
-    },
-
-    // FUNCTIONS
-    Function {
-        name: String,
-        params: Vec<(String, Type)>,
-        body: Vec<IROp>,
-        return_type: Type,
-    },
-    Call {
-        name: String,
-        args: Vec<TypedExpr>,
-    },
-    Return {
-        value: Option<TypedExpr>,
-    },
-
-    // LOW-LEVEL / LLVM-ISH
+pub enum LoweredOp {
     Binary {
         target: String,
         left: String,
@@ -148,6 +87,74 @@ pub enum IROp {
         condition: String,
         label: String,
     },
-
     Nop,
+}
+
+#[derive(Debug, Clone)]
+pub enum IROp {
+    // --- Program Structure ---
+    Module {
+        body: Vec<IROp>,
+    },
+    Function {
+        name: String,
+        params: Vec<(String, Type)>,
+        body: Vec<IROp>,
+        return_type: Type,
+    },
+    Block {
+        body: Vec<IROp>,
+    },
+
+    // --- High-Level Logic ---
+    Declare {
+        name: String,
+        value: TypedExpr,
+        mutable: bool,
+        dynamic: bool,
+    },
+    Assign {
+        name: String,
+        value: TypedExpr,
+    },
+    Load {
+        name: String,
+    },
+    ExprStmt {
+        expr: TypedExpr,
+    },
+
+    // --- Control Flow & I/O ---
+    If {
+        condition: TypedExpr,
+        then_branch: Vec<IROp>,
+        else_branch: Vec<IROp>,
+    },
+    While {
+        condition: TypedExpr,
+        body: Vec<IROp>,
+    },
+    Return {
+        value: Option<TypedExpr>,
+    },
+    Call {
+        name: String,
+        args: Vec<TypedExpr>,
+    },
+    Print {
+        value: TypedExpr,
+    },
+    ExternalCall {
+        namespace: String,
+        function: String,
+        args: Vec<TypedExpr>,
+    },
+
+    ModuleScope {
+        name: String,
+        body: Vec<IROp>,
+    },
+
+    // --- The Bridge: Lowered Instructions ---
+    Lowered(LoweredOp),
 }

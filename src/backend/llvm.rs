@@ -1,16 +1,14 @@
-use crate::backend::compile;
-use crate::frontend::ast::{BinOp, Expr};
-use crate::middle::ir::{IROp, TypedExpr};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FloatType;
+use inkwell::values::FloatValue;
 use inkwell::values::{FunctionValue, IntValue};
 use inkwell::{builder::Builder, values::PointerValue};
 use std::collections::HashMap;
 
-use crate::middle::ir::{IR, Type};
-
-use inkwell::values::FloatValue;
+use crate::backend::compile;
+use crate::frontend::ast::{BinOp, Expr};
+use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
 
 enum LLVMValue<'ctx> {
     Float(FloatValue<'ctx>),
@@ -109,6 +107,23 @@ pub fn setup_module<'ctx>(
 
     (main_fn, format_str, printf_fn, zero)
 }
+
+// Helper to load a variable from the environment
+fn load_var<'ctx>(
+    context: &'ctx Context,
+    builder: &Builder<'ctx>,
+    env: &HashMap<String, PointerValue<'ctx>>,
+    name: &str,
+) -> FloatValue<'ctx> {
+    let ptr = *env
+        .get(name)
+        .unwrap_or_else(|| panic!("undefined variable: {}", name));
+    builder
+        .build_load(context.f64_type(), ptr, name)
+        .unwrap()
+        .into_float_value()
+}
+
 fn lower_ir<'ctx>(
     context: &'ctx Context,
     module: &Module<'ctx>,
@@ -120,68 +135,86 @@ fn lower_ir<'ctx>(
     env: &mut std::collections::HashMap<String, inkwell::values::PointerValue<'ctx>>,
 ) -> Result<(), String> {
     match ir {
+        // --- BRIDGE: Handle Lowered Operations ---
+        IROp::Lowered(lowered) => match lowered {
+            LoweredOp::Binary {
+                target,
+                left,
+                op,
+                right,
+            } => {
+                let lhs = load_var(context, builder, env, &left);
+                let rhs = load_var(context, builder, env, &right);
+
+                // 1. Perform the operation as a statement (no semicolon needed here for result)
+                let res = match op {
+                    Op::Add => builder.build_float_add(lhs, rhs, &target).unwrap(),
+                    Op::Sub => builder.build_float_sub(lhs, rhs, &target).unwrap(),
+                    Op::Mul => builder.build_float_mul(lhs, rhs, &target).unwrap(),
+                    Op::Div => builder.build_float_div(lhs, rhs, &target).unwrap(),
+                    Op::Cmp => {
+                        let cmp = builder
+                            .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, &target)
+                            .unwrap();
+                        builder
+                            .build_unsigned_int_to_float(cmp, context.f64_type(), "cmp_res")
+                            .unwrap()
+                    }
+                };
+
+                // 2. Perform the side effects as statements
+                let ptr = builder.build_alloca(context.f64_type(), &target).unwrap();
+                builder.build_store(ptr, res).unwrap();
+                env.insert(target, ptr);
+
+                // 3. Explicitly return Ok(())
+                Ok(())
+            }
+            LoweredOp::Move { target, source } => {
+                let val = load_var(context, builder, env, &source);
+                let ptr = builder.build_alloca(context.f64_type(), &target).unwrap();
+                builder.build_store(ptr, val).unwrap();
+                env.insert(target, ptr);
+                Ok(())
+            }
+            _ => Ok(()), // Implement Jump/Label/Nop as needed
+        },
+
+        // --- HIGH LEVEL OPERATIONS ---
         IROp::Assign { name, value } => {
             let TypedExpr(expr, ty) = value;
-
             let ptr = builder.build_alloca(context.f64_type(), &name).unwrap();
-
             let val = codegen_expr(&expr, &ty, context, builder, env);
-
             builder.build_store(ptr, val).unwrap();
-
             env.insert(name.clone(), ptr);
-
             Ok(())
         }
-        // -----------------------------
-        // MODULE
-        // -----------------------------
         IROp::Module { body } => {
             for stmt in body.iter().cloned() {
                 lower_ir(context, module, builder, stmt, fmt, printf_fn, zero, env)?;
             }
-
             Ok(())
         }
-
-        // -----------------------------
-        // PRINT
-        // -----------------------------
         IROp::Print { value } => {
             let TypedExpr(expr, ty) = value;
-
             let llvm_val = codegen_expr(&expr, &ty, context, builder, env);
-
             builder
                 .build_call(printf_fn, &[fmt.into(), llvm_val.into()], "printf_call")
                 .unwrap();
-
             Ok(())
         }
-        // -----------------------------
-        // RETURN
-        // -----------------------------
         IROp::Return { .. } => {
             builder.build_return(Some(&zero));
             Ok(())
         }
-
         IROp::Declare { name, value, .. } => {
             let ptr = builder.build_alloca(context.f64_type(), &name).unwrap();
             let TypedExpr(expr, ty) = value;
-
             let val = codegen_expr(&expr, &Type::F64, context, builder, env);
-
             builder.build_store(ptr, val).unwrap();
-
             env.insert(name.clone(), ptr);
-
             Ok(())
         }
-
-        // -----------------------------
-        // FALLBACK
-        // -----------------------------
         _ => Ok(()),
     }
 }

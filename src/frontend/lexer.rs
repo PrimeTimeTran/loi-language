@@ -29,92 +29,48 @@ fn lex_number(chars: &mut std::iter::Peekable<std::str::Chars>) -> Result<f64, S
 
 pub fn lex(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();
-    let mut chars = input.chars().peekable();
+    // Create one lexer instance for the whole input
+    let mut lexer = Token::lexer(input);
 
-    while let Some(&c) = chars.peek() {
-        match c {
-            '#' => {
-                chars.next();
-
-                // skip until end of line
-                while let Some(ch) = chars.next() {
-                    if ch == '\n' {
-                        break;
-                    }
-                }
-            }
-            'a'..='z' | 'A'..='Z' | '_' => {
-                let mut ident = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch.is_ascii_alphanumeric() || ch == '_' {
-                        ident.push(ch);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                let token = match ident.as_str() {
-                    "print" => Token::Print,
-                    _ => Token::Ident(ident),
-                };
+    // We iterate through the lexer directly.
+    // Logos tracks its own position, so we don't need `char_indices`.
+    while let Some(result) = lexer.next() {
+        match result {
+            Ok(token) => {
                 tokens.push(token);
             }
-            '0'..='9' => {
-                let num = lex_number(&mut chars)?;
-                tokens.push(Token::Number(num));
-            }
-            '+' => {
-                chars.next();
-                tokens.push(Token::Plus);
-            }
-            '-' => {
-                chars.next();
-                tokens.push(Token::Minus);
-            }
-            '*' => {
-                chars.next();
-                tokens.push(Token::Star);
-            }
-            '/' => {
-                chars.next();
-                tokens.push(Token::Slash);
-            }
-            '=' => {
-                chars.next();
-
-                match chars.peek() {
-                    Some('!') => {
-                        chars.next();
-                        tokens.push(Token::EqualsBang);
+            Err(_) => {
+                let span = lexer.span();
+                // Check for your custom comment start: "` "
+                let slice = &input[span.start..];
+                if slice.starts_with("` ") {
+                    // Manually advance the lexer state to the end of the comment
+                    if let Some(end_idx) = find_comment_end(&input[span.start..]) {
+                        // Advance the lexer by the length of the comment
+                        lexer.bump(end_idx);
+                        continue;
+                    } else {
+                        return Err("Unterminated multi-line comment".into());
                     }
-                    Some('?') => {
-                        chars.next();
-                        tokens.push(Token::EqualsQ);
-                    }
-                    Some('=') => return Err("Unsupported ==".to_owned()),
-                    _ => tokens.push(Token::Equals),
                 }
+                return Err(format!("Lexer error at range {:?}", span));
             }
-            ';' => {
-                chars.next();
-                tokens.push(Token::Semicolon);
-            }
-            '(' => {
-                chars.next();
-                tokens.push(Token::LParen);
-            }
-            ')' => {
-                chars.next();
-                tokens.push(Token::RParen);
-            }
-            ' ' | '\n' | '\t' => {
-                chars.next();
-            }
-            _ => return Err(format!("Unknown character: {}", c)),
         }
     }
 
     tokens.push(Token::EOF);
-
     Ok(tokens)
+}
+
+// Helper to find your specific end-of-comment marker
+fn find_comment_end(input: &str) -> Option<usize> {
+    // Look for "\n`" where ` is followed by newline or EOF
+    let marker = "\n`";
+    if let Some(pos) = input.find(marker) {
+        let after = pos + marker.len();
+        if after == input.len() || input.as_bytes()[after] == b'\n' {
+            return Some(after);
+        }
+    }
+    None
 }
