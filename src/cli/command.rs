@@ -61,10 +61,10 @@ pub enum Command {
     CapabilityMap,
     #[strum(serialize = "diff")]
     Diff(String, String),
-    #[strum(serialize = "build")]
+    #[strum(serialize = "build-target")]
     Build(BuildTarget),
 
-    #[strum(serialize = "build-all")]
+    #[strum(serialize = "build")]
     BuildAll(BuildAllArgs),
 
     #[strum(serialize = "view")]
@@ -124,9 +124,16 @@ impl Command {
                 weight: 5,
             },
             Command::BuildAll(_) => CommandMeta {
-                label: "build-all",
-                alias: Some("b-all"),
+                label: "build",
+                alias: Some("b -a"),
                 description: "Compile project",
+                hidden: false,
+                weight: 100,
+            },
+            Command::Build(_) => CommandMeta {
+                label: "build-target",
+                alias: Some("b -t"),
+                description: "Compile component",
                 hidden: false,
                 weight: 100,
             },
@@ -165,13 +172,7 @@ impl Command {
                 hidden: false,
                 weight: 30,
             },
-            Command::Build(_) => CommandMeta {
-                label: "build",
-                alias: Some("b"),
-                description: "Compile component",
-                hidden: false,
-                weight: 100,
-            },
+
             Command::View(_) => CommandMeta {
                 label: "view",
                 alias: Some("v"),
@@ -247,10 +248,11 @@ impl Command {
     pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
         match cmd {
             "mode" => arg.map(|a| Command::Mode(a.to_string())),
-            "build-all" => {
+            "build" => {
                 let input = arg.unwrap_or("");
                 Some(Command::BuildAll(Self::parse_build_all(input)))
             }
+            "build-target" => arg.map(|a| Command::Build(Self::parse_build(a))),
 
             "ls" => Some(Command::List(ListFilter::Active)),
             "ls-all" => Some(Command::List(ListFilter::All)),
@@ -260,7 +262,6 @@ impl Command {
             "clear" => Some(Command::Clear),
             "help" => Some(Command::Help),
             "exit" | "quit" => Some(Command::Exit),
-            "build" => arg.map(|a| Command::Build(Self::parse_build(a))),
 
             "view" => arg.map(|a| Command::View(a.to_string())),
             "history" => Some(Command::History(arg.map(|a| a.to_string()))),

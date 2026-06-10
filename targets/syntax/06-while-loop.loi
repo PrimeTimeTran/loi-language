@@ -1,3 +1,25 @@
 while x < 10 {
     x = x + 1
 }
+
+loop {
+    print "loop"
+
+    if done {
+        break
+    }
+
+    continue
+}
+
+do {
+    print "do"
+} until finished
+
+for item in items {
+    print item
+}
+
+for value of collection {
+    print value
+}

@@ -3,32 +3,8 @@ use logos::Logos;
 #[logos(skip r"[ \t\n\f\r]+")]
 #[logos(skip r"#[^\n]\*")]
 pub enum Token {
-    #[token("print")]
-    Print,
-    #[token("if")]
-    If,
-    #[token("else")]
-    Else,
-    #[token("while")]
-    While,
-    #[token("for")]
-    For,
-    #[token("loop")]
-    Loop,
-    #[token("switch")]
-    Switch,
-    #[token("case")]
-    Case,
-    #[token("default")]
-    Default,
-    #[token("break")]
-    Break,
-    #[token("continue")]
-    Continue,
-    #[token("return")]
-    Return,
-    #[token("fn")]
-    Function,
+    #[token("dep")]
+    Dependency,
     #[token("pkg")]
     Package,
     #[token("mod")]
@@ -37,6 +13,90 @@ pub enum Token {
     Public,
     #[token("priv")]
     Private,
+    #[token("print")]
+    Print,
+    #[token("if")]
+    If,
+    #[token("elif")]
+    ElseIf,
+    #[token("else")]
+    Else,
+    #[token("unless")]
+    Unless,
+    #[token("switch")]
+    Switch,
+    #[token("case")]
+    Case,
+    #[token("default")]
+    Default,
+    #[token("match")]
+    Match,
+    #[token("pipe")]
+    Pipe,
+    #[token("fn")]
+    Function,
+    #[token("yield")]
+    Yield,
+    #[token("next")]
+    Next,
+    #[token("return")]
+    Return,
+    #[token("Do")]
+    Do,
+    #[token("loop")]
+    Loop,
+    #[token("until")]
+    Until,
+    #[token("while")]
+    While,
+    #[token("for")]
+    For,
+    #[token("of")]
+    Of,
+    #[token("in")]
+    In,
+    #[token("break")]
+    Break,
+    #[token("continue")]
+    Continue,
+    #[token("is")]
+    Is,
+    #[token("or")]
+    Or,
+    #[token("and")]
+    And,
+    #[token("assert")]
+    Assert,
+    #[token("try")]
+    Try,
+    #[token("catch")]
+    Catch,
+    #[token("finally")]
+    Finally,
+    #[token("throw")]
+    Throw,
+    #[token("enum")]
+    Enum,
+    #[token("struct")]
+    Struct,
+    #[token("trait")]
+    Trait,
+    #[token("impl")]
+    Impl,
+    #[token("as")]
+    As,
+    #[token("=!")]
+    EqualsBang,
+    #[token("=?")]
+    EqualsQ,
+    #[token("=:")]
+    EqualsColon,
+    #[token("=")]
+    Equals,
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
     #[token("{")]
     LBrace,
     #[token("}")]
@@ -53,12 +113,8 @@ pub enum Token {
     Semicolon,
     #[token(",")]
     Comma,
-    #[token("=!")]
-    EqualsBang,
-    #[token("=?")]
-    EqualsQ,
-    #[token("=:")]
-    Equals,
+    #[token("!=")]
+    NotEqual,
     #[token("==")]
     Equality,
     #[token("!")]
@@ -67,22 +123,30 @@ pub enum Token {
     Ampersand,
     #[token(":")]
     Colon,
-    #[token("=")]
-    ColonEq,
-    #[token("%")]
-    Modulo,
+    #[token("+=")]
+    Increment,
     #[token("+")]
     Plus,
+    #[token("-=")]
+    Decrement,
     #[token("-")]
     Minus,
-    #[token("*")]
-    Star,
+    #[token("//")]
+    Floor,
     #[token("/")]
     Slash,
+    #[token(">=")]
+    GreaterThanOrEqual,
     #[token(">")]
     GreaterThan,
+    #[token("<=")]
+    LessThanOrEqual,
     #[token("<")]
     LessThan,
+    #[token("*")]
+    Star,
+    #[token("%")]
+    Modulo,
 
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),

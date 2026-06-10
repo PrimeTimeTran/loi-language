@@ -5,7 +5,15 @@ use quote::quote;
 use std::process::Command;
 use syn::{File, Item, Variant, parse_file};
 
-const GROUPS: &[&str] = &["Keyword", "KeywordScope", "Scope", "Logic", "Arithmetic"];
+const GROUPS: &[&str] = &[
+    "KeywordScope",
+    "Keyword",
+    "Declarations",
+    "LogicWord",
+    "Scope",
+    "Logic",
+    "Arithmetic",
+];
 
 fn main() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

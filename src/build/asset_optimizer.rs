@@ -27,7 +27,7 @@ impl AssetOptimizer {
     pub fn optimize(&self, ir: IR, ext: &str) -> IR {
         match ir {
             IR::Raw(content) => {
-                let mut optimized = content;
+                let mut optimized: String = content;
                 if self.remove_comments {
                     optimized = self.strip_comments(&optimized, ext);
                 }
@@ -36,7 +36,6 @@ impl AssetOptimizer {
                 }
                 IR::Raw(optimized)
             }
-            // Return complex IR as-is
             ir => ir,
         }
     }

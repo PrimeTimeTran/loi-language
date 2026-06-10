@@ -57,13 +57,11 @@ where
                 _ => Err("Expected ')'".into()),
             }
         }
-        // Some(Token::Number(n)) => Ok(Expr::Number(n)),
+
         Some(Token::Number(n)) => Ok(Expr::Number(n)),
-
+        Some(Token::String(s)) => Ok(Expr::String(s)),
         Some(Token::Ident(name)) => Ok(Expr::Var(name)),
-
         Some(other) => Err(format!("Unexpected token: {:?}", other)),
-
         None => Err("Unexpected EOF".into()),
     }
 }
@@ -124,7 +122,7 @@ fn parse_expr<I>(tokens: &mut std::iter::Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    parse_term(tokens)
+    parse_comparison(tokens)
 }
 fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
@@ -174,6 +172,35 @@ where
         }
     }
 }
+fn parse_comparison<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let mut left = parse_term(tokens)?;
+
+    loop {
+        let op = match tokens.peek() {
+            Some(Token::Equality) => BinOp::Eq,
+            Some(Token::NotEqual) => BinOp::Neq,
+            Some(Token::LessThan) => BinOp::Lt,
+            Some(Token::GreaterThan) => BinOp::Gt,
+            _ => break,
+        };
+
+        tokens.next();
+
+        let right = parse_term(tokens)?;
+
+        left = Expr::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        };
+    }
+
+    Ok(left)
+}
+
 #[test]
 fn parse_simple_program() {
     let tokens = lex("x = 1 + 2;").unwrap();
