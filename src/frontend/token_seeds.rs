@@ -3,9 +3,18 @@
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
-pub enum Comments {
-    #[regex(r"#[^\n]*", logos::skip)]
-    Comment,
+pub enum Meta {
+    #[token("#", lex_line_note)]
+    LineNote,
+
+    #[token("`>", lex_block_note)]
+    BlockNote,
+
+    #[token("@{", lex_raw_block)]
+    RawStart,
+
+    #[token("}@")]
+    RawEnd,
 }
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum KeywordScope {

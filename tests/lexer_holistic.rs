@@ -4,14 +4,14 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 
 #[test]
-fn lex_number() {
+fn number() {
     let tokens = lex("123").unwrap();
 
     assert_eq!(tokens, vec![Token::Number(123.0), Token::EOF]);
 }
 
 #[test]
-fn lex_basic_math() {
+fn basic_math() {
     let tokens = lex("1 + 2").unwrap();
     assert_eq!(
         tokens,
@@ -25,7 +25,7 @@ fn lex_basic_math() {
 }
 
 #[test]
-fn lex_subtraction_multiplication_division() {
+fn subtraction_multiplication_division() {
     let tokens = lex("10 - 2 * 3 / 4").unwrap();
 
     assert_eq!(
@@ -44,7 +44,7 @@ fn lex_subtraction_multiplication_division() {
 }
 
 #[test]
-fn lex_parentheses() {
+fn parentheses() {
     let tokens = lex("(1 + 2) * 3").unwrap();
 
     assert_eq!(
@@ -63,7 +63,7 @@ fn lex_parentheses() {
 }
 
 #[test]
-fn lex_nested_parentheses() {
+fn nested_parentheses() {
     let tokens = lex("((1 + 2) * (3 + 4))").unwrap();
 
     assert_eq!(
@@ -88,7 +88,7 @@ fn lex_nested_parentheses() {
 }
 
 #[test]
-fn lex_whitespace_heavy_input() {
+fn whitespace_heavy_input() {
     let tokens = lex("   1    +     2   *   3   ").unwrap();
 
     assert_eq!(
@@ -105,7 +105,7 @@ fn lex_whitespace_heavy_input() {
 }
 
 #[test]
-fn lex_multiple_digits() {
+fn multiple_digits() {
     let tokens = lex("123 + 4567").unwrap();
 
     assert_eq!(
@@ -120,7 +120,7 @@ fn lex_multiple_digits() {
 }
 
 #[test]
-fn lex_complex_expression() {
+fn complex_expression() {
     let tokens = lex("(1 + 2) * (3 - 4) / 5 + 6").unwrap();
 
     assert_eq!(
@@ -147,21 +147,21 @@ fn lex_complex_expression() {
 }
 
 #[test]
-fn lex_empty_input() {
+fn empty_input() {
     let tokens = lex("").unwrap();
 
     assert_eq!(tokens, vec![Token::EOF]);
 }
 
 #[test]
-fn lex_negative_number() {
+fn negative_number() {
     let tokens = lex("-123").unwrap();
 
     assert_eq!(tokens, vec![Token::Minus, Token::Number(123.0), Token::EOF]);
 }
 
 #[test]
-fn lex_float_number() {
+fn float_number() {
     let tokens = lex("3.14 + 2.0").unwrap();
 
     assert_eq!(
@@ -176,7 +176,7 @@ fn lex_float_number() {
 }
 
 #[test]
-fn lex_invalid_character() {
+fn invalid_character() {
     let result = lex("1 + @");
 
     assert!(result.is_err());

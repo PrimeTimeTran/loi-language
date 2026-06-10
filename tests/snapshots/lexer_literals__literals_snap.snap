@@ -1,5 +1,5 @@
 ---
-source: tests/lexer/literals.rs
+source: tests/lexer_literals.rs
 expression: tokens
 ---
 [

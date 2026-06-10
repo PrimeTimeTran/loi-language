@@ -1,5 +1,5 @@
 ---
-source: tests/lexer/single_line.rs
+source: tests/lexer_single_line.rs
 expression: tokens
 ---
 [

@@ -1,5 +1,5 @@
 ---
-source: tests/lexer/operators.rs
+source: tests/lexer_operators.rs
 expression: tokens
 ---
 [

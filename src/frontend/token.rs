@@ -1,10 +1,71 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
+fn lex_line_note(lex: &mut Lexer<Token>) -> logos::Filter<()> {
+    let remainder = lex.remainder();
+    // Find the end of the line
+    let len = remainder.find('\n').unwrap_or(remainder.len());
+    lex.bump(len);
+    logos::Filter::Skip
+}
+
+fn lex_block_note(lex: &mut Lexer<Token>) -> logos::Filter<()> {
+    // We are currently at the start of `>
+    // We need to look for <`
+    let remainder = lex.remainder();
+    if let Some(end) = remainder.find("<`") {
+        lex.bump(end + 2); // Advance past the end sequence
+        logos::Filter::Skip
+    } else {
+        // Handle EOF or Unterminated comment error here
+        logos::Filter::Skip
+    }
+}
+
+fn lex_raw_block(lex: &mut Lexer<Token>) -> logos::Filter<()> {
+    let mut depth = 1;
+    let mut cursor = 0;
+    let remainder = lex.remainder();
+
+    while depth > 0 {
+        // Look for the next occurrence of our start or end tokens
+        let next_start = remainder[cursor..].find("@{");
+        let next_end = remainder[cursor..].find("}@");
+
+        match (next_start, next_end) {
+            (Some(s), Some(e)) if s < e => {
+                depth += 1;
+                cursor += s + 2;
+            }
+            (None, Some(e)) => {
+                depth -= 1;
+                cursor += e + 2;
+            }
+            (Some(_), None) => {
+                depth += 1;
+                cursor += next_start.unwrap() + 2;
+            }
+            _ => {
+                // Error: Unterminated block reached EOF
+                break;
+            }
+        }
+    }
+
+    lex.bump(cursor);
+    logos::Filter::Skip
+}
+
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\n\f\r]+")]
 #[logos(skip r"#[^\n]\*")]
 pub enum Token {
-    #[regex(r"#[^\n]*", logos::skip)]
-    Comment,
+    #[token("#", lex_line_note)]
+    LineNote,
+    #[token("`>", lex_block_note)]
+    BlockNote,
+    #[token("@{", lex_raw_block)]
+    RawStart,
+    #[token("}@")]
+    RawEnd,
     #[token("dep")]
     Dependency,
     #[token("pkg")]

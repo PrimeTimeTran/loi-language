@@ -39,15 +39,33 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
             Ok(token) => {
                 tokens.push(token);
             }
+            // Err(_) => {
+            //     let span = lexer.span();
+            //     // Check for your custom comment start: "` "
+            //     let slice = &input[span.start..];
+            //     if slice.starts_with("` ") {
+            //         // Manually advance the lexer state to the end of the comment
+            //         if let Some(end_idx) = find_comment_end(&input[span.start..]) {
+            //             // Advance the lexer by the length of the comment
+            //             lexer.bump(end_idx);
+            //             continue;
+            //         } else {
+            //             return Err("Unterminated multi-line comment".into());
+            //         }
+            //     }
+            //     return Err(format!("Lexer error at range {:?}", span));
+            // }
             Err(_) => {
                 let span = lexer.span();
-                // Check for your custom comment start: "` "
                 let slice = &input[span.start..];
-                if slice.starts_with("` ") {
-                    // Manually advance the lexer state to the end of the comment
-                    if let Some(end_idx) = find_comment_end(&input[span.start..]) {
+
+                // Check for your custom asymmetric marker: `>
+                if slice.starts_with("`>") {
+                    // Find the matching <`
+                    if let Some(end_idx) = slice.find("<`") {
                         // Advance the lexer by the length of the comment
-                        lexer.bump(end_idx);
+                        // end_idx + 2 skips the <` sequence
+                        lexer.bump(end_idx + 2);
                         continue;
                     } else {
                         return Err("Unterminated multi-line comment".into());

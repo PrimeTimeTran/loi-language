@@ -1,20 +1,10 @@
-# Basic block comment test
-`
-This is a multiline comment.
-It can contain symbols like !=234234!~
-without triggering errors.
-`
+# Standard code
+const x = 10
 
-# Interleaved comment and code
-x = 10
-`
-Comment block
-spanning multiple lines
-`
-y = 20
+`> 
+    This is a multi-line block comment.
+    It can contain anything, even operators like + - * / 
+    or symbols like @{ }@ without breaking.
+<`
 
-# Edge case: Block comment at start of file
-`
-header documentation
-`
-z = 30 
+const y = 20

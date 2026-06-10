@@ -1,5 +1,5 @@
 ---
-source: tests/lexer/delimiters.rs
+source: tests/lexer_delimiters.rs
 expression: tokens
 ---
 [
