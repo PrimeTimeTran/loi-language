@@ -94,63 +94,27 @@ fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
     I: Iterator<Item = Token>,
 {
-    match tokens.peek().cloned() {
+    match tokens.peek() {
         Some(Token::If) => parse_if(tokens),
         Some(Token::While) => parse_while(tokens),
         Some(Token::Do) => parse_do_while(tokens),
         Some(Token::Return) => parse_return(tokens),
         Some(Token::Function) => parse_function(tokens),
+        Some(Token::LBrace) => {
+            let body = parse_block(tokens)?;
+            Ok(Stmt::Block { body })
+        }
         Some(Token::Print) => {
             tokens.next();
-            let expr = parse_expr(tokens)?;
-            Ok(Stmt::Print { expr })
+            Ok(Stmt::Print {
+                expr: parse_expr(tokens)?,
+            })
         }
-        Some(Token::Ident(_)) => {
-            let expr = parse_expr(tokens)?;
-            Ok(Stmt::ExprStmt { expr })
-        }
-        // Some(Token::Ident(name)) => {
-        //     let name = name.clone();
-        //     tokens.next(); // consume ident ONCE
-
-        //     match tokens.peek() {
-        //         // assignment
-        //         Some(Token::Equals) | Some(Token::EqualsBang) | Some(Token::EqualsQ) => {
-        //             let kind = match tokens.next() {
-        //                 Some(Token::Equals) => DeclKind::MutableStatic,
-        //                 Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
-        //                 Some(Token::EqualsQ) => DeclKind::Dynamic,
-        //                 other => return Err(format!("bad assign {:?}", other)),
-        //             };
-
-        //             let value = parse_expr(tokens)?;
-
-        //             Ok(Stmt::Let { name, kind, value })
-        //         }
-
-        //         _ => {
-        //             let expr = parse_expr(tokens)?;
-        //             Ok(Stmt::ExprStmt { expr })
-        //         }
-        //     }
-        // }
-
-        // -------------------------
-        // EOF safety
-        // -------------------------
-        Some(Token::EOF) => Ok(Stmt::ExprStmt {
-            expr: Expr::Number(0.0),
-        }),
-
-        // -------------------------
-        // fallback: expression statement
-        // -------------------------
         Some(_) => {
             let expr = parse_expr(tokens)?;
             Ok(Stmt::ExprStmt { expr })
         }
-
-        None => Err("Unexpected end of input".to_string()),
+        None => Err("Unexpected EOF".into()),
     }
 }
 fn parse_expr<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>

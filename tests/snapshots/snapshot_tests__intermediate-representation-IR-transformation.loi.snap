@@ -3,66 +3,78 @@ source: tests/snapshot_tests.rs
 expression: ast
 ---
 stmts:
-  - Let:
-      name: val1
-      kind: MutableStatic
-      value:
-        Binary:
+  - ExprStmt:
+      expr:
+        Assign:
           left:
-            Number: 5
-          op: Add
+            Var: val1
           right:
-            Number: 3
-  - Let:
-      name: x
-      kind: MutableStatic
-      value:
-        Number: 10
-  - Let:
-      name: y
-      kind: MutableStatic
-      value:
-        Var: x
-  - Let:
-      name: z
-      kind: MutableStatic
-      value:
-        Binary:
-          left:
             Binary:
               left:
                 Number: 5
               op: Add
               right:
                 Number: 3
-          op: Add
+  - ExprStmt:
+      expr:
+        Assign:
+          left:
+            Var: x
+          right:
+            Number: 10
+  - ExprStmt:
+      expr:
+        Assign:
+          left:
+            Var: y
+          right:
+            Var: x
+  - ExprStmt:
+      expr:
+        Assign:
+          left:
+            Var: z
           right:
             Binary:
               left:
-                Number: 2
+                Binary:
+                  left:
+                    Number: 5
+                  op: Add
+                  right:
+                    Number: 3
               op: Add
               right:
-                Number: 1
-  - Let:
-      name: y
-      kind: MutableStatic
-      value:
-        Binary:
+                Binary:
+                  left:
+                    Number: 2
+                  op: Add
+                  right:
+                    Number: 1
+  - ExprStmt:
+      expr:
+        Assign:
           left:
-            Var: x
-          op: Add
+            Var: y
           right:
-            Number: 2
-  - Let:
-      name: z
-      kind: MutableStatic
-      value:
-        Binary:
+            Binary:
+              left:
+                Var: x
+              op: Add
+              right:
+                Number: 2
+  - ExprStmt:
+      expr:
+        Assign:
           left:
-            Var: x
-          op: Add
+            Var: z
           right:
-            Number: 2
+            Binary:
+              left:
+                Var: x
+              op: Add
+              right:
+                Number: 2
   - Print:
       expr:
         Var: y

@@ -7,9 +7,6 @@ pub struct Program {
     pub stmts: Vec<Stmt>,
 }
 
-// -------------------------------------------------
-// VARIABLE DECLARATION KIND (your language core)
-// -------------------------------------------------
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum DeclKind {
     MutableStatic,   // =
@@ -17,9 +14,6 @@ pub enum DeclKind {
     Dynamic,         // =?
 }
 
-// -------------------------------------------------
-// STATEMENTS
-// -------------------------------------------------
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum Stmt {
     Let {
@@ -74,6 +68,9 @@ pub enum Stmt {
         body: Vec<Stmt>,
         condition: Expr,
     },
+    Block {
+        body: Vec<Stmt>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -98,9 +95,6 @@ pub enum UnOp {
     AddrOf,
 }
 
-// -------------------------------------------------
-// EXPRESSIONS (PURE SYNTAX TREE)
-// -------------------------------------------------
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Expr {
     Number(f64),

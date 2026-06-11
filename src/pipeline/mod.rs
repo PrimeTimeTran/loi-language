@@ -75,7 +75,7 @@ pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), CompilerError>
     let tokens = lexer::lex(&source).map_err(CompilerError::Lexer)?;
     let ast = parser::parse(tokens).map_err(CompilerError::Parser)?;
     let ir = analyze(ast).map_err(CompilerError::Analysis)?;
-    let bc_path = compile(ir, &out_base, file_name).map_err(CompilerError::Backend)?;
+    let bc_path = compile(&ir, &out_base, file_name).map_err(CompilerError::Backend)?;
     link_with_clang(Path::new(&bc_path), &out_base).map_err(CompilerError::Backend)?;
 
     Ok(())
