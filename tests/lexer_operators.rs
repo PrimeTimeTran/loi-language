@@ -11,6 +11,11 @@ fn test_operators_snap() {
     insta::assert_debug_snapshot!(tokens);
 }
 
+// #[test]
+// fn debug_lex() {
+//     println!("{:#?}", lex("x = 5"));
+// }
+
 #[test]
 fn test_operator_logic() {
     let content = "+ - * / == != < > <= >= && || ! =";
@@ -20,11 +25,11 @@ fn test_operator_logic() {
     // println!("test_operator_logic {:?}", tokens);
     assert_eq!(ops.len(), 14, "Expected exactly 14 operator tokens");
 
-    assert!(ops.contains(&&Token::EqCheck));
+    assert!(ops.contains(&&Token::Eq));
     assert!(ops.contains(&&Token::Minus));
     assert!(ops.contains(&&Token::Star));
     assert!(ops.contains(&&Token::Slash));
-    assert!(ops.contains(&&Token::EqCheck));
+    assert!(ops.contains(&&Token::Eq));
     assert!(ops.contains(&&Token::Neq));
     assert!(ops.contains(&&Token::Lt));
     assert!(ops.contains(&&Token::Gt));

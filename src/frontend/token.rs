@@ -58,6 +58,56 @@ fn lex_raw_block(lex: &mut Lexer<Token>) -> logos::Filter<()> {
 #[logos(skip r"[ \t\n\f\r]+")]
 #[logos(skip r"#[^\n]\*")]
 pub enum Token {
+    #[token("||")]
+    #[token("or")]
+    Or,
+    #[token("&&")]
+    #[token("and")]
+    And,
+    #[token("=!")]
+    EqualsBang,
+    #[token("=?")]
+    EqualsQ,
+    #[token("=:")]
+    EqualsColon,
+    #[token("==")]
+    Eq,
+    #[token("!=")]
+    Neq,
+    #[token("+=")]
+    Inc,
+    #[token("-=")]
+    Dec,
+    #[token("//")]
+    Floor,
+    #[token(">=")]
+    Ge,
+    #[token("<=")]
+    Le,
+    #[token("=")]
+    Assign,
+    #[token("!")]
+    Not,
+    #[token("&")]
+    Ampersand,
+    #[token(":")]
+    Colon,
+    #[token("|")]
+    Pipe,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("/")]
+    Slash,
+    #[token(">")]
+    Gt,
+    #[token("<")]
+    Lt,
+    #[token("*")]
+    Star,
+    #[token("%")]
+    Mod,
     #[token("#", lex_line_note)]
     LineNote,
     #[token("`>", lex_block_note)]
@@ -144,14 +194,6 @@ pub enum Token {
     Impl,
     #[token("as")]
     As,
-    #[token("=!")]
-    EqualsBang,
-    #[token("=?")]
-    EqualsQ,
-    #[token("=:")]
-    EqualsColon,
-    #[token("=")]
-    Eq,
     #[token("true")]
     True,
     #[token("false")]
@@ -174,46 +216,6 @@ pub enum Token {
     Semicolon,
     #[token(",")]
     Comma,
-    #[token("==")]
-    EqCheck,
-    #[token("&&")]
-    And,
-    #[token("||")]
-    Or,
-    #[token("!=")]
-    Neq,
-    #[token("!")]
-    Not,
-    #[token("&")]
-    Ampersand,
-    #[token(":")]
-    Colon,
-    #[token("|")]
-    Pipe,
-    #[token("+=")]
-    Inc,
-    #[token("-=")]
-    Dec,
-    #[token("//")]
-    Floor,
-    #[token(">=")]
-    Ge,
-    #[token("<=")]
-    Le,
-    #[token("+")]
-    Plus,
-    #[token("-")]
-    Minus,
-    #[token("/")]
-    Slash,
-    #[token(">")]
-    Gt,
-    #[token("<")]
-    Lt,
-    #[token("*")]
-    Star,
-    #[token("%")]
-    Mod,
 
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),

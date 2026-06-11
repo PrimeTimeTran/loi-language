@@ -7,7 +7,7 @@ expression: tokens
     Minus,
     Star,
     Slash,
-    EqCheck,
+    Eq,
     Neq,
     Lt,
     Gt,

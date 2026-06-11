@@ -21,6 +21,8 @@ cargo watch -x 'nextest run --test _01_literals --no-fail-fast'
 # Run 2 files
 cargo watch -x 'nextest run --test registry --test file_meta --no-fail-fast'
 
+cargo watch -x 'nextest run --test _0* --test-threads 1 --no-fail-fast'
+
 # Only specific group of tests
 $ cargo watch -x 'nextest run --test _0* --no-fail-fast'
 cargo nextest run --filter-expr 'test(lexer::)'

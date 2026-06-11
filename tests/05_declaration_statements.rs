@@ -1,7 +1,8 @@
+// tests/05_declaration_statements.rs
 mod harness;
 use loi::frontend::{
     ast::{DeclKind, Expr, Stmt},
-    parser::parse_source,
+    parser::{parse_let, parse_source},
 };
 
 use crate::harness::helpers::{fails, parses};
@@ -30,32 +31,47 @@ fn assert_let_stmt(input: &str, expected_name: &str, expected_kind: DeclKind, ex
 }
 
 #[test]
-fn p01_parses_simple_assignment() {
-    parses("x = 5");
+fn p01_mixed_decl_and_expr_assignment() {
+    parse_source(
+        "
+        x = 5;
+        y = x = 10;
+    ",
+    );
 }
 
 #[test]
-fn p02_parses_assignment_rhs_expression() {
-    parses("x = 1 + 2 * 3");
+fn p02_decl_does_not_break_expression_assignment() {
+    parse_source(
+        "
+        x = 5;
+        z = (x = 10) + 1;
+    ",
+    );
 }
 
 #[test]
-fn p03_assignment_is_right_associative() {
-    parses("x = y = 5");
+fn p03_nested_assignment_expression() {
+    parses("a = b = c = 5");
 }
 
 #[test]
-fn p04_rejects_literal_assignment() {
-    fails("5 = x");
+fn p04_member_assignment_with_expression_assignment() {
+    parses("a.b = c = 3");
 }
 
 #[test]
-fn p05_rejects_binary_expr_assignment() {
-    fails("(a + b) = 3");
+fn p05_index_assignment_chain() {
+    parses("a[i] = x = 4");
 }
 
 #[test]
-fn test_variable_declarations() {
+fn p06_declaration_still_creates_let() {
+    assert_let_stmt("x = 5;", "x", DeclKind::MutableStatic, 5.0);
+}
+
+#[test]
+fn p07_test_variable_declarations() {
     let test_cases = vec![
         ("x = 5;", "x", DeclKind::MutableStatic, 5.0),
         ("y =! 10;", "y", DeclKind::ImmutableStatic, 10.0),

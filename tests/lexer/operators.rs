@@ -20,18 +20,18 @@ fn test_operator_logic() {
     // println!("test_operator_logic {:?}", tokens);
     assert_eq!(ops.len(), 14, "Expected exactly 14 operator tokens");
 
-    assert!(ops.contains(&&Token::EqCheck));
+    assert!(ops.contains(&&Eq));
     assert!(ops.contains(&&Token::Minus));
     assert!(ops.contains(&&Token::Star));
     assert!(ops.contains(&&Token::Slash));
-    assert!(ops.contains(&&Token::EqCheck));
+    assert!(ops.contains(&&Eq));
     assert!(ops.contains(&&Token::Neq));
     assert!(ops.contains(&&Token::Lt));
     assert!(ops.contains(&&Token::Gt));
     assert!(ops.contains(&&Token::Le));
     assert!(ops.contains(&&Token::Ge));
-    assert!(ops.contains(&&Token::BoolAnd));
-    assert!(ops.contains(&&Token::BoolOr));
+    assert!(ops.contains(&&Token::EqAnd));
+    assert!(ops.contains(&&Token::EqOr));
     assert!(ops.contains(&&Token::Not));
     assert!(ops.contains(&&Token::Equals));
 }

@@ -3,6 +3,70 @@
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
+pub enum Aliased {
+    #[token("||")]
+    #[token("or")]
+    Or,
+    #[token("&&")]
+    #[token("and")]
+    And,
+
+    #[token("=!")]
+    EqualsBang,
+    #[token("=?")]
+    EqualsQ,
+    #[token("=:")]
+    EqualsColon,
+
+    #[token("==")]
+    Eq,
+
+    #[token("!=")]
+    Neq,
+}
+
+#[derive(Logos, Debug, PartialEq, Clone)]
+pub enum Arithmetic {
+    #[token("+=")]
+    Inc,
+    #[token("-=")]
+    Dec,
+    #[token("//")]
+    Floor,
+    #[token(">=")]
+    Ge,
+    #[token("<=")]
+    Le,
+
+    #[token("=")]
+    Assign,
+    #[token("!")]
+    Not,
+    #[token("&")]
+    Ampersand,
+    #[token(":")]
+    Colon,
+    #[token("|")]
+    Pipe,
+
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("/")]
+    Slash,
+    #[token(">")]
+    Gt,
+    #[token("<")]
+    Lt,
+
+    #[token("*")]
+    Star,
+    #[token("%")]
+    Mod,
+}
+
+#[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Meta {
     #[token("#", lex_line_note)]
     LineNote,
@@ -97,12 +161,6 @@ pub enum Keyword {
     #[token("is")]
     Is,
 
-    #[token("or")]
-    Or,
-
-    #[token("and")]
-    And,
-
     // Errors
     #[token("assert")]
     Assert,
@@ -132,18 +190,10 @@ pub enum Declarations {
     Impl,
     #[token("as")]
     As,
-    #[token("=!")]
-    EqualsBang,
-    #[token("=?")]
-    EqualsQ,
-    #[token("=:")]
-    EqualsColon,
-    #[token("=")]
-    Eq,
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
-pub enum LogicWord {
+pub enum Bool {
     #[token("true")]
     True,
     #[token("false")]
@@ -170,54 +220,4 @@ pub enum Scope {
     Semicolon,
     #[token(",")]
     Comma,
-}
-
-#[derive(Logos, Debug, PartialEq, Clone)]
-pub enum Logic {
-    #[token("==")]
-    EqCheck,
-    #[token("&&")]
-    BoolAnd,
-    #[token("||")]
-    BoolOr,
-    #[token("!=")]
-    Neq,
-    #[token("!")]
-    Not,
-    #[token("&")]
-    Ampersand,
-    #[token(":")]
-    Colon,
-    #[token("|")]
-    Pipe,
-}
-
-#[derive(Logos, Debug, PartialEq, Clone)]
-pub enum Arithmetic {
-    #[token("+=")]
-    Inc,
-    #[token("-=")]
-    Dec,
-    #[token("//")]
-    Floor,
-    #[token(">=")]
-    Ge,
-    #[token("<=")]
-    Le,
-
-    #[token("+")]
-    Plus,
-    #[token("-")]
-    Minus,
-    #[token("/")]
-    Slash,
-    #[token(">")]
-    Gt,
-    #[token("<")]
-    Lt,
-
-    #[token("*")]
-    Star,
-    #[token("%")]
-    Mod,
 }

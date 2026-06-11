@@ -6,14 +6,14 @@ use std::process::Command;
 use syn::{File, Item, Variant, parse_file};
 
 const GROUPS: &[&str] = &[
+    "Aliased",
+    "Arithmetic",
     "Meta",
     "KeywordScope",
     "Keyword",
     "Declarations",
-    "LogicWord",
+    "Bool",
     "Scope",
-    "Logic",
-    "Arithmetic",
 ];
 
 fn main() {
