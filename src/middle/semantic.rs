@@ -155,6 +155,7 @@ fn infer_type(expr: &Expr) -> Result<Type, String> {
         Expr::Unary { .. } => Ok(Type::F64),
 
         Expr::Call { .. } => Ok(Type::Unknown),
+
         Expr::Array(items) => {
             if items.is_empty() {
                 return Ok(Type::Array(Box::new(Type::Unknown)));
@@ -162,7 +163,6 @@ fn infer_type(expr: &Expr) -> Result<Type, String> {
 
             let first_ty = infer_type(&items[0])?;
 
-            // optional: enforce homogeneity
             for item in items.iter().skip(1) {
                 let ty = infer_type(item)?;
                 if ty != first_ty {
@@ -172,6 +172,19 @@ fn infer_type(expr: &Expr) -> Result<Type, String> {
 
             Ok(Type::Array(Box::new(first_ty)))
         }
+
+        Expr::Index { target, .. } => {
+            let inner = infer_type(target)?;
+
+            match inner {
+                Type::Array(elem_ty) => Ok(*elem_ty),
+                _ => Ok(Type::Unknown),
+            }
+        }
+
+        Expr::Assign { left: _, right } => infer_type(right),
+
+        Expr::Member { .. } => Ok(Type::Unknown),
     }
 }
 

@@ -16,6 +16,7 @@ pub enum Meta {
     #[token("}@")]
     RawEnd,
 }
+
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum KeywordScope {
     #[token("dep")]
@@ -151,6 +152,8 @@ pub enum LogicWord {
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Scope {
+    #[token(".")]
+    Dot,
     #[token("{")]
     LBrace,
     #[token("}")]

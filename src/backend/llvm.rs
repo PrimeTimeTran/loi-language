@@ -93,6 +93,65 @@ fn codegen_expr<'ctx>(
 
             ptr.into()
         }
+        Expr::Assign { left, right } => match &**left {
+            Expr::Var(name) => {
+                let ptr = *env.get(name).expect("undefined variable");
+
+                let val = codegen_expr(right, ty, context, builder, env).into_float_value();
+
+                builder.build_store(ptr, val).unwrap();
+
+                val.into()
+            }
+
+            Expr::Index { target, index } => {
+                let base = codegen_expr(target, ty, context, builder, env).into_pointer_value();
+
+                let idx = codegen_expr(index, ty, context, builder, env).into_int_value();
+
+                let gep = unsafe {
+                    builder
+                        .build_in_bounds_gep(
+                            context.f64_type(), // element type (IMPORTANT)
+                            base,
+                            &[context.i32_type().const_zero(), idx],
+                            "idx",
+                        )
+                        .unwrap()
+                };
+
+                builder
+                    .build_load(context.f64_type(), gep, "loadidx")
+                    .unwrap()
+                    .into()
+            }
+
+            _ => panic!("invalid assignment target"),
+        },
+        Expr::Index { target, index } => {
+            let base = codegen_expr(target, ty, context, builder, env).into_pointer_value();
+
+            let idx = codegen_expr(index, ty, context, builder, env).into_int_value();
+
+            let gep = unsafe {
+                builder
+                    .build_in_bounds_gep(
+                        context.i32_type().array_type(0),
+                        base,
+                        &[context.i32_type().const_zero(), idx],
+                        "assign_idx",
+                    )
+                    .unwrap()
+            };
+
+            builder
+                .build_load(context.f64_type(), gep, "loadidx")
+                .unwrap()
+                .into()
+        }
+        Expr::Member { .. } => {
+            panic!("member access not yet supported in codegen");
+        }
         Expr::Bool(_) => todo!(),
         Expr::String(_) => todo!(),
         Expr::Unary { op, expr } => todo!(),

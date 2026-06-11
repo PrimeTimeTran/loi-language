@@ -160,6 +160,8 @@ pub enum Token {
     True,
     #[token("false")]
     False,
+    #[token(".")]
+    Dot,
     #[token("{")]
     LBrace,
     #[token("}")]

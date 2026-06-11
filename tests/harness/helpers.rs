@@ -12,3 +12,9 @@ pub fn parses(src: &str) {
         result
     );
 }
+
+pub fn fails(input: &str) {
+    let tokens = lex(input).unwrap();
+    let result = parse(tokens);
+    assert!(result.is_err());
+}

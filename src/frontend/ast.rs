@@ -88,6 +88,7 @@ pub enum BinOp {
     Gt,
     And,
     Or,
+    Assign,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -123,6 +124,20 @@ pub enum Expr {
     Call {
         name: String,
         args: Vec<Expr>,
+    },
+    Index {
+        target: Box<Expr>,
+        index: Box<Expr>,
+    },
+
+    Member {
+        target: Box<Expr>,
+        field: String,
+    },
+
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
     },
 }
 

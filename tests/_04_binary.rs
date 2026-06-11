@@ -1,31 +1,32 @@
+mod harness;
+use crate::harness::helpers::parses;
 
 #[test]
-fn p01_multiplication_binds_tighter_than_addition() {
-    todo!("4");
+fn p01_parses_integer() {
+    parses("123");
 }
 
 #[test]
 fn p02_parenthesis_override_precedence() {
-    todo!("4");
+    parses("(4 + 2) * 3");
 }
 
 #[test]
 fn p03_comparison_lower_than_addition() {
-    todo!("4");
+    parses("1 + 2 < 5");
 }
 
 #[test]
 fn p04_equality_lower_than_comparison() {
-    todo!("4");
+    parses("1 == 2 < 3");
 }
 
 #[test]
 fn p05_logical_and_lower_than_equality() {
-    todo!("4");
+    parses("a == b && c == d");
 }
 
 #[test]
 fn p06_logical_or_lower_than_and() {
-    todo!("4");
+    parses("a || b && c");
 }
-
