@@ -1,0 +1,18 @@
+---
+source: tests/lexer_02_literals.rs
+expression: tokens
+---
+[
+    Number(
+        123.0,
+    ),
+    Number(
+        45.67,
+    ),
+    String(
+        "string_literal",
+    ),
+    True,
+    False,
+    EOF,
+]

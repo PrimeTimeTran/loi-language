@@ -15,9 +15,9 @@ use std::{
 };
 
 pub mod helpers;
-mod mock_engine;
-mod test_harness;
-use mock_engine::MockEngine;
+pub mod mock_engine;
+pub mod test_harness;
+pub use mock_engine::MockEngine;
 
 pub fn get_test_root() -> PathBuf {
     PathBuf::from("/virtual/root")

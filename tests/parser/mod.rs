@@ -1,17 +1,48 @@
+#[path = "01_literals.rs"]
+pub mod literals;
 
-mod _01_literals;
-mod _02_grouping;
-mod _03_unary;
-mod _04_binary;
-mod _05_assignment;
-mod _06_arrays;
-mod _07_indexing;
-mod _08_members;
-mod _09_calls;
-mod _10_postfix_chaining;
-mod _11_blocks;
-mod _12_conditionals;
-mod _13_declarations;
-mod _14_functions;
-mod _15_recovery;
+#[path = "02_grouping.rs"]
+pub mod grouping;
+
+#[path = "03_unary.rs"]
+pub mod unary;
+
+#[path = "04_binary.rs"]
+pub mod binary;
+
+#[path = "05_assignment_expression.rs"]
+pub mod assignment_expression;
+
+#[path = "05_declaration_statements.rs"]
+pub mod declaration_statements;
+
+#[path = "06_arrays.rs"]
+pub mod arrays;
+
+#[path = "07_indexing.rs"]
+pub mod indexing;
+
+#[path = "08_members.rs"]
+pub mod members;
+
+#[path = "09_calls.rs"]
+pub mod calls;
+
+#[path = "10_postfix_chaining.rs"]
+pub mod postfix_chaining;
+
+#[path = "11_blocks.rs"]
+pub mod blocks;
+
+#[path = "12_conditionals.rs"]
+pub mod conditionals;
+
+#[path = "13_declarations.rs"]
+pub mod declarations;
+
+#[path = "14_functions.rs"]
+pub mod functions;
+
+#[path = "15_recovery.rs"]
+pub mod recovery;
 
