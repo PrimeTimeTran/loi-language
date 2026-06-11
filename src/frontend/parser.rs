@@ -163,9 +163,8 @@ where
 fn is_assignable(expr: &Expr) -> bool {
     match expr {
         Expr::Var(_) => true,
-
+        Expr::Member { .. } => true,
         Expr::Index { .. } => true,
-
         Expr::Binary { .. } => false,
         Expr::Unary { .. } => false,
         Expr::Call { .. } => false,
@@ -181,7 +180,7 @@ fn parse_assignment<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let left = parse_or(tokens)?;
+    let left = parse_or(tokens)?; // ✅ FULL EXPRESSION CHAIN
 
     if let Some(Token::Equals) = tokens.peek() {
         tokens.next();
@@ -189,9 +188,8 @@ where
         let right = parse_assignment(tokens)?;
 
         if is_assignable(&left) {
-            return Ok(Expr::Binary {
+            return Ok(Expr::Assign {
                 left: Box::new(left),
-                op: BinOp::Assign,
                 right: Box::new(right),
             });
         }
@@ -200,6 +198,79 @@ where
     }
 
     Ok(left)
+}
+fn parse_postfix<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let mut expr = parse_primary(tokens)?;
+
+    loop {
+        match tokens.peek() {
+            Some(Token::LBracket) => {
+                tokens.next();
+                let index = parse_expr(tokens)?;
+
+                match tokens.next() {
+                    Some(Token::RBracket) => {}
+                    other => return Err(format!("Expected ], got {:?}", other)),
+                }
+
+                expr = Expr::Index {
+                    target: Box::new(expr),
+                    index: Box::new(index),
+                };
+            }
+
+            Some(Token::Dot) => {
+                tokens.next();
+
+                let field = match tokens.next() {
+                    Some(Token::Ident(name)) => name,
+                    other => return Err(format!("Expected ident after ., got {:?}", other)),
+                };
+
+                expr = Expr::Member {
+                    target: Box::new(expr),
+                    field,
+                };
+            }
+
+            Some(Token::LParen) => {
+                tokens.next();
+
+                let mut args = vec![];
+
+                if !matches!(tokens.peek(), Some(Token::RParen)) {
+                    loop {
+                        args.push(parse_expr(tokens)?);
+
+                        if !matches!(tokens.peek(), Some(Token::Comma)) {
+                            break;
+                        }
+                        tokens.next();
+                    }
+                }
+
+                match tokens.next() {
+                    Some(Token::RParen) => {}
+                    other => return Err(format!("Expected ), got {:?}", other)),
+                }
+
+                expr = Expr::Call {
+                    name: match expr {
+                        Expr::Var(n) => n,
+                        _ => return Err("Invalid call target".into()),
+                    },
+                    args,
+                };
+            }
+
+            _ => break,
+        }
+    }
+
+    Ok(expr)
 }
 fn parse_binary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
@@ -262,7 +333,7 @@ where
             })
         }
 
-        _ => parse_primary(tokens),
+        _ => parse_postfix(tokens),
     }
 }
 
