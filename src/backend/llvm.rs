@@ -19,6 +19,43 @@ fn codegen_expr<'ctx>(
     env: &mut HashMap<String, PointerValue<'ctx>>,
 ) -> BasicValueEnum<'ctx> {
     match expr {
+        Expr::Assign { left, right, op } => match (&**left, op) {
+            (Expr::Var(name), _) => {
+                let ptr = *env.get(name).expect("undefined variable");
+
+                let val = codegen_expr(right, ty, context, builder, env).into_float_value();
+
+                builder.build_store(ptr, val).unwrap();
+
+                val.into()
+            }
+
+            (Expr::Index { target, index }, _) => {
+                let base = codegen_expr(target, ty, context, builder, env).into_pointer_value();
+
+                let idx = codegen_expr(index, ty, context, builder, env).into_int_value();
+
+                let gep = unsafe {
+                    builder
+                        .build_in_bounds_gep(
+                            context.f64_type(),
+                            base,
+                            &[context.i32_type().const_zero(), idx],
+                            "idx",
+                        )
+                        .unwrap()
+                };
+
+                let val = codegen_expr(right, ty, context, builder, env).into_float_value();
+
+                builder.build_store(gep, val).unwrap();
+
+                val.into()
+            }
+
+            _ => panic!("invalid assignment target"),
+        },
+
         Expr::Number(n) => match ty {
             Type::F64 => context.f64_type().const_float(*n).into(),
 
@@ -93,41 +130,7 @@ fn codegen_expr<'ctx>(
 
             ptr.into()
         }
-        Expr::Assign { left, right } => match &**left {
-            Expr::Var(name) => {
-                let ptr = *env.get(name).expect("undefined variable");
 
-                let val = codegen_expr(right, ty, context, builder, env).into_float_value();
-
-                builder.build_store(ptr, val).unwrap();
-
-                val.into()
-            }
-
-            Expr::Index { target, index } => {
-                let base = codegen_expr(target, ty, context, builder, env).into_pointer_value();
-
-                let idx = codegen_expr(index, ty, context, builder, env).into_int_value();
-
-                let gep = unsafe {
-                    builder
-                        .build_in_bounds_gep(
-                            context.f64_type(), // element type (IMPORTANT)
-                            base,
-                            &[context.i32_type().const_zero(), idx],
-                            "idx",
-                        )
-                        .unwrap()
-                };
-
-                builder
-                    .build_load(context.f64_type(), gep, "loadidx")
-                    .unwrap()
-                    .into()
-            }
-
-            _ => panic!("invalid assignment target"),
-        },
         Expr::Index { target, index } => {
             let base = codegen_expr(target, ty, context, builder, env).into_pointer_value();
 

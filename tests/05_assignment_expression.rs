@@ -1,4 +1,3 @@
-// tests/05_assignment_expression.rs
 mod harness;
 use loi::frontend::{
     ast::{DeclKind, Expr, Stmt},

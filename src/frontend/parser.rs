@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::iter::Peekable;
 
 use crate::frontend::{
-    ast::{BinOp, DeclKind, Expr, Stmt, UnOp},
+    ast::{AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp},
     lexer::lex,
     token::Token,
 };
@@ -35,6 +35,7 @@ pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
 
     Ok(AST { stmts })
 }
+
 fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
     I: Iterator<Item = Token>,
@@ -45,65 +46,95 @@ where
         Some(Token::Do) => parse_do_while(tokens),
         Some(Token::Return) => parse_return(tokens),
         Some(Token::Function) => parse_function(tokens),
+
         Some(Token::LBrace) => {
             let body = parse_block(tokens)?;
             Ok(Stmt::Block { body })
         }
+
         Some(Token::Print) => {
             tokens.next();
             Ok(Stmt::Print {
                 expr: parse_expr(tokens)?,
             })
         }
-        Some(Token::Ident(name)) => {
-            let name = name.clone();
+        // 1. "Initial"
+        // Fails: p07_declaration_still_creates_let
+        // _ => {
+        //     let expr = parse_expr(tokens)?;
+        //     Ok(Stmt::ExprStmt { expr })
+        // }
 
-            match tokens.peek() {
-                Some(Token::Assign | Token::EqualsBang | Token::EqualsQ) => {
-                    let op = tokens.next().unwrap();
-
-                    let kind = match op {
-                        Token::Assign => DeclKind::MutableStatic,
-                        Token::EqualsBang => DeclKind::ImmutableStatic,
-                        Token::EqualsQ => DeclKind::Dynamic,
-                        _ => unreachable!(),
-                    };
-
-                    let value = parse_expr(tokens)?;
-
-                    return Ok(Stmt::Let { name, kind, value });
-                }
-
-                _ => {
-                    let expr = parse_expr(tokens)?;
-
-                    let stmt = match expr {
-                        Expr::Assign { left, right } => {
-                            if let Expr::Var(name) = *left {
-                                return Ok(Stmt::Let {
-                                    name,
-                                    kind: DeclKind::MutableStatic,
-                                    value: *right,
-                                });
-                            }
-
-                            Stmt::ExprStmt {
-                                expr: Expr::Assign { left, right },
-                            }
-                        }
-
-                        other => Stmt::ExprStmt { expr: other },
-                    };
-
-                    Ok(stmt)
-                }
-            }
-        }
-        Some(_) => {
+        // 2. Fix of p07
+        // Fails p08_test_variable_declarations
+        _ => {
             let expr = parse_expr(tokens)?;
-            Ok(Stmt::ExprStmt { expr })
-        }
-        None => Err("Unexpected EOF".into()),
+
+            match expr {
+                Expr::Assign { left, right, op } => {
+                    if let Expr::Var(name) = *left {
+                        let kind = match op {
+                            AssignOp::Assign => DeclKind::MutableStatic,
+                            AssignOp::Immutable => DeclKind::ImmutableStatic,
+                            AssignOp::Dynamic => DeclKind::Dynamic,
+                        };
+
+                        return Ok(Stmt::Let {
+                            name,
+                            kind,
+                            value: *right,
+                        });
+                    }
+
+                    return Ok(Stmt::ExprStmt {
+                        expr: Expr::Assign { left, right, op },
+                    });
+                }
+
+                other => Ok(Stmt::ExprStmt { expr: other }),
+            }
+        } // Some(Token::Ident(name)) => {
+          //     let name = name.clone();
+          //     tokens.next();
+
+          //     let op = match tokens.peek() {
+          //         Some(Token::Assign | Token::EqualsBang | Token::EqualsQ) => tokens.next().unwrap(),
+          //         _ => {
+          //             let expr = parse_expr(tokens)?;
+          //             return Ok(Stmt::ExprStmt { expr });
+          //         }
+          //     };
+
+          //     let kind = match op {
+          //         Token::Assign => DeclKind::MutableStatic,
+          //         Token::EqualsBang => DeclKind::ImmutableStatic,
+          //         Token::EqualsQ => DeclKind::Dynamic,
+          //         _ => unreachable!(),
+          //     };
+
+          //     let value = parse_expr(tokens)?;
+
+          //     Ok(Stmt::Let { name, kind, value })
+          // }
+          // _ => {
+          //     let expr = parse_expr(tokens)?;
+
+          //     if let Expr::Assign { left, right } = expr {
+          //         if let Expr::Var(name) = *left {
+          //             return Ok(Stmt::Let {
+          //                 name,
+          //                 kind: DeclKind::MutableStatic,
+          //                 value: *right,
+          //             });
+          //         }
+
+          //         return Ok(Stmt::ExprStmt {
+          //             expr: Expr::Assign { left, right },
+          //         });
+          //     }
+
+          //     Ok(Stmt::ExprStmt { expr })
+          // }
     }
 }
 
@@ -114,20 +145,10 @@ where
     parse_assignment(tokens, None)
 }
 fn is_assignable(expr: &Expr) -> bool {
-    match expr {
-        Expr::Var(_) => true,
-        Expr::Member { .. } => true,
-        Expr::Index { .. } => true,
-        Expr::Binary { .. } => false,
-        Expr::Unary { .. } => false,
-        Expr::Call { .. } => false,
-        Expr::Array(_) => false,
-        Expr::Number(_) => false,
-        Expr::Bool(_) => false,
-        Expr::String(_) => false,
-
-        _ => false,
-    }
+    matches!(
+        expr,
+        Expr::Var(_) | Expr::Member { .. } | Expr::Index { .. }
+    )
 }
 
 fn parse_assignment<I>(tokens: &mut Peekable<I>, lhs: Option<Expr>) -> Result<Expr, String>
@@ -139,10 +160,15 @@ where
         None => parse_or(tokens)?,
     };
 
-    if let Some(Token::Assign | Token::EqualsColon | Token::EqualsBang | Token::EqualsQ) =
-        tokens.peek()
-    {
-        tokens.next();
+    if let Some(Token::Assign | Token::EqualsBang | Token::EqualsQ) = tokens.peek() {
+        let op = tokens.next().unwrap();
+
+        let assign_op = match op {
+            Token::Assign => AssignOp::Assign,
+            Token::EqualsBang => AssignOp::Immutable,
+            Token::EqualsQ => AssignOp::Dynamic,
+            _ => unreachable!(),
+        };
 
         let right = parse_assignment(tokens, None)?;
 
@@ -153,6 +179,7 @@ where
         return Ok(Expr::Assign {
             left: Box::new(left),
             right: Box::new(right),
+            op: assign_op,
         });
     }
 
@@ -260,11 +287,24 @@ where
     I: Iterator<Item = Token>,
 {
     match tokens.next() {
+        Some(Token::Number(n)) => Ok(Expr::Number(n)),
+        Some(Token::String(s)) => Ok(Expr::String(s)),
         Some(Token::True) => Ok(Expr::Bool(true)),
         Some(Token::False) => Ok(Expr::Bool(false)),
+
+        Some(Token::Ident(name)) => Ok(Expr::Var(name)),
+
+        Some(Token::Ampersand) => {
+            tokens.next();
+            let expr = parse_primary(tokens)?;
+            Ok(Expr::Unary {
+                op: UnOp::AddrOf,
+                expr: Box::new(expr),
+            })
+        }
+
         Some(Token::LParen) => {
             let expr = parse_expr(tokens)?;
-
             match tokens.next() {
                 Some(Token::RParen) => Ok(expr),
                 other => Err(format!("Expected ')', got {:?}", other)),
@@ -288,18 +328,6 @@ where
 
             Ok(Expr::Array(items))
         }
-        Some(Token::Ampersand) => {
-            tokens.next();
-            let expr = parse_primary(tokens)?;
-            Ok(Expr::Unary {
-                op: UnOp::AddrOf,
-                expr: Box::new(expr),
-            })
-        }
-
-        Some(Token::Number(n)) => Ok(Expr::Number(n)),
-        Some(Token::String(s)) => Ok(Expr::String(s)),
-        Some(Token::Ident(name)) => Ok(Expr::Var(name)),
 
         None => Err("Unexpected EOF".into()),
         Some(other) => Err(format!("Unexpected token: {:?}", other)),
@@ -859,6 +887,14 @@ pub fn parse_source(input: &str) -> Result<AST, String> {
 //     Ok(left)
 // }
 
+fn kind_from_token(tok: &Token) -> DeclKind {
+    match tok {
+        Token::Assign => DeclKind::MutableStatic,
+        Token::EqualsBang => DeclKind::ImmutableStatic,
+        Token::EqualsQ => DeclKind::Dynamic,
+        _ => unreachable!(),
+    }
+}
 #[test]
 fn parse_simple_program() {
     let tokens = lex("x = 1 + 2;").unwrap();

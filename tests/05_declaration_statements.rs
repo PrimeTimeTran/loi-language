@@ -5,30 +5,7 @@ use loi::frontend::{
     parser::{parse_let, parse_source},
 };
 
-use crate::harness::helpers::{fails, parses};
-
-fn assert_let_stmt(input: &str, expected_name: &str, expected_kind: DeclKind, expected_val: f64) {
-    let ast = parse_source(input).expect("Parser failed");
-    assert_eq!(
-        ast.stmts.len(),
-        1,
-        "Expected 1 statement for input: {}",
-        input
-    );
-
-    match &ast.stmts[0] {
-        Stmt::Let { name, kind, value } => {
-            assert_eq!(name, expected_name);
-            assert_eq!(kind, &expected_kind);
-            if let Expr::Number(n) = value {
-                assert_eq!(*n, expected_val);
-            } else {
-                panic!("Expected number value, got {:?}", value);
-            }
-        }
-        other => panic!("Expected Let statement, got {:?}", other),
-    }
-}
+use crate::harness::helpers::{assert_let_stmt, fails, parses};
 
 #[test]
 fn p01_mixed_decl_and_expr_assignment() {
@@ -66,12 +43,17 @@ fn p05_index_assignment_chain() {
 }
 
 #[test]
-fn p06_declaration_still_creates_let() {
+fn p06_parses_identifier() {
+    parses("foo");
+}
+
+#[test]
+fn p07_declaration_still_creates_let() {
     assert_let_stmt("x = 5;", "x", DeclKind::MutableStatic, 5.0);
 }
 
 #[test]
-fn p07_test_variable_declarations() {
+fn p08_test_variable_declarations() {
     let test_cases = vec![
         ("x = 5;", "x", DeclKind::MutableStatic, 5.0),
         ("y =! 10;", "y", DeclKind::ImmutableStatic, 10.0),

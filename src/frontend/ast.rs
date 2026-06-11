@@ -85,9 +85,20 @@ pub enum UnOp {
     Not,
     AddrOf,
 }
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AssignOp {
+    Assign,    // =
+    Immutable, // =!
+    Dynamic,   // =?
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Expr {
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
+        op: AssignOp,
+    },
     Number(f64),
     Bool(bool),
     String(String),
@@ -113,9 +124,5 @@ pub enum Expr {
     Member {
         target: Box<Expr>,
         field: String,
-    },
-    Assign {
-        left: Box<Expr>,
-        right: Box<Expr>,
     },
 }

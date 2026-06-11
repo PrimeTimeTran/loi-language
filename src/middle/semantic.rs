@@ -26,6 +26,7 @@ fn infer_type(expr: &Expr) -> Result<Type, String> {
         Expr::Binary { .. } => Ok(Type::F64),
         Expr::Unary { .. } => Ok(Type::F64),
         Expr::Call { .. } => Ok(Type::Unknown),
+        Expr::Assign { right, .. } => infer_type(right.as_ref()),
         Expr::Array(items) => {
             if items.is_empty() {
                 return Ok(Type::Array(Box::new(Type::Unknown)));
@@ -46,7 +47,7 @@ fn infer_type(expr: &Expr) -> Result<Type, String> {
                 _ => Ok(Type::Unknown),
             }
         }
-        Expr::Assign { left: _, right } => infer_type(right),
+
         Expr::Member { .. } => Ok(Type::Unknown),
     }
 }

@@ -6,14 +6,14 @@ expression: tokens
     Ident(
         "x",
     ),
-    Eq,
+    Assign,
     Number(
         10.0,
     ),
     Ident(
         "y",
     ),
-    Eq,
+    Assign,
     Number(
         20.0,
     ),

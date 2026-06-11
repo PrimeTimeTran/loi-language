@@ -16,6 +16,6 @@ expression: tokens
     And,
     Or,
     Not,
-    Eq,
+    Assign,
     EOF,
 ]
