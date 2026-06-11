@@ -258,10 +258,7 @@ where
                 }
 
                 expr = Expr::Call {
-                    name: match expr {
-                        Expr::Var(n) => n,
-                        _ => return Err("Invalid call target".into()),
-                    },
+                    callee: Box::new(expr),
                     args,
                 };
             }

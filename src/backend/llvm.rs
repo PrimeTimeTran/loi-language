@@ -155,7 +155,7 @@ fn codegen_expr<'ctx>(
         Expr::Bool(_) => todo!(),
         Expr::String(_) => todo!(),
         Expr::Unary { op, expr } => todo!(),
-        Expr::Call { name, args } => todo!(),
+        Expr::Call { callee, args } => todo!(),
     }
 }
 pub struct LlvmRuntime<'ctx> {
