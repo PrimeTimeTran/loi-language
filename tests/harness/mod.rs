@@ -1,14 +1,40 @@
-use std::{collections::HashMap, fs, path::Path};
-
 use loi::{
     backend::{
         symbol::registry::{Symbol, SymbolKind, SymbolRegistry},
-        utter::utter::{MockEngine, Utter},
+        utter::{registry::UtterRegistry, utter::Utter},
     },
+    build_system::BuildSystem,
     frontend::{lexer, parser},
     middle::semantic,
     registry::{file_meta::FileMeta, registry::Registry},
 };
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
+
+pub mod helpers;
+mod mock_engine;
+mod test_harness;
+use mock_engine::MockEngine;
+
+pub fn get_test_root() -> PathBuf {
+    PathBuf::from("/virtual/root")
+}
+
+pub fn file(name: &str) -> FileMeta {
+    FileMeta {
+        path: PathBuf::from(name),
+        ..Default::default()
+    }
+}
+
+pub fn setup_test_context() -> BuildSystem {
+    let registry = Registry::from_files(vec![]);
+    let utters = UtterRegistry::new();
+    BuildSystem::test()
+}
 
 pub fn run_test(file_path: &Path) {
     let content = fs::read_to_string(file_path).unwrap();

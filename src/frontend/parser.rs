@@ -12,11 +12,6 @@ pub struct AST {
     pub stmts: Vec<Stmt>,
 }
 
-pub fn parse_source(input: &str) -> Result<AST, String> {
-    let tokens = lex(input)?;
-    parse(tokens)
-}
-
 pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
     let mut tokens = tokens.into_iter().peekable();
     let mut stmts = vec![];
@@ -43,17 +38,20 @@ pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
 
     Ok(AST { stmts })
 }
+
 fn parse_primary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
     match tokens.next() {
+        Some(Token::True) => Ok(Expr::Bool(true)),
+        Some(Token::False) => Ok(Expr::Bool(false)),
         Some(Token::LParen) => {
             let expr = parse_expr(tokens)?;
 
             match tokens.next() {
                 Some(Token::RParen) => Ok(expr),
-                _ => Err("Expected ')'".into()),
+                other => Err(format!("Expected ')', got {:?}", other)),
             }
         }
         Some(Token::LBracket) => {
@@ -86,10 +84,106 @@ where
         Some(Token::Number(n)) => Ok(Expr::Number(n)),
         Some(Token::String(s)) => Ok(Expr::String(s)),
         Some(Token::Ident(name)) => Ok(Expr::Var(name)),
+
         None => Err("Unexpected EOF".into()),
         Some(other) => Err(format!("Unexpected token: {:?}", other)),
     }
 }
+
+fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+where
+    I: Iterator<Item = Token>,
+{
+    match tokens.peek().cloned() {
+        Some(Token::If) => parse_if(tokens),
+        Some(Token::While) => parse_while(tokens),
+        Some(Token::Do) => parse_do_while(tokens),
+        Some(Token::Return) => parse_return(tokens),
+        Some(Token::Function) => parse_function(tokens),
+        Some(Token::Print) => {
+            tokens.next();
+            let expr = parse_expr(tokens)?;
+            Ok(Stmt::Print { expr })
+        }
+        Some(Token::Ident(name)) => {
+            let name = name.clone();
+            tokens.next(); // consume ident ONCE
+
+            match tokens.peek() {
+                // assignment
+                Some(Token::Equals) | Some(Token::EqualsBang) | Some(Token::EqualsQ) => {
+                    let kind = match tokens.next() {
+                        Some(Token::Equals) => DeclKind::MutableStatic,
+                        Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
+                        Some(Token::EqualsQ) => DeclKind::Dynamic,
+                        other => return Err(format!("bad assign {:?}", other)),
+                    };
+
+                    let value = parse_expr(tokens)?;
+
+                    Ok(Stmt::Let { name, kind, value })
+                }
+
+                _ => {
+                    let expr = parse_expr(tokens)?;
+                    Ok(Stmt::ExprStmt { expr })
+                }
+            }
+        }
+
+        // -------------------------
+        // EOF safety
+        // -------------------------
+        Some(Token::EOF) => Ok(Stmt::ExprStmt {
+            expr: Expr::Number(0.0),
+        }),
+
+        // -------------------------
+        // fallback: expression statement
+        // -------------------------
+        Some(_) => {
+            let expr = parse_expr(tokens)?;
+            Ok(Stmt::ExprStmt { expr })
+        }
+
+        None => Err("Unexpected end of input".to_string()),
+    }
+}
+fn parse_expr<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    parse_binary(tokens)
+}
+fn parse_binary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let mut left = parse_unary(tokens)?;
+
+    loop {
+        let op = match tokens.peek() {
+            Some(Token::Plus) => BinOp::Add,
+            Some(Token::Minus) => BinOp::Sub,
+            Some(Token::Star) => BinOp::Mul,
+            Some(Token::Slash) => BinOp::Div,
+            _ => break, // <- ONLY operators
+        };
+
+        tokens.next(); // consume operator
+
+        let right = parse_unary(tokens)?;
+
+        left = Expr::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        };
+    }
+
+    Ok(left)
+}
+
 fn parse_factor<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
@@ -143,104 +237,6 @@ where
     Ok(left)
 }
 
-fn parse_expr<I>(tokens: &mut std::iter::Peekable<I>) -> Result<Expr, String>
-where
-    I: Iterator<Item = Token>,
-{
-    parse_comparison(tokens)
-}
-fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    let peek = tokens.peek().cloned();
-
-    match peek {
-        // -------------------------
-        // CONTROL FLOW
-        // -------------------------
-        Some(Token::If) => return parse_if(tokens),
-        // Some(Token::ElseIf) => return parse_elseif(tokens),
-        Some(Token::Unless) => {
-            tokens.next();
-
-            let cond = parse_expr(tokens)?;
-            let body = parse_block(tokens)?;
-
-            let negated = Expr::Unary {
-                op: UnOp::Not,
-                expr: Box::new(cond),
-            };
-
-            Ok(Stmt::If {
-                condition: negated,
-                then_branch: body,
-                else_branch: None,
-            })
-        }
-        Some(Token::Loop) => return parse_loop(tokens),
-        Some(Token::While) => return parse_while(tokens),
-        Some(Token::Do) => return parse_do_while(tokens),
-        Some(Token::Return) => return parse_return(tokens),
-
-        // -------------------------
-        // FUNCTIONS
-        // -------------------------
-        Some(Token::Function) => return parse_function(tokens),
-
-        // -------------------------
-        // BUILTINS
-        // -------------------------
-        Some(Token::Print) => {
-            tokens.next();
-            let expr = parse_expr(tokens)?;
-            return Ok(Stmt::Print { expr });
-        }
-
-        // -------------------------
-        // IDENT / ASSIGNMENT
-        // -------------------------
-        Some(Token::Ident(name)) => {
-            let name = name.clone();
-            tokens.next();
-
-            match tokens.peek() {
-                Some(Token::Equals) | Some(Token::EqualsBang) | Some(Token::EqualsQ) => {
-                    let kind = match tokens.next() {
-                        Some(Token::Equals) => DeclKind::MutableStatic,
-                        Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
-                        Some(Token::EqualsQ) => DeclKind::Dynamic,
-                        other => return Err(format!("bad assign {:?}", other)),
-                    };
-
-                    let value = parse_expr(tokens)?;
-
-                    if let Some(Token::Semicolon) = tokens.peek() {
-                        tokens.next();
-                    }
-
-                    return Ok(Stmt::Let { name, kind, value });
-                }
-
-                _ => {
-                    let expr = parse_expr_with_head(Expr::Var(name), tokens)?;
-                    return Ok(Stmt::ExprStmt { expr });
-                }
-            }
-        }
-
-        Some(Token::EOF) => {
-            return Ok(Stmt::ExprStmt {
-                expr: Expr::Number(0.0),
-            });
-        }
-        _ if is_expr_start(tokens.peek()) => {
-            let expr = parse_expr(tokens)?;
-            Ok(Stmt::ExprStmt { expr })
-        }
-        _ => Err(format!("Unexpected token in stmt: {:?}", tokens.peek())),
-    }
-}
 fn parse_comparison<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
@@ -268,22 +264,6 @@ where
     }
 
     Ok(left)
-}
-
-#[test]
-fn parse_simple_program() {
-    let tokens = lex("x = 1 + 2;").unwrap();
-    let ast = parse(tokens).unwrap();
-
-    assert_eq!(ast.stmts.len(), 1);
-
-    match &ast.stmts[0] {
-        Stmt::Let { name, kind, value } => {
-            assert_eq!(name, "x");
-            assert!(matches!(kind, DeclKind::MutableStatic));
-        }
-        _ => panic!("Expected Let statement"),
-    }
 }
 
 fn parse_function<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
@@ -369,36 +349,6 @@ where
     }
 
     Ok(Expr::Array(items))
-}
-
-fn parse_expr_with_head<I>(head: Expr, tokens: &mut Peekable<I>) -> Result<Expr, String>
-where
-    I: Iterator<Item = Token>,
-{
-    // treat `head` as already-parsed primary
-    let mut left = head;
-
-    loop {
-        let op = match tokens.peek() {
-            Some(Token::Plus) => BinOp::Add,
-            Some(Token::Minus) => BinOp::Sub,
-            Some(Token::Star) => BinOp::Mul,
-            Some(Token::Slash) => BinOp::Div,
-            _ => break,
-        };
-
-        tokens.next();
-
-        let right = parse_primary(tokens)?;
-
-        left = Expr::Binary {
-            left: Box::new(left),
-            op,
-            right: Box::new(right),
-        };
-    }
-
-    Ok(left)
 }
 
 fn parse_block<I>(tokens: &mut Peekable<I>) -> Result<Vec<Stmt>, String>
@@ -568,4 +518,25 @@ fn is_expr_start(tok: Option<&Token>) -> bool {
             | Some(Token::LBracket)
             | Some(Token::Ampersand)
     )
+}
+
+pub fn parse_source(input: &str) -> Result<AST, String> {
+    let tokens = lex(input)?;
+    parse(tokens)
+}
+
+#[test]
+fn parse_simple_program() {
+    let tokens = lex("x = 1 + 2;").unwrap();
+    let ast = parse(tokens).unwrap();
+
+    assert_eq!(ast.stmts.len(), 1);
+
+    match &ast.stmts[0] {
+        Stmt::Let { name, kind, value } => {
+            assert_eq!(name, "x");
+            assert!(matches!(kind, DeclKind::MutableStatic));
+        }
+        _ => panic!("Expected Let statement"),
+    }
 }

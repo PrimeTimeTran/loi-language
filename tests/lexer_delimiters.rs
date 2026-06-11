@@ -16,7 +16,6 @@ fn test_delimiter_logic() {
     let content = "( ) { } [ ] , ;";
     let tokens = lex(content).unwrap();
 
-    // Verify all 7 delimiters are present (ignoring EOF)
     let delimiter_tokens: Vec<_> = tokens.iter().filter(|t| !matches!(t, Token::EOF)).collect();
 
     assert_eq!(
@@ -25,7 +24,6 @@ fn test_delimiter_logic() {
         "Expected exactly 8 delimiter tokens"
     );
 
-    // Check for specific tokens (adjust these to match your enum names!)
     assert!(delimiter_tokens.contains(&&Token::LParen));
     assert!(delimiter_tokens.contains(&&Token::RParen));
     assert!(delimiter_tokens.contains(&&Token::LBrace));

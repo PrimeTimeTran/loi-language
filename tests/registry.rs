@@ -1,3 +1,6 @@
+mod harness;
+use harness::{file, get_test_root, setup_test_context};
+
 use loi::backend::utter::registry::UtterRegistry;
 use loi::build_system::BuildSystem;
 use loi::registry::file_meta::FileMeta;
@@ -10,23 +13,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::tempdir;
-
-pub fn get_test_root() -> PathBuf {
-    PathBuf::from("/virtual/root")
-}
-
-fn file(name: &str) -> FileMeta {
-    FileMeta {
-        path: PathBuf::from(name),
-        ..Default::default()
-    }
-}
-
-pub fn setup_test_context() -> BuildSystem {
-    let registry = Registry::from_files(vec![]);
-    let utters = UtterRegistry::new();
-    BuildSystem::test()
-}
 
 #[test]
 fn parse_standard_filename_format_succeeds() {

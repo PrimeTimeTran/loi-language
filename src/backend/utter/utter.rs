@@ -1,5 +1,6 @@
 use dyn_clone::DynClone;
 use regex::Regex;
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -28,6 +29,8 @@ pub trait Utter: DynClone {
     fn optimize(&self, content: String, minify: bool, remove_comments: bool) -> String {
         content
     }
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 dyn_clone::clone_trait_object!(Utter);
@@ -113,6 +116,12 @@ impl Utter for GenericUtter {
             }
         }
         symbols
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -222,52 +231,4 @@ pub fn get_language_definitions() -> Vec<GenericUtter> {
             ..Default::default()
         }),
     ]
-}
-
-#[derive(Clone)]
-pub struct MockEngine {
-    name: String,
-    registry: HashMap<String, Vec<Symbol>>,
-}
-
-impl MockEngine {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            registry: HashMap::new(),
-        }
-    }
-    pub fn add_symbol(&mut self, filename: &str, symbol: Symbol) {
-        self.registry
-            .entry(filename.to_string())
-            .or_default()
-            .push(symbol);
-    }
-}
-
-impl Utter for MockEngine {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn flags(&self) -> UtterFlags {
-        UtterFlags {
-            browser_dom: false,
-            allow_network: false,
-            fs_access: false,
-            db_access: false,
-        }
-    }
-
-    fn to_ir(&self, _metadata: &FileMeta, _symbols: &SymbolRegistry) -> Result<IR, String> {
-        Ok(IR::default()) // Return a default IR object
-    }
-
-    fn get_exported_symbols(&self, metadata: &FileMeta) -> Vec<Symbol> {
-        // Return whatever was pre-loaded for this specific file
-        self.registry
-            .get(&metadata.filename)
-            .cloned()
-            .unwrap_or_default()
-    }
 }
