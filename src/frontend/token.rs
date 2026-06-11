@@ -124,10 +124,6 @@ pub enum Token {
     Continue,
     #[token("is")]
     Is,
-    #[token("or")]
-    Or,
-    #[token("and")]
-    And,
     #[token("assert")]
     Assert,
     #[token("try")]
@@ -155,7 +151,7 @@ pub enum Token {
     #[token("=:")]
     EqualsColon,
     #[token("=")]
-    Equals,
+    Eq,
     #[token("true")]
     True,
     #[token("false")]
@@ -179,13 +175,13 @@ pub enum Token {
     #[token(",")]
     Comma,
     #[token("==")]
-    BooleanEquality,
+    EqCheck,
     #[token("&&")]
-    BooleanAnd,
+    And,
     #[token("||")]
-    BooleanOr,
+    Or,
     #[token("!=")]
-    NotEqual,
+    Neq,
     #[token("!")]
     Not,
     #[token("&")]
@@ -195,15 +191,15 @@ pub enum Token {
     #[token("|")]
     Pipe,
     #[token("+=")]
-    Increment,
+    Inc,
     #[token("-=")]
-    Decrement,
+    Dec,
     #[token("//")]
     Floor,
     #[token(">=")]
-    GreaterThanOrEqual,
+    Ge,
     #[token("<=")]
-    LessThanOrEqual,
+    Le,
     #[token("+")]
     Plus,
     #[token("-")]
@@ -211,13 +207,13 @@ pub enum Token {
     #[token("/")]
     Slash,
     #[token(">")]
-    GreaterThan,
+    Gt,
     #[token("<")]
-    LessThan,
+    Lt,
     #[token("*")]
     Star,
     #[token("%")]
-    Modulo,
+    Mod,
 
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),

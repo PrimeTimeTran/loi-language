@@ -139,7 +139,7 @@ pub enum Declarations {
     #[token("=:")]
     EqualsColon,
     #[token("=")]
-    Equals,
+    Eq,
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -175,13 +175,13 @@ pub enum Scope {
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Logic {
     #[token("==")]
-    BooleanEquality,
+    EqCheck,
     #[token("&&")]
-    BooleanAnd,
+    BoolAnd,
     #[token("||")]
-    BooleanOr,
+    BoolOr,
     #[token("!=")]
-    NotEqual,
+    Neq,
     #[token("!")]
     Not,
     #[token("&")]
@@ -195,15 +195,15 @@ pub enum Logic {
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Arithmetic {
     #[token("+=")]
-    Increment,
+    Inc,
     #[token("-=")]
-    Decrement,
+    Dec,
     #[token("//")]
     Floor,
     #[token(">=")]
-    GreaterThanOrEqual,
+    Ge,
     #[token("<=")]
-    LessThanOrEqual,
+    Le,
 
     #[token("+")]
     Plus,
@@ -212,12 +212,12 @@ pub enum Arithmetic {
     #[token("/")]
     Slash,
     #[token(">")]
-    GreaterThan,
+    Gt,
     #[token("<")]
-    LessThan,
+    Lt,
 
     #[token("*")]
     Star,
     #[token("%")]
-    Modulo,
+    Mod,
 }

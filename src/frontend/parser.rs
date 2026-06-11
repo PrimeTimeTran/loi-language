@@ -110,10 +110,39 @@ where
                 expr: parse_expr(tokens)?,
             })
         }
+        Some(Token::Ident(name)) => {
+            // 1. Capture the name.
+            // We clone because the token holds the String, and we need to move it into our AST.
+            let name = name.clone();
+            tokens.next(); // Consume the identifier token
+
+            // 2. Peek at the NEXT token to see if it's an assignment operator
+            match tokens.peek() {
+                Some(Token::Eq) | Some(Token::EqualsBang) | Some(Token::EqualsQ) => {
+                    // It's a Let declaration
+                    let kind = match tokens.next().unwrap() {
+                        Token::Eq => DeclKind::MutableStatic,
+                        Token::EqualsBang => DeclKind::ImmutableStatic,
+                        Token::EqualsQ => DeclKind::Dynamic,
+                        _ => unreachable!(),
+                    };
+
+                    let value = parse_expr(tokens)?;
+                    Ok(Stmt::Let { name, kind, value })
+                }
+                _ => {
+                    // It's an expression statement.
+                    // We pass Expr::Var(name) as the initial left-hand side.
+                    let expr = parse_assignment(tokens, Some(Expr::Var(name)))?;
+                    Ok(Stmt::ExprStmt { expr })
+                }
+            }
+        }
         Some(_) => {
             let expr = parse_expr(tokens)?;
             Ok(Stmt::ExprStmt { expr })
         }
+
         None => Err("Unexpected EOF".into()),
     }
 }
@@ -121,7 +150,7 @@ fn parse_expr<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    parse_assignment(tokens)
+    parse_assignment(tokens, None)
 }
 
 fn is_assignable(expr: &Expr) -> bool {
@@ -140,16 +169,25 @@ fn is_assignable(expr: &Expr) -> bool {
         _ => false,
     }
 }
-fn parse_assignment<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+fn parse_assignment<I>(tokens: &mut Peekable<I>, lhs: Option<Expr>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let left = parse_or(tokens)?; // ✅ FULL EXPRESSION CHAIN
+    // If we were given an LHS (e.g., from an identifier in parse_stmt),
+    // we must allow it to be expanded by indexing, members, or binary ops.
+    let mut left = match lhs {
+        Some(expr) => expr,
+        None => parse_or(tokens)?,
+    };
 
-    if let Some(Token::Equals) = tokens.peek() {
+    // Before looking for '=', we must allow the expression to grow
+    // (e.g., x[0] = 5 or x.y = 5)
+    left = parse_member_and_index_chain(left, tokens)?;
+
+    // Now look for assignment
+    if let Some(Token::Eq) | Some(Token::EqualsBang) | Some(Token::EqualsQ) = tokens.peek() {
         tokens.next();
-
-        let right = parse_assignment(tokens)?;
+        let right = parse_assignment(tokens, None)?;
 
         if is_assignable(&left) {
             return Ok(Expr::Assign {
@@ -157,7 +195,6 @@ where
                 right: Box::new(right),
             });
         }
-
         return Err("Invalid assignment target".into());
     }
 
@@ -231,6 +268,45 @@ where
         }
     }
 
+    Ok(expr)
+}
+fn parse_member_and_index_chain<I>(mut expr: Expr, tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    loop {
+        match tokens.peek() {
+            // Handle Indexing: expr[index]
+            Some(Token::LBracket) => {
+                tokens.next(); // Consume '['
+                let index = parse_expr(tokens)?;
+                match tokens.next() {
+                    Some(Token::RBracket) => {
+                        expr = Expr::Index {
+                            target: Box::new(expr),
+                            index: Box::new(index),
+                        };
+                    }
+                    _ => return Err("Expected ']' after index".into()),
+                }
+            }
+            // Handle Member Access: expr.field
+            Some(Token::Dot) => {
+                tokens.next(); // Consume '.'
+                match tokens.next() {
+                    Some(Token::Ident(field)) => {
+                        expr = Expr::Member {
+                            target: Box::new(expr),
+                            field,
+                        };
+                    }
+                    _ => return Err("Expected identifier after '.'".into()),
+                }
+            }
+            // If no more chainable tokens, stop
+            _ => break,
+        }
+    }
     Ok(expr)
 }
 fn parse_binary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
@@ -363,52 +439,49 @@ where
     Ok(left)
 }
 
-fn parse_comparison<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+fn parse_equality<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let mut left = parse_term(tokens)?;
+    // Equality calls Comparison
+    let mut left = parse_comparison(tokens)?;
 
-    loop {
-        let op = match tokens.peek() {
-            Some(Token::BooleanEquality) => BinOp::Eq,
-            Some(Token::NotEqual) => BinOp::Neq,
-            Some(Token::LessThan) => BinOp::Lt,
-            Some(Token::GreaterThan) => BinOp::Gt,
-            _ => break,
+    while let Some(Token::Eq | Token::Neq) = tokens.peek() {
+        let op = match tokens.next().unwrap() {
+            Token::Eq => BinOp::Eq,
+            Token::Neq => BinOp::Neq,
+            _ => unreachable!(),
         };
-
-        tokens.next();
-
-        let right = parse_term(tokens)?;
-
+        let right = parse_comparison(tokens)?;
         left = Expr::Binary {
             left: Box::new(left),
             op,
             right: Box::new(right),
         };
     }
-
     Ok(left)
 }
-fn parse_and<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+
+fn parse_comparison<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let mut left = parse_comparison(tokens)?;
+    // Comparison calls Binary (Add/Sub/Mul/Div)
+    let mut left = parse_binary(tokens)?;
 
-    while let Some(Token::BooleanAnd) = tokens.peek() {
-        tokens.next();
-
-        let right = parse_comparison(tokens)?;
-
+    while let Some(Token::Lt | Token::Gt) = tokens.peek() {
+        let op = match tokens.next().unwrap() {
+            Token::Lt => BinOp::Lt,
+            Token::Gt => BinOp::Gt,
+            _ => unreachable!(),
+        };
+        let right = parse_binary(tokens)?;
         left = Expr::Binary {
             left: Box::new(left),
-            op: BinOp::And,
+            op,
             right: Box::new(right),
         };
     }
-
     Ok(left)
 }
 fn parse_or<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
@@ -416,22 +489,61 @@ where
     I: Iterator<Item = Token>,
 {
     let mut left = parse_and(tokens)?;
-
-    while let Some(Token::BooleanOr) = tokens.peek() {
+    while let Some(Token::Or) = tokens.peek() {
         tokens.next();
-
         let right = parse_and(tokens)?;
-
         left = Expr::Binary {
             left: Box::new(left),
             op: BinOp::Or,
             right: Box::new(right),
         };
     }
-
     Ok(left)
 }
 
+// 2. Logic for AND
+fn parse_and<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let mut left = parse_equality(tokens)?;
+    while let Some(Token::And) = tokens.peek() {
+        tokens.next();
+        let right = parse_equality(tokens)?;
+        left = Expr::Binary {
+            left: Box::new(left),
+            op: BinOp::And,
+            right: Box::new(right),
+        };
+    }
+    Ok(left)
+}
+
+// 3. Logic for Equality (==, !=)
+// fn parse_equality<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+// where
+//     I: Iterator<Item = Token>,
+// {
+//     let mut left = parse_binary(tokens)?; // Your existing binary parser
+//     while let Some(Token::Eq | Token::Neq | Token::Lt | Token::Gt) =
+//         tokens.peek()
+//     {
+//         let op = match tokens.next().unwrap() {
+//             Token::Eq => BinOp::Eq,
+//             Token::Neq => BinOp::Neq,
+//             Token::Lt => BinOp::Lt,
+//             Token::Gt => BinOp::Gt,
+//             _ => unreachable!(),
+//         };
+//         let right = parse_binary(tokens)?;
+//         left = Expr::Binary {
+//             left: Box::new(left),
+//             op,
+//             right: Box::new(right),
+//         };
+//     }
+//     Ok(left)
+// }
 fn parse_function<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
     I: Iterator<Item = Token>,
@@ -631,12 +743,52 @@ fn parse_loop<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
     I: Iterator<Item = Token>,
 {
-    tokens.next(); // consume "loop"
+    tokens.next();
 
     let body = parse_block(tokens)?;
 
     Ok(Stmt::Loop { body })
 }
+
+fn parse_let<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let name = match tokens.next() {
+        Some(Token::Ident(n)) => n,
+        Some(t) => return Err(format!("Expected identifier, found {:?}", t)),
+        None => return Err("Expected identifier, reached end of input".to_string()),
+    };
+
+    let kind = match tokens.peek() {
+        Some(Token::Eq) => DeclKind::MutableStatic,
+        Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
+        Some(Token::EqualsQ) => DeclKind::Dynamic,
+        Some(t) => return Err(format!("Expected assignment operator, found {:?}", t)),
+        None => return Err("Expected assignment operator, reached end of input".to_string()),
+    };
+
+    tokens.next();
+
+    let value = parse_expr(tokens)?;
+
+    Ok(Stmt::Let { name, kind, value })
+}
+// fn parse_remaining_expr<I>(left: Expr, tokens: &mut Peekable<I>) -> Result<Expr, String>
+// where
+//     I: Iterator<Item = Token>,
+// {
+//     // Check if there is an operator following our variable (like '+' or '*')
+//     // If not, just return the variable as the expression
+//     match tokens.peek() {
+//         Some(Token::Plus) | Some(Token::Minus) | Some(Token::Star) => {
+//             // This is where you would call your binary/assignment operator logic
+//             // logic here to handle the rest of the chain...
+//             parse_binary_rhs(left, tokens)
+//         }
+//         _ => Ok(left),
+//     }
+// }
 
 pub fn parse_source(input: &str) -> Result<AST, String> {
     let tokens = lex(input)?;
