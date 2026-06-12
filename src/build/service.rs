@@ -15,7 +15,7 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct BundleManifest {
+pub struct BundleConfig {
     pub dir_root: PathBuf,
     pub dir_out: PathBuf,
     pub strip_namespace: bool,
@@ -27,11 +27,11 @@ pub struct BundleManifest {
     pub remove_comments: bool,
 }
 
-impl Default for BundleManifest {
+impl Default for BundleConfig {
     fn default() -> Self {
         Self {
-            dir_root: PathBuf::from("./"),
-            dir_out: PathBuf::from("./dist"),
+            dir_root: PathBuf::from("./targets/syntax"),
+            dir_out: PathBuf::from("./output/syntax"),
             strip_namespace: false,
             strip_tag: false,
             strip_utter: false,
@@ -42,23 +42,19 @@ impl Default for BundleManifest {
         }
     }
 }
-#[derive(Clone)]
-pub struct BundleConfig {
-    pub dir_root: PathBuf,
-    pub dir_out: PathBuf,
-}
 
+#[derive(Default)]
 pub struct BundleService {
     pub registry: Registry,
     pub utter_registry: UtterRegistry,
     pub symbols: SymbolRegistry,
-    pub manifest: BundleManifest,
+    pub manifest: BundleConfig,
     pub resolver: OutputResolver,
     pub optimizer: AssetOptimizer,
 }
 
 impl BundleService {
-    pub fn new(registry: Registry, manifest: BundleManifest, utter: UtterRegistry) -> Self {
+    pub fn new(registry: Registry, manifest: BundleConfig, utter: UtterRegistry) -> Self {
         Self {
             registry,
             symbols: SymbolRegistry::new(),

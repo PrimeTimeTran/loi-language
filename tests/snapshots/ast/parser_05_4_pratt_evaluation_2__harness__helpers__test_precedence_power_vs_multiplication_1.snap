@@ -28,3 +28,5 @@ expr:
     op: Mul
     right:
       Var: c
+program:
+  stmts: []

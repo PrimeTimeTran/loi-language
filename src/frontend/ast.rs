@@ -126,20 +126,26 @@ pub enum Stmt {
     },
 }
 
-// Structs
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct Program {
     pub stmts: Vec<Stmt>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct AST {
     pub stmts: Vec<Stmt>,
     pub expr: Option<Expr>,
+    pub program: Program,
 }
 
-// Struc impls
 impl AST {
+    pub fn new() -> Self {
+        Self {
+            expr: None,
+            stmts: vec![],
+            program: Program { stmts: vec![] },
+        }
+    }
     pub fn to_sexpr(&self) -> String {
         self.stmts
             .iter()

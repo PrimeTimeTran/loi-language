@@ -24,3 +24,5 @@ expr:
         op: Neg
         expr:
           Var: b
+program:
+  stmts: []

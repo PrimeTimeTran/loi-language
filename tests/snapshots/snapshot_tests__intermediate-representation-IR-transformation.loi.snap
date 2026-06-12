@@ -67,3 +67,5 @@ stmts:
       expr:
         Var: y
 expr: ~
+program:
+  stmts: []

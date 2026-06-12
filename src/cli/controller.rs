@@ -9,11 +9,13 @@ use tabled::{
     settings::{Color, Modify, Style, object::Rows},
 };
 
-use crate::cli::command::{BuildAllArgs, BuildTarget, Command, SortOrder, ViewArgs};
+use crate::build::args::BuildTarget;
+use crate::build::build_system::BuildSystem;
+use crate::cli::command::{BuildAllArgs, Command, SortOrder, ViewArgs};
+use crate::cli::display::RegistryRenderer;
 use crate::cli::display::{ListFilter, RegistryUI};
 use crate::registry::file_meta::FileMeta;
 use crate::registry::registry::Registry;
-use crate::{build_system::BuildSystem, cli::display::RegistryRenderer};
 
 pub struct CliController {
     pub system: BuildSystem,

@@ -2,7 +2,6 @@ mod harness;
 use harness::{file, get_test_root, setup_test_context};
 
 use loi::backend::utter::registry::UtterRegistry;
-use loi::build_system::BuildSystem;
 use loi::registry::file_meta::FileMeta;
 use loi::registry::registry::Registry;
 

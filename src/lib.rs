@@ -1,17 +1,16 @@
-#![allow(warnings)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
-#![allow(unused_must_use)]
+// #![allow(warnings)]
+// #![allow(unused_imports)]
+// #![allow(unused_variables)]
+// #![allow(dead_code)]
+// #![allow(unused_must_use)]
 
 pub mod backend;
 pub mod build;
-pub mod build_system;
 pub mod cli;
+pub mod compiler;
+pub mod development;
 pub mod diagnostics;
 pub mod frontend;
 pub mod middle;
 pub mod pipeline;
 pub mod registry;
-pub mod watcher;
-pub mod compiler_context;

@@ -43,3 +43,5 @@ stmts:
           right:
             Var: h
 expr: ~
+program:
+  stmts: []

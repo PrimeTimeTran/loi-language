@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use crate::{build::service::BundleManifest, registry::file_meta::FileMeta};
+use crate::{build::service::BundleConfig, registry::file_meta::FileMeta};
 
+#[derive(Default)]
 pub struct OutputResolver {
-    manifest: BundleManifest,
+    manifest: BundleConfig,
 }
 
 impl OutputResolver {
-    pub fn new(manifest: BundleManifest) -> Self {
+    pub fn new(manifest: BundleConfig) -> Self {
         Self { manifest }
     }
 

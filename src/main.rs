@@ -1,36 +1,19 @@
-use loi::registry::registry::Registry;
+use clap::Parser;
+use loi::development::server::start;
 use owo_colors::OwoColorize;
 use std::env;
 use std::path::PathBuf;
 
-pub mod backend;
-pub mod build;
-pub mod build_system;
-pub mod cli;
-pub mod compiler_context;
-pub mod frontend;
-pub mod middle;
-pub mod pipeline;
-pub mod registry;
-pub mod watcher;
-use crate::build_system::BuildSystem;
-use crate::cli::controller::CliController;
-use crate::compiler_context::Config;
+use loi::build::build_system::BuildSystem;
+use loi::cli::controller::CliController;
+use loi::compiler::config::{CompilerConfig, ConfigResolver, ConfigSource};
 
 pub fn main() {
-    let current_dir = env::current_dir().unwrap();
-    let target_input = current_dir.join("targets/syntax");
-    let args: Vec<String> = env::args().collect();
-    if false {
+    if true {
         println!("🚀 Running in Batch Mode...");
-        let config = Config {
-            input: PathBuf::from("targets/syntax"),
-            output: PathBuf::from("output/syntax"),
-            watch: false,
-        };
-        ir_runner::run(config);
+        start()
     } else {
-        println!("✨ Starting LOI Interactive Shell...");
+        println!("✨ Starting .loi interactive shell...");
         let mut dir_root = env::current_dir().unwrap();
         dir_root.push("targets/fs");
         let mut dir_out = env::current_dir().unwrap();
@@ -41,5 +24,3 @@ pub fn main() {
         controller.run();
     }
 }
-
-

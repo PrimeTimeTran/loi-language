@@ -5,7 +5,7 @@ use crate::registry::file_meta::{FileMeta, GroupKey};
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Registry {
     pub files: HashMap<Uuid, FileMeta>,
     pub files_archive: Vec<FileMeta>,

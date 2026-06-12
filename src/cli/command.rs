@@ -1,9 +1,4 @@
-use crate::cli::controller::CliController;
-use crate::cli::display::{ListFilter, RegistryUI};
-use crate::cli::ir_runner::Config;
-use crate::registry::file_meta::FileMeta;
-use crate::registry::registry::Registry;
-use crate::{build_system::BuildSystem, cli::display::RegistryRenderer};
+use clap::Parser;
 use colored::*;
 use owo_colors::OwoColorize;
 use rustyline::DefaultEditor;
@@ -14,17 +9,12 @@ use tabled::{
     settings::{Color, Modify, Style, object::Rows},
 };
 
-#[derive(Debug, PartialEq)]
-pub enum BuildTarget {
-    ByName(String),
-    ByIndex(usize),
-}
-
-impl Default for BuildTarget {
-    fn default() -> Self {
-        BuildTarget::ByIndex(1)
-    }
-}
+use crate::cli::display::{ListFilter, RegistryUI};
+use crate::cli::{args::CliArgs, controller::CliController};
+use crate::compiler::config::{CompilerConfig, ConfigResolver, ConfigSource};
+use crate::registry::file_meta::FileMeta;
+use crate::registry::registry::Registry;
+use crate::{build::args::BuildTarget, cli::display::RegistryRenderer};
 
 pub struct CommandMeta {
     pub label: &'static str,
@@ -102,15 +92,11 @@ impl Command {
                 match m.as_str() {
                     "batch" => {
                         println!("🚀 Switching to batch mode...");
-                        // Trigger your existing batch runner
-                        // Note: You might need to pass the controller's system
-                        // if the runner needs the current state
-                        let config = Config {
-                            input: PathBuf::from("targets/syntax"),
-                            output: PathBuf::from("output/syntax"),
-                            watch: false,
-                        };
-                        crate::cli::ir_runner::run(config);
+                        let cli = CliArgs::parse();
+                        let sources = vec![ConfigSource::Defaults, ConfigSource::Cli(cli)];
+                        let partial = ConfigResolver::resolve(sources);
+                        let config = CompilerConfig::from(partial);
+                        // crate::cli::ir_runner::run(config);
                     }
                     "interactive" => println!("Already in interactive mode."),
                     _ => println!("Unknown mode: {}. Use 'mode batch'.", m),

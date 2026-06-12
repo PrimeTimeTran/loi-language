@@ -38,11 +38,11 @@ pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
             None
         }
     });
+    let mut ast = AST::new();
+    ast.stmts = stmts;
+    ast.expr = last_expr;
 
-    Ok(AST {
-        stmts,
-        expr: last_expr,
-    })
+    Ok(ast)
 }
 
 fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>

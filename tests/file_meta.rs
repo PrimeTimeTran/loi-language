@@ -4,7 +4,6 @@ use std::{fs, path::PathBuf};
 use tempfile::tempdir;
 
 use loi::backend::utter::registry::UtterRegistry;
-use loi::build_system::BuildSystem;
 use loi::registry::file_meta::{FileMeta, GroupKey};
 use loi::registry::registry::Registry;
 use uuid::Uuid;

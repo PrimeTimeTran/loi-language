@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
 use serde::Serialize;
+use std::collections::HashMap;
+use std::fmt;
 
 use crate::frontend::ast::{BinOp, Expr};
 
@@ -43,69 +43,88 @@ pub enum Op {
     Cmp,
     Neg,
 }
-pub enum IR {
-    Raw(String),
-    Structured {
-        body: Vec<IROp>,
-        symbols: HashMap<String, Symbol>,
-        metadata: HashMap<String, String>,
-    },
+
+pub struct IR {
+    pub raw: String,
+    pub nodes: Vec<IROp>,
+    pub symbols: HashMap<String, Symbol>,
+    pub metadata: HashMap<String, String>,
 }
 
 impl Default for IR {
     fn default() -> Self {
-        Self::Raw(String::new())
+        Self::raw(String::new())
     }
 }
 
-use std::fmt;
-
 impl fmt::Display for IR {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IR::Raw(content) => write!(f, "{}", content),
-            IR::Structured {
-                body,
-                symbols,
-                metadata,
-            } => {
-                writeln!(f, "--- Metadata ---")?;
-                for (k, v) in metadata {
-                    writeln!(f, "{}: {}", k, v)?;
-                }
-                writeln!(f, "--- Symbols ---")?;
-                for name in symbols.keys() {
-                    writeln!(f, "Export: {}", name)?;
-                }
-                writeln!(f, "--- Body ---")?;
-                for op in body {
-                    writeln!(f, "{:?}", op)?;
-                }
-                Ok(())
-            }
+        // -------------------------
+        // RAW BLOCK (passthrough)
+        // -------------------------
+        if !self.raw.is_empty() {
+            writeln!(f, "--- Raw Block ---")?;
+            writeln!(f, "{}", self.raw)?;
+            return Ok(());
         }
+
+        // -------------------------
+        // METADATA
+        // -------------------------
+        writeln!(f, "--- Metadata ---")?;
+        for (k, v) in &self.metadata {
+            writeln!(f, "{}: {}", k, v)?;
+        }
+
+        // -------------------------
+        // SYMBOLS
+        // -------------------------
+        writeln!(f, "--- Symbols ---")?;
+        for name in self.symbols.keys() {
+            writeln!(f, "Export: {}", name)?;
+        }
+
+        // -------------------------
+        // BODY
+        // -------------------------
+        writeln!(f, "--- Body ---")?;
+        for op in &self.nodes {
+            writeln!(f, "{:?}", op)?;
+        }
+
+        Ok(())
     }
 }
 
 impl IR {
+    /// Empty structured IR
     pub fn new() -> Self {
-        IR::Structured {
-            body: Vec::new(),
+        Self {
+            raw: String::new(),
+            nodes: Vec::new(),
             symbols: HashMap::new(),
             metadata: HashMap::new(),
         }
     }
 
+    /// IR containing foreign/raw block
     pub fn raw(content: impl Into<String>) -> Self {
-        IR::Raw(content.into())
-    }
-
-    pub fn structured() -> Self {
-        IR::Structured {
-            body: Vec::new(),
+        Self {
+            raw: content.into(),
+            nodes: Vec::new(),
             symbols: HashMap::new(),
             metadata: HashMap::new(),
         }
+    }
+
+    /// Explicit structured IR
+    pub fn structured() -> Self {
+        Self::new()
+    }
+
+    /// Helper: check if this is a passthrough block
+    pub fn is_raw(&self) -> bool {
+        !self.raw.is_empty()
     }
 }
 
@@ -132,6 +151,7 @@ pub enum LoweredOp {
 
 #[derive(Debug, Clone)]
 pub enum IROp {
+    Nop,
     Binary {
         target: String,
         left: TypedExpr,
@@ -215,4 +235,57 @@ pub enum IROp {
     },
 
     Lowered(LoweredOp),
+}
+
+//         PARSER
+//            ↓
+// AST with RegionBlocks
+//            ↓
+//     IR NORMALIZATION
+//            ↓
+// Region Processor Dispatch
+//  ├── JS → esbuild
+//  ├── TS → swc
+//  ├── SQL → sql engine
+//            ↓
+// Injected back into IR
+//            ↓
+//       BACKEND
+pub enum RegionKind {
+    Native,
+    JavaScript,
+    TypeScript,
+    JSX,
+    SQL,
+    Python,
+    Shader,
+    Unknown(String),
+}
+pub enum RegionMode {
+    /// ignore, pass through
+    Passthrough,
+
+    /// compile externally, then inject result
+    CompileAndInject,
+
+    /// compile but keep source too (debuggable)
+    Dual,
+}
+
+pub struct RegionBlock {
+    /// language or mode of the block
+    pub kind: RegionKind,
+
+    /// raw source inside the region
+    pub source: String,
+
+    /// result after processing (optional)
+    pub output: Option<Vec<u8>>,
+
+    /// whether it should be compiled or just passed through
+    pub mode: RegionMode,
+}
+
+pub trait RegionProcessor {
+    fn process(&self, block: &RegionBlock) -> Vec<u8>;
 }

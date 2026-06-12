@@ -1,24 +1,34 @@
-# LLVM Codegen Architecture (Current Design + Intended Responsibilities)
+# .Loi Compiler Structure
 
-This document describes the intended role of each structure and function in the LLVM backend.
-It reflects a _correct long-term compiler architecture_, not just the current partial implementation.
+The following are the highest level structs/enums in .loi system.
 
+We have multiple goals long term. We want to make sure the shape of our structs and enums
+will accommodate current/future requirements.
+
+- .loi compilation
+    - Multi phase passes 
+        - 1. Symbol identification across multiple files (project dir/root)
+        - 2. Hot compilation (fixing and partial generation)
+        - 3. compilation of 1 - n. files
+- CLI tool
+- Bundling.
+- LLVM (lowering)
+- Symbols
+    - Identification
+    - Index/Registry
+    - Registration
+- Diagnostics 
+    - File was loaded in what order?
+    - Symbol is from what file/line?
+
+First, tell me if there's anything important I've missed. Give me 3 things I haven't thought of.
 ---
 
 ## 🧠 Globals
 
-```rust
-use clap::Parser;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::values::{FunctionValue, PointerValue};
-use owo_colors::OwoColorize;
-use std::collections::HashMap;
-use std::env;
-use std::path::PathBuf;
-use uuid::Uuid;
+Then review these structures for overlap. And where they might be merged to simplify everything.
 
+```rust
 use crate::backend::symbol::registry::SymbolRegistry;
 use crate::backend::utter::registry::UtterRegistry;
 use crate::build::asset_optimizer::AssetOptimizer;

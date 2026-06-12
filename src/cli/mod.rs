@@ -1,4 +1,4 @@
-pub mod ir_runner;
+pub mod args;
 pub mod command;
 pub mod controller;
 pub mod display;

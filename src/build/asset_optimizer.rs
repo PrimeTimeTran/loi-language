@@ -1,5 +1,6 @@
 use crate::middle::ir::IR;
 
+#[derive(Default)]
 pub struct AssetOptimizer {
     pub minify: bool,
     pub remove_comments: bool,
@@ -24,20 +25,22 @@ impl AssetOptimizer {
 
         fs::read_to_string(output).unwrap()
     }
-    pub fn optimize(&self, ir: IR, ext: &str) -> IR {
-        match ir {
-            IR::Raw(content) => {
-                let mut optimized: String = content;
-                if self.remove_comments {
-                    optimized = self.strip_comments(&optimized, ext);
-                }
-                if self.minify && matches!(ext, "js" | "ts") {
-                    optimized = self.minify_js(&optimized);
-                }
-                IR::Raw(optimized)
+    pub fn optimize(&self, mut ir: IR, ext: &str) -> IR {
+        if !ir.raw.is_empty() {
+            let mut optimized = ir.raw;
+
+            if self.remove_comments {
+                optimized = self.strip_comments(&optimized, ext);
             }
-            ir => ir,
+
+            if self.minify && matches!(ext, "js" | "ts") {
+                optimized = self.minify_js(&optimized);
+            }
+
+            ir.raw = optimized;
         }
+
+        ir
     }
     fn strip_comments(&self, content: &str, lang: &str) -> String {
         let pattern = match lang {

@@ -458,11 +458,6 @@ pub enum Stmt {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Program {
-    pub stmts: Vec<Stmt>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct AST {
     pub stmts: Vec<Stmt>,

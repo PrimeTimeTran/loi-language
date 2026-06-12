@@ -8,7 +8,7 @@ use loi::{
             utter::{Utter, UtterFlags},
         },
     },
-    build_system::BuildSystem,
+    build::build_system::BuildSystem,
     frontend::{lexer, parser},
     middle::{ir::IR, semantic},
     registry::{file_meta::FileMeta, registry::Registry},

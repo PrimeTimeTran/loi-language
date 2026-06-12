@@ -9,7 +9,7 @@ use loi::{
         symbol::registry::{Symbol, SymbolKind, SymbolRegistry},
         utter::{registry::UtterRegistry, utter::Utter},
     },
-    build_system::BuildSystem,
+    build::build_system::BuildSystem,
     frontend::{lexer, parser},
     middle::semantic,
     registry::{file_meta::FileMeta, registry::Registry},

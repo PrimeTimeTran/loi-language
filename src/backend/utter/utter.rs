@@ -135,7 +135,12 @@ pub fn get_language_definitions() -> Vec<GenericUtter> {
             },
             to_ir: Some(Arc::new(|meta, _| {
                 let content = std::fs::read_to_string(&meta.path).map_err(|e| e.to_string())?;
-                Ok(IR::Raw(content))
+                Ok(IR {
+                    raw: content,
+                    nodes: Vec::new(),
+                    symbols: HashMap::new(),
+                    metadata: HashMap::new(),
+                })
             })),
             ..Default::default()
         }),

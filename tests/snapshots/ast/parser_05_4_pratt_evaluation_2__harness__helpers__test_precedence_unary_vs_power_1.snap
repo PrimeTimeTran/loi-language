@@ -24,3 +24,5 @@ expr:
     op: Power
     right:
       Var: b
+program:
+  stmts: []

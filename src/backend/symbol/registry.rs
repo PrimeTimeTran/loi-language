@@ -52,6 +52,7 @@ pub trait SymbolProvider {
     fn extract(&self, file: &FileMeta) -> Vec<Symbol>;
 }
 
+#[derive(Default)]
 pub struct SymbolRegistry {
     pub table: HashMap<SymbolId, Symbol>,
     pub warnings: Vec<String>,

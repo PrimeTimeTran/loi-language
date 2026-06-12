@@ -37,13 +37,50 @@ pub struct GenericHandler {
 
 impl GenericHandler {
     fn render_ir(&self, ir: &IR) -> String {
-        match ir {
-            IR::Raw(s) => s.clone(),
-            IR::Structured { body, .. } => format!("{:?}", body),
+        let mut out = String::new();
+
+        // -------------------------------------------------
+        // RAW LAYER (pass-through / foreign language blocks)
+        // -------------------------------------------------
+        if !ir.raw.is_empty() {
+            out.push_str("=== RAW ===\n");
+            out.push_str(&ir.raw);
+            out.push_str("\n\n");
         }
+
+        // -------------------------------------------------
+        // METADATA
+        // -------------------------------------------------
+        if !ir.metadata.is_empty() {
+            out.push_str("=== METADATA ===\n");
+            for (k, v) in &ir.metadata {
+                out.push_str(&format!("{}: {}\n", k, v));
+            }
+            out.push('\n');
+        }
+
+        // -------------------------------------------------
+        // SYMBOLS
+        // -------------------------------------------------
+        if !ir.symbols.is_empty() {
+            out.push_str("=== SYMBOLS ===\n");
+            for (name, _sym) in &ir.symbols {
+                out.push_str(&format!("{}\n", name));
+            }
+            out.push('\n');
+        }
+
+        // -------------------------------------------------
+        // IR NODES
+        // -------------------------------------------------
+        out.push_str("=== NODES ===\n");
+        for node in &ir.nodes {
+            out.push_str(&format!("{:?}\n", node));
+        }
+
+        out
     }
 }
-
 impl Handler for GenericHandler {
     fn handle(
         &self,
