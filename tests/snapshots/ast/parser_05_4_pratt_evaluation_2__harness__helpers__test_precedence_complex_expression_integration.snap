@@ -1,6 +1,6 @@
 ---
 source: tests/harness/helpers.rs
-expression: ast
+expression: parse_to_ast(input)
 ---
 stmts:
   - Let:

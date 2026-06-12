@@ -63,31 +63,65 @@ pub fn assert_expr(input: &str, expected: &str) {
     }
 }
 
+#[macro_export]
+macro_rules! assert_expr {
+    ($input:expr, $expected:expr) => {
+        $crate::harness::helpers::run_assert_with_snapshot(stringify!($input), $input, $expected);
+    };
+}
+
+// #[track_caller]
+// pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: &str) {
+//     let location = std::panic::Location::caller();
+//     let snapshot_name = format!(
+//         "{}_{}",
+//         std::path::Path::new(location.file())
+//             .file_stem()
+//             .unwrap()
+//             .to_str()
+//             .unwrap(),
+//         location.line()
+//     );
+//     insta::with_settings!({snapshot_path => "../snapshots/ast"}, {
+//         insta::assert_yaml_snapshot!(snapshot_name, parse_to_ast(input));
+//     });
+
+//     assert_expr(input, expected);
+// }
+
+use std::cell::RefCell;
+
+thread_local! {
+    static ASSERT_COUNT: RefCell<usize> = RefCell::new(0);
+}
+
 #[track_caller]
 pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: &str) {
-    let opts = opts.into();
+    let thread_name = std::thread::current()
+        .name()
+        .unwrap_or("unknown")
+        .to_string();
+    let test_name = thread_name.split("::").last().unwrap_or("unknown");
 
-    if opts.snapshot {
-        let ast = parse_to_ast(input);
+    // Increment and get the current count for this test
+    let count = ASSERT_COUNT.with(|c| {
+        let mut count = c.borrow_mut();
+        *count += 1;
+        *count
+    });
 
-        let thread_name = std::thread::current()
-            .name()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "unknown_test".to_string());
+    // Create a unique name: test_name_1, test_name_2, etc.
+    let snapshot_name = format!("{}_{}", test_name, count);
 
-        let test_name = thread_name
-            .split("::")
-            .last()
-            .unwrap_or("unknown")
-            .to_string();
-
-        insta::with_settings!({ snapshot_suffix => test_name }, {
-            insta::assert_yaml_snapshot!(ast);
-        });
-    }
+    insta::with_settings!({
+        snapshot_path => "../snapshots/ast",
+    }, {
+        insta::assert_yaml_snapshot!(snapshot_name, parse_to_ast(input));
+    });
 
     assert_expr(input, expected);
 }
+
 pub fn parses(src: &str) -> String {
     let tokens = lex(src).expect("Lexing failed");
     let ast = parse(tokens).expect("Parsing failed");

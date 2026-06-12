@@ -9,7 +9,15 @@ pub fn get_ir_string(ops: &[IROp]) -> String {
 
     lower_ir_to_llvm(&context, &module, &builder, ops).expect("Failed to generate IR");
 
-    module.print_to_string().to_string()
+    let raw_ir = module.print_to_string().to_string();
+
+    // Sanitize the output: strip header info so tests are stable
+    raw_ir
+        .lines()
+        .filter(|line| !line.starts_with("; ModuleID"))
+        .filter(|line| !line.starts_with("source_filename"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub struct IrTestHarness {
@@ -32,7 +40,11 @@ impl IrTestHarness {
         );
     }
     pub fn assert_snapshot(&self, name: &str) {
-        insta::assert_snapshot!(name, self.ir);
+        insta::with_settings!({
+            snapshot_path => "../snapshots/ir"
+        }, {
+            insta::assert_snapshot!(name, self.ir);
+        });
     }
 }
 

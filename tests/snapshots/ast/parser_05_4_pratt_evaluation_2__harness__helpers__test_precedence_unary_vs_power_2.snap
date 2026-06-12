@@ -1,26 +1,26 @@
 ---
 source: tests/harness/helpers.rs
-expression: ast
+expression: parse_to_ast(input)
 ---
 stmts:
   - ExprStmt:
       expr:
         Binary:
           left:
+            Var: a
+          op: Power
+          right:
             Unary:
               op: Neg
               expr:
-                Var: a
-          op: Power
-          right:
-            Var: b
+                Var: b
 expr:
   Binary:
     left:
+      Var: a
+    op: Power
+    right:
       Unary:
         op: Neg
         expr:
-          Var: a
-    op: Power
-    right:
-      Var: b
+          Var: b
