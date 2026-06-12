@@ -2,13 +2,13 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
+mod harness;
+use crate::harness::lexer::LexerTestHarness;
+
 #[test]
 fn test_operators_snap() {
-    let path = Path::new("tests/fixtures/lexical/operators.loi");
-    let content = fs::read_to_string(path).expect("Failed to read fixture");
-    let tokens = lex(&content).expect("Lexer failed");
-
-    insta::assert_debug_snapshot!(tokens);
+    LexerTestHarness::from_file("tests/fixtures/lexical/operators.loi")
+        .assert_snapshot("operators_lexical_stream");
 }
 
 #[test]

@@ -2,15 +2,13 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
+mod harness;
+use crate::harness::lexer::LexerTestHarness;
+
 #[test]
 fn test_keyword_tokenization_snap() {
-    let path = Path::new("tests/fixtures/lexical/keywords.loi");
-    let content = fs::read_to_string(path).expect("Failed to read fixture");
-    let tokens = lex(&content).expect("Lexer failed");
-
-    // This command replaces your manual assertions.
-    // It captures the entire 'tokens' vector and saves/compares it.
-    insta::assert_debug_snapshot!(tokens);
+    LexerTestHarness::from_file("tests/fixtures/lexical/keywords.loi")
+        .assert_snapshot("keywords_lexical_stream");
 }
 
 #[test]
