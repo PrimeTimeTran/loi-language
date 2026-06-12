@@ -1,0 +1,13 @@
+---
+source: tests/parser_05-4_pratt_evaluation-2.rs
+expression: "parse_to_ast(\"a ^ -b\")"
+---
+Binary:
+  left:
+    Var: a
+  op: Power
+  right:
+    Unary:
+      op: Neg
+      expr:
+        Var: b

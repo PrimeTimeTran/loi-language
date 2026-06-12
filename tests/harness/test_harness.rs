@@ -66,7 +66,6 @@ impl TestHarness {
         sym
     }
 
-    /// Run the incremental symbol pipeline
     pub fn run_incremental(&self) -> SymbolRegistry {
         let mut sym = SymbolRegistry::new();
         for stack in &self.registry.stacks {

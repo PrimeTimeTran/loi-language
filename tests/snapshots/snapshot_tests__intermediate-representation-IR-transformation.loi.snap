@@ -66,3 +66,4 @@ stmts:
   - Print:
       expr:
         Var: y
+expr: ~

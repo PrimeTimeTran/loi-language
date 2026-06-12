@@ -23,6 +23,8 @@ pub enum BinOp {
     And,
     Or,
     Assign,
+    Mod,
+    Power,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -133,6 +135,7 @@ pub struct Program {
 #[derive(Debug, Serialize)]
 pub struct AST {
     pub stmts: Vec<Stmt>,
+    pub expr: Option<Expr>,
 }
 
 // Struc impls
@@ -278,6 +281,8 @@ impl fmt::Display for Stmt {
 impl std::fmt::Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            BinOp::Mod => write!(f, "%"),
+            BinOp::Power => write!(f, "^"),
             BinOp::Add => write!(f, "+"),
             BinOp::Sub => write!(f, "-"),
             BinOp::Mul => write!(f, "*"),
@@ -324,13 +329,14 @@ impl Expr {
         match self {
             Expr::Assign { .. } => 1,
             Expr::Binary { op, .. } => match op {
+                BinOp::Assign => 1,
                 BinOp::Or => 2,
                 BinOp::And => 3,
                 BinOp::Eq | BinOp::Neq => 4,
                 BinOp::Lt | BinOp::Gt => 5,
                 BinOp::Add | BinOp::Sub => 6,
-                BinOp::Mul | BinOp::Div => 7,
-                BinOp::Assign => 1,
+                BinOp::Mul | BinOp::Div | BinOp::Mod => 7,
+                BinOp::Power => 8,
             },
             _ => 10,
         }
@@ -432,11 +438,12 @@ impl Expr {
             Expr::Unary { op, expr } => {
                 format!("({}{})", op, expr.to_sexpr())
             }
-            Expr::Member { target, field } => {
-                format!("({}.{})", target.to_sexpr(), field)
-            }
+
             Expr::Index { target, index } => {
                 format!("({}[{}])", target.to_sexpr(), index.to_sexpr())
+            }
+            Expr::Member { target, field } => {
+                format!("({}.{})", target.to_sexpr(), field)
             }
             Expr::Call { callee, args } => {
                 let args_str: Vec<String> = args.iter().map(|a| a.to_sexpr()).collect();

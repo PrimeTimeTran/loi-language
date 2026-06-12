@@ -58,22 +58,20 @@ fn lex_raw_block(lex: &mut Lexer<Token>) -> logos::Filter<()> {
 #[logos(skip r"[ \t\n\f\r]+")]
 #[logos(skip r"#[^\n]\*")]
 pub enum Token {
-    #[token("||")]
-    #[token("or")]
-    Or,
-    #[token("&&")]
-    #[token("and")]
-    And,
-    #[token("=!")]
-    EqualsBang,
-    #[token("=?")]
-    EqualsQ,
-    #[token("=:")]
-    EqualsColon,
     #[token("==")]
     Eq,
     #[token("!=")]
     Neq,
+    #[token("=!")]
+    Immutable,
+    #[token("=?")]
+    Dynamic,
+    #[token("=:")]
+    EqualsColon,
+    #[token("||")]
+    Or,
+    #[token("&&")]
+    And,
     #[token("+=")]
     Inc,
     #[token("-=")]
@@ -108,13 +106,33 @@ pub enum Token {
     Star,
     #[token("%")]
     Mod,
+    #[token("^")]
+    Power,
+    #[token(".")]
+    Dot,
+    #[token("{")]
+    LBrace,
+    #[token("}")]
+    RBrace,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
+    #[token(";")]
+    Semicolon,
+    #[token(",")]
+    Comma,
     #[token("#", lex_line_note)]
     LineNote,
     #[token("`>", lex_block_note)]
     BlockNote,
     #[token("@{", lex_raw_block)]
     RawStart,
-    #[token("}@")]
+    #[token("}@", lex_raw_block)]
     RawEnd,
     #[token("dep")]
     Dependency,
@@ -198,24 +216,10 @@ pub enum Token {
     True,
     #[token("false")]
     False,
-    #[token(".")]
-    Dot,
-    #[token("{")]
-    LBrace,
-    #[token("}")]
-    RBrace,
-    #[token("[")]
-    LBracket,
-    #[token("]")]
-    RBracket,
-    #[token("(")]
-    LParen,
-    #[token(")")]
-    RParen,
-    #[token(";")]
-    Semicolon,
-    #[token(",")]
-    Comma,
+    #[token("or")]
+    OrAlias,
+    #[token("and")]
+    AndAlias,
 
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),

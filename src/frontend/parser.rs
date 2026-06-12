@@ -28,7 +28,18 @@ pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
         }
     }
 
-    Ok(AST { stmts })
+    let last_expr = stmts.iter().rev().find_map(|stmt| {
+        if let Stmt::ExprStmt { expr } = stmt {
+            Some(expr.clone())
+        } else {
+            None
+        }
+    });
+
+    Ok(AST {
+        stmts,
+        expr: last_expr,
+    })
 }
 
 fn parse_stmt<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
@@ -36,17 +47,15 @@ where
     I: Iterator<Item = Token>,
 {
     match tokens.peek() {
-        Some(Token::If) => parse_if(tokens),
-        Some(Token::While) => parse_while(tokens),
-        Some(Token::Do) => parse_do_while(tokens),
-        Some(Token::Return) => parse_return(tokens),
-        Some(Token::Function) => parse_function(tokens),
-
+        Some(Token::If) => control::parse_if(tokens),
+        Some(Token::While) => control::parse_while(tokens),
+        Some(Token::Do) => control::parse_do_while(tokens),
+        Some(Token::Return) => control::parse_return(tokens),
+        Some(Token::Function) => control::parse_function(tokens),
         Some(Token::LBrace) => {
-            let body = parse_block(tokens)?;
+            let body = control::parse_block(tokens)?;
             Ok(Stmt::Block { body })
         }
-
         Some(Token::Print) => {
             tokens.next();
             Ok(Stmt::Print {
@@ -55,7 +64,6 @@ where
         }
         _ => {
             let expr = parse_expr(tokens)?;
-
             match expr {
                 Expr::Assign { left, right, op } => {
                     if let Expr::Var(name) = *left {
@@ -99,13 +107,13 @@ where
         None => parse_or(tokens)?,
     };
 
-    if let Some(Token::Assign | Token::EqualsBang | Token::EqualsQ) = tokens.peek() {
+    if let Some(Token::Assign | Token::Immutable | Token::Dynamic) = tokens.peek() {
         let op = tokens.next().unwrap();
 
         let assign_op = match op {
             Token::Assign => AssignOp::Assign,
-            Token::EqualsBang => AssignOp::Immutable,
-            Token::EqualsQ => AssignOp::Dynamic,
+            Token::Immutable => AssignOp::Immutable,
+            Token::Dynamic => AssignOp::Dynamic,
             _ => unreachable!(),
         };
 
@@ -200,7 +208,8 @@ fn parse_comparison<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let mut left = parse_term(tokens)?;
+    // Point this to the base of the math chain: parse_add_sub
+    let mut left = parse_add_sub(tokens)?;
 
     while let Some(Token::Lt | Token::Gt) = tokens.peek() {
         let op = match tokens.next().unwrap() {
@@ -209,7 +218,8 @@ where
             _ => unreachable!(),
         };
 
-        let right = parse_term(tokens)?;
+        // Also update the right-hand side to parse_add_sub
+        let right = parse_add_sub(tokens)?;
 
         left = Expr::Binary {
             left: Box::new(left),
@@ -220,19 +230,16 @@ where
 
     Ok(left)
 }
-
 fn parse_primary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
     match tokens.next() {
-        Some(Token::Number(n)) => Ok(Expr::Number(n)),
-        Some(Token::String(s)) => Ok(Expr::String(s)),
         Some(Token::True) => Ok(Expr::Bool(true)),
         Some(Token::False) => Ok(Expr::Bool(false)),
-
+        Some(Token::Number(n)) => Ok(Expr::Number(n)),
+        Some(Token::String(s)) => Ok(Expr::String(s)),
         Some(Token::Ident(name)) => Ok(Expr::Var(name)),
-
         Some(Token::Ampersand) => {
             tokens.next();
             let expr = parse_primary(tokens)?;
@@ -241,7 +248,6 @@ where
                 expr: Box::new(expr),
             })
         }
-
         Some(Token::LParen) => {
             let expr = parse_expr(tokens)?;
             match tokens.next() {
@@ -295,7 +301,6 @@ where
                     index: Box::new(index),
                 };
             }
-
             Some(Token::Dot) => {
                 tokens.next();
 
@@ -309,7 +314,6 @@ where
                     field,
                 };
             }
-
             Some(Token::LParen) => {
                 tokens.next();
 
@@ -336,7 +340,6 @@ where
                     args,
                 };
             }
-
             _ => break,
         }
     }
@@ -396,7 +399,6 @@ where
                 expr: Box::new(expr),
             })
         }
-
         Some(Token::Not) => {
             tokens.next();
             let expr = parse_unary(tokens)?;
@@ -405,7 +407,6 @@ where
                 expr: Box::new(expr),
             })
         }
-
         Some(Token::Ampersand) => {
             tokens.next();
             let expr = parse_unary(tokens)?;
@@ -414,63 +415,8 @@ where
                 expr: Box::new(expr),
             })
         }
-
         _ => parse_postfix(tokens),
     }
-}
-
-fn parse_factor<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
-where
-    I: Iterator<Item = Token>,
-{
-    let mut left = parse_unary(tokens)?;
-
-    loop {
-        let op = match tokens.peek() {
-            Some(Token::Star) => BinOp::Mul,
-            Some(Token::Slash) => BinOp::Div,
-            _ => break,
-        };
-
-        tokens.next();
-
-        let right = parse_unary(tokens)?;
-
-        left = Expr::Binary {
-            left: Box::new(left),
-            op,
-            right: Box::new(right),
-        };
-    }
-
-    Ok(left)
-}
-
-fn parse_term<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
-where
-    I: Iterator<Item = Token>,
-{
-    let mut left = parse_factor(tokens)?;
-
-    loop {
-        let op = match tokens.peek() {
-            Some(Token::Plus) => BinOp::Add,
-            Some(Token::Minus) => BinOp::Sub,
-            _ => break,
-        };
-
-        tokens.next(); // consume operator
-
-        let right = parse_factor(tokens)?;
-
-        left = Expr::Binary {
-            left: Box::new(left),
-            op,
-            right: Box::new(right),
-        };
-    }
-
-    Ok(left)
 }
 
 fn parse_add_sub<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
@@ -498,14 +444,20 @@ fn parse_mul_div<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    let mut left = parse_unary(tokens)?;
-    while let Some(Token::Star | Token::Slash) = tokens.peek() {
-        let op = match tokens.next().unwrap() {
+    let mut left = parse_power(tokens)?;
+
+    while let Some(tok) = tokens.peek() {
+        let op = match tok {
             Token::Star => BinOp::Mul,
             Token::Slash => BinOp::Div,
-            _ => unreachable!(),
+            Token::Mod => BinOp::Mod,
+            _ => break,
         };
-        let right = parse_unary(tokens)?;
+
+        tokens.next();
+        // Point this to parse_power as well
+        let right = parse_power(tokens)?;
+
         left = Expr::Binary {
             left: Box::new(left),
             op,
@@ -514,68 +466,6 @@ where
     }
     Ok(left)
 }
-
-fn parse_function<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next(); // consume fn
-
-    // function name
-    let name = match tokens.next() {
-        Some(Token::Ident(n)) => n,
-        other => return Err(format!("Expected function name, got {:?}", other)),
-    };
-
-    // ---- params ----
-    let mut params = vec![];
-
-    match tokens.next() {
-        Some(Token::LParen) => {}
-        other => return Err(format!("Expected '(', got {:?}", other)),
-    }
-
-    while let Some(tok) = tokens.peek() {
-        match tok {
-            Token::RParen => {
-                tokens.next();
-                break;
-            }
-
-            Token::Ident(p) => {
-                params.push(p.clone());
-                tokens.next();
-
-                if let Some(Token::Comma) = tokens.peek() {
-                    tokens.next();
-                }
-            }
-
-            _ => return Err("Invalid parameter list".into()),
-        }
-    }
-
-    // ---- body ----
-    let body = parse_block(tokens)?;
-
-    Ok(Stmt::Function { name, params, body })
-}
-
-fn parse_while<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next(); // consume while
-
-    let cond = parse_expr(tokens)?;
-    let body = parse_block(tokens)?;
-
-    Ok(Stmt::While {
-        condition: cond,
-        body,
-    })
-}
-
 fn parse_array<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
@@ -600,125 +490,234 @@ where
     Ok(Expr::Array(items))
 }
 
-fn parse_block<I>(tokens: &mut Peekable<I>) -> Result<Vec<Stmt>, String>
+// 2. Power is the next layer down.
+fn parse_power<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
 {
-    match tokens.next() {
-        Some(Token::LBrace) => {}
-        other => return Err(format!("Expected '{{', got {:?}", other)),
+    // Start by checking for Unary, then Postfix
+    let mut left = parse_unary(tokens)?;
+
+    if let Some(Token::Power) = tokens.peek() {
+        tokens.next();
+        // Right-associative: recursive call
+        let right = parse_power(tokens)?;
+        left = Expr::Binary {
+            left: Box::new(left),
+            op: BinOp::Power,
+            right: Box::new(right),
+        };
+    }
+    Ok(left)
+}
+fn parse_exponentiation<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
+where
+    I: Iterator<Item = Token>,
+{
+    let mut left = parse_postfix(tokens)?; // Move down to postfix/primary
+
+    if let Some(Token::Power) = tokens.peek() {
+        tokens.next(); // Consume '^' or '**'
+        // Recursively call parse_exponentiation for right-associativity
+        let right = parse_exponentiation(tokens)?;
+
+        left = Expr::Binary {
+            left: Box::new(left),
+            op: BinOp::Power,
+            right: Box::new(right),
+        };
     }
 
-    let mut stmts = vec![];
+    Ok(left)
+}
+mod control {
+    use std::iter::Peekable;
 
-    while let Some(tok) = tokens.peek() {
-        match tok {
-            Token::RBrace => {
-                tokens.next(); // consume }
-                break;
-            }
+    use crate::frontend::{
+        ast::Stmt,
+        parser::{parse_expr, parse_stmt},
+        token::Token,
+    };
 
-            Token::EOF => {
-                return Err("Unclosed block: expected '}'".into());
-            }
+    pub fn parse_block<I>(tokens: &mut Peekable<I>) -> Result<Vec<Stmt>, String>
+    where
+        I: Iterator<Item = Token>,
+    {
+        match tokens.next() {
+            Some(Token::LBrace) => {}
+            other => return Err(format!("Expected '{{', got {:?}", other)),
+        }
 
-            Token::Semicolon => {
-                tokens.next(); // skip empty ;
-                continue;
-            }
+        let mut stmts = vec![];
 
-            _ => {
-                let stmt = parse_stmt(tokens)?;
-                stmts.push(stmt);
-
-                // optional semicolon after statement
-                if let Some(Token::Semicolon) = tokens.peek() {
+        while let Some(tok) = tokens.peek() {
+            match tok {
+                Token::RBrace => {
                     tokens.next();
+                    break;
+                }
+
+                Token::EOF => {
+                    return Err("Unclosed block: expected '}'".into());
+                }
+
+                Token::Semicolon => {
+                    tokens.next();
+                    continue;
+                }
+
+                _ => {
+                    let stmt = parse_stmt(tokens)?;
+                    stmts.push(stmt);
+
+                    // optional semicolon after statement
+                    if let Some(Token::Semicolon) = tokens.peek() {
+                        tokens.next();
+                    }
                 }
             }
         }
+
+        Ok(stmts)
     }
 
-    Ok(stmts)
-}
-
-fn parse_do_while<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next(); // do
-
-    let body = parse_block(tokens)?;
-
-    match tokens.next() {
-        Some(Token::While) => {}
-        other => return Err(format!("Expected 'while' after do-block, got {:?}", other)),
-    }
-
-    let condition = parse_expr(tokens)?;
-
-    if let Some(Token::Semicolon) = tokens.peek() {
+    pub fn parse_if<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
         tokens.next();
-    }
+        let condition = parse_expr(tokens)?;
+        let then_branch = parse_block(tokens)?;
+        let mut else_branch = None;
 
-    Ok(Stmt::DoWhile { body, condition })
-}
+        if let Some(Token::Else) = tokens.peek() {
+            tokens.next();
 
-fn parse_if<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next();
-    let condition = parse_expr(tokens)?;
-    let then_branch = parse_block(tokens)?;
-    let mut else_branch = None;
-
-    if let Some(Token::Else) = tokens.peek() {
-        tokens.next();
-
-        if let Some(Token::If) = tokens.peek() {
-            let nested = parse_if(tokens)?;
-            else_branch = Some(vec![nested]);
-        } else {
-            else_branch = Some(parse_block(tokens)?);
+            if let Some(Token::If) = tokens.peek() {
+                let nested = parse_if(tokens)?;
+                else_branch = Some(vec![nested]);
+            } else {
+                else_branch = Some(parse_block(tokens)?);
+            }
         }
+
+        Ok(Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        })
+    }
+    pub fn parse_while<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
+        tokens.next(); // consume while
+
+        let cond = parse_expr(tokens)?;
+        let body = parse_block(tokens)?;
+
+        Ok(Stmt::While {
+            condition: cond,
+            body,
+        })
+    }
+    pub fn parse_do_while<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
+        tokens.next(); // do
+
+        let body = parse_block(tokens)?;
+
+        match tokens.next() {
+            Some(Token::While) => {}
+            other => return Err(format!("Expected 'while' after do-block, got {:?}", other)),
+        }
+
+        let condition = parse_expr(tokens)?;
+
+        if let Some(Token::Semicolon) = tokens.peek() {
+            tokens.next();
+        }
+
+        Ok(Stmt::DoWhile { body, condition })
     }
 
-    Ok(Stmt::If {
-        condition,
-        then_branch,
-        else_branch,
-    })
-}
+    pub fn parse_return<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
+        tokens.next(); // consume "return"
 
-fn parse_return<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next(); // consume "return"
+        let value = match tokens.peek() {
+            Some(Token::Semicolon) | Some(Token::RBrace) | Some(Token::EOF) => None,
+            _ => Some(parse_expr(tokens)?),
+        };
 
-    let value = match tokens.peek() {
-        Some(Token::Semicolon) | Some(Token::RBrace) | Some(Token::EOF) => None,
-        _ => Some(parse_expr(tokens)?),
-    };
+        // optional semicolon
+        if let Some(Token::Semicolon) = tokens.peek() {
+            tokens.next();
+        }
 
-    // optional semicolon
-    if let Some(Token::Semicolon) = tokens.peek() {
+        Ok(Stmt::Return { value })
+    }
+
+    pub fn parse_loop<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
         tokens.next();
+
+        let body = parse_block(tokens)?;
+
+        Ok(Stmt::Loop { body })
     }
 
-    Ok(Stmt::Return { value })
-}
+    pub fn parse_function<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
+    where
+        I: Iterator<Item = Token>,
+    {
+        tokens.next(); // consume fn
 
-fn parse_loop<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
-where
-    I: Iterator<Item = Token>,
-{
-    tokens.next();
+        // function name
+        let name = match tokens.next() {
+            Some(Token::Ident(n)) => n,
+            other => return Err(format!("Expected function name, got {:?}", other)),
+        };
 
-    let body = parse_block(tokens)?;
+        // ---- params ----
+        let mut params = vec![];
 
-    Ok(Stmt::Loop { body })
+        match tokens.next() {
+            Some(Token::LParen) => {}
+            other => return Err(format!("Expected '(', got {:?}", other)),
+        }
+
+        while let Some(tok) = tokens.peek() {
+            match tok {
+                Token::RParen => {
+                    tokens.next();
+                    break;
+                }
+
+                Token::Ident(p) => {
+                    params.push(p.clone());
+                    tokens.next();
+
+                    if let Some(Token::Comma) = tokens.peek() {
+                        tokens.next();
+                    }
+                }
+
+                _ => return Err("Invalid parameter list".into()),
+            }
+        }
+
+        // ---- body ----
+        let body = parse_block(tokens)?;
+
+        Ok(Stmt::Function { name, params, body })
+    }
 }
 
 pub fn parse_let<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
@@ -733,8 +732,8 @@ where
 
     let kind = match tokens.peek() {
         Some(Token::Eq) => DeclKind::MutableStatic,
-        Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
-        Some(Token::EqualsQ) => DeclKind::Dynamic,
+        Some(Token::Immutable) => DeclKind::ImmutableStatic,
+        Some(Token::Dynamic) => DeclKind::Dynamic,
         Some(t) => return Err(format!("Expected assignment operator, found {:?}", t)),
         None => return Err("Expected assignment operator, reached end of input".to_string()),
     };
@@ -757,8 +756,8 @@ where
 
     let kind = match tokens.next() {
         Some(Token::Eq) => DeclKind::MutableStatic,
-        Some(Token::EqualsBang) => DeclKind::ImmutableStatic,
-        Some(Token::EqualsQ) => DeclKind::Dynamic,
+        Some(Token::Immutable) => DeclKind::ImmutableStatic,
+        Some(Token::Dynamic) => DeclKind::Dynamic,
         other => return Err(format!("Expected declaration operator, got {:?}", other)),
     };
 
@@ -794,8 +793,8 @@ fn is_expr_start(tok: Option<&Token>) -> bool {
 fn kind_from_token(tok: &Token) -> DeclKind {
     match tok {
         Token::Assign => DeclKind::MutableStatic,
-        Token::EqualsBang => DeclKind::ImmutableStatic,
-        Token::EqualsQ => DeclKind::Dynamic,
+        Token::Immutable => DeclKind::ImmutableStatic,
+        Token::Dynamic => DeclKind::Dynamic,
         _ => unreachable!(),
     }
 }
@@ -807,7 +806,7 @@ where
     let mut lookahead = tokens.clone();
 
     match (lookahead.next(), lookahead.next()) {
-        (Some(Token::Ident(_)), Some(Token::Eq | Token::EqualsBang | Token::EqualsQ)) => true,
+        (Some(Token::Ident(_)), Some(Token::Eq | Token::Immutable | Token::Dynamic)) => true,
 
         _ => false,
     }

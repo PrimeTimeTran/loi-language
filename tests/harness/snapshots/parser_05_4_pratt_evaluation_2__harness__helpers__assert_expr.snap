@@ -1,0 +1,13 @@
+---
+source: tests/harness/helpers.rs
+expression: ast
+---
+Binary:
+  left:
+    Unary:
+      op: Neg
+      expr:
+        Var: a
+  op: Power
+  right:
+    Var: b
