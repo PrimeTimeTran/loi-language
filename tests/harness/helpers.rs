@@ -1,20 +1,12 @@
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 use loi::frontend::lexer::lex;
 use loi::frontend::parser::{parse, parse_source};
+use loi::middle::ir::{IROp, LoweredOp, Op, Type, TypedExpr};
 
-#[test]
-#[cfg(feature = "snapshotting")]
-fn debug_parser() {
-    let output = parses("x = 5");
-    panic!("DEBUG OUTPUT: {}", output);
-}
-
-/// Helper to normalize any string by removing all whitespace
 pub fn clean(s: &str) -> String {
     s.replace(|c: char| c.is_whitespace(), "")
 }
 
-/// Use this when you have an expected structure to verify against
 pub fn assert_expr(input: &str, expected: &str) {
     let actual = parses(input);
 
@@ -28,19 +20,13 @@ pub fn assert_expr(input: &str, expected: &str) {
     );
 }
 
-/// Use this if you just want to verify the parser succeeds and returns
-/// something that matches a structure you provide directly
 pub fn assert_parses_as(input: &str, expected_structure: &str) {
-    // This is essentially the same as assert_expr,
-    // but makes your test code read more like a specification.
     assert_expr(input, expected_structure);
 }
 
 pub fn parses(src: &str) -> String {
     let tokens = lex(src).expect("Lexing failed");
     let ast = parse(tokens).expect("Parsing failed");
-
-    // Return the full structural representation of all statements
     ast.to_sexpr()
 }
 
@@ -91,4 +77,11 @@ pub fn add_var(target: &str, left: &str, right: &str) -> IROp {
         op: Op::Add,
         right: right.to_string(),
     })
+}
+
+#[test]
+#[cfg(feature = "snapshotting")]
+fn debug_parser() {
+    let output = parses("x = 5");
+    panic!("DEBUG OUTPUT: {}", output);
 }

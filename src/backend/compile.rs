@@ -12,6 +12,7 @@ pub fn compile(ir: &[IROp], out_base: &Path, module_name: &str) -> Result<String
     if let Some(parent) = bc_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
+
     let context = Context::create();
     let module = context.create_module(module_name);
     let builder = context.create_builder();
@@ -20,12 +21,10 @@ pub fn compile(ir: &[IROp], out_base: &Path, module_name: &str) -> Result<String
 
     module.print_to_file(&ll_path).map_err(|e| e.to_string())?;
 
-    let success = module.write_bitcode_to_path(&bc_path);
-    if !success {
+    if !module.write_bitcode_to_path(&bc_path) {
         return Err(format!("failed writing bitcode: {}", bc_path.display()));
     }
 
     println!("📦 LLVM bitcode written: {}", bc_path.display());
-
     Ok(bc_path.to_string_lossy().to_string())
 }

@@ -162,12 +162,11 @@ pub enum IROp {
     ExprStmt {
         expr: TypedExpr,
     },
-
-    // --- Control Flow & I/O ---
     If {
         condition: TypedExpr,
         then_branch: Vec<IROp>,
         else_branch: Vec<IROp>,
+        scope_id: usize,
     },
     Return {
         value: Option<TypedExpr>,
@@ -210,6 +209,5 @@ pub enum IROp {
         body: Vec<IROp>,
     },
 
-    // --- The Bridge: Lowered Instructions ---
     Lowered(LoweredOp),
 }

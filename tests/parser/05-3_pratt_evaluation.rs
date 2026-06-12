@@ -1,11 +1,7 @@
 #[path = "../harness/mod.rs"]
 mod harness;
-use loi::frontend::{
-    ast::{DeclKind, Expr, Stmt},
-    parser::{parse_let, parse_source},
-};
 
-use crate::harness::helpers::{assert_expr, assert_let_stmt, fails, parses};
+use crate::harness::helpers::assert_expr;
 
 #[test]
 fn p01_mul_higher_than_add() {
@@ -54,7 +50,7 @@ fn p09_multiple_unary() {
 
 #[test]
 fn p10_postfix_vs_unary() {
-    assert_expr("-a.b", "-(a.b)");
+    assert_expr("-a.b", "(- (a.b))");
 }
 
 #[test]

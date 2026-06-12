@@ -2,34 +2,7 @@ use crate::frontend::parser::parse;
 use serde::Serialize;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Program {
-    pub stmts: Vec<Stmt>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct AST {
-    pub stmts: Vec<Stmt>,
-}
-impl AST {
-    pub fn to_sexpr(&self) -> String {
-        self.stmts
-            .iter()
-            .map(|s| s.to_sexpr())
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-}
-
-impl fmt::Display for AST {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for stmt in &self.stmts {
-            writeln!(f, "{}", stmt)?;
-        }
-        Ok(())
-    }
-}
-
+// ENUMS
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum DeclKind {
     MutableStatic,   // =
@@ -37,14 +10,69 @@ pub enum DeclKind {
     Dynamic,         // =?
 }
 
-impl std::fmt::Display for DeclKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DeclKind::MutableStatic => write!(f, "="),
-            DeclKind::ImmutableStatic => write!(f, "=!"),
-            DeclKind::Dynamic => write!(f, "=?"),
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    And,
+    Or,
+    Assign,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum UnOp {
+    Neg,
+    Not,
+    AddrOf,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AssignOp {
+    Assign,    // =
+    Immutable, // =!
+    Dynamic,   // =?
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum Expr {
+    Unary {
+        op: UnOp,
+        expr: Box<Expr>,
+    },
+    Binary {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+    },
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
+        op: AssignOp,
+    },
+    Number(f64),
+    Bool(bool),
+    String(String),
+    Var(String),
+    Array(Vec<Expr>),
+
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Index {
+        target: Box<Expr>,
+        index: Box<Expr>,
+    },
+    Member {
+        target: Box<Expr>,
+        field: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -96,39 +124,27 @@ pub enum Stmt {
     },
 }
 
-impl fmt::Display for Stmt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Stmt::Let { name, kind, value } => write!(f, "let {}: {} = {};", name, kind, value),
-            Stmt::Print { expr } => write!(f, "print({});", expr),
-            Stmt::ExprStmt { expr } => write!(f, "{}", expr),
-            Stmt::Function { name, params, body } => {
-                write!(f, "fn {}({}) {{ ... }}", name, params.join(", "))
-            }
-            Stmt::Return { value } => match value {
-                Some(v) => write!(f, "return {};", v),
-                None => write!(f, "return;"),
-            },
-            Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                write!(f, "if ({}) {{ ... }}", condition)
-            }
-            Stmt::While { condition, body } => write!(f, "while ({}) {{ ... }}", condition),
-            Stmt::Loop { body } => write!(f, "loop {{ ... }}"),
-            Stmt::For {
-                iterator,
-                iterable,
-                body,
-            } => write!(f, "for {} in {} {{ ... }}", iterator, iterable),
-            Stmt::DoWhile { body, condition } => write!(f, "do {{ ... }} while ({})", condition),
-            Stmt::Block { body } => write!(f, "{{ ... }}"),
-        }
-    }
+// Structs
+#[derive(Debug, Clone, PartialEq)]
+pub struct Program {
+    pub stmts: Vec<Stmt>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct AST {
+    pub stmts: Vec<Stmt>,
+}
+
+// Struc impls
+impl AST {
+    pub fn to_sexpr(&self) -> String {
+        self.stmts
+            .iter()
+            .map(|s| s.to_sexpr())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
 impl Stmt {
     pub fn to_sexpr(&self) -> String {
         match self {
@@ -206,19 +222,57 @@ impl Stmt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Eq,
-    Neq,
-    Lt,
-    Gt,
-    And,
-    Or,
-    Assign,
+// Trait impls
+impl fmt::Display for AST {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for stmt in &self.stmts {
+            writeln!(f, "{}", stmt)?;
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for DeclKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeclKind::MutableStatic => write!(f, "="),
+            DeclKind::ImmutableStatic => write!(f, "=!"),
+            DeclKind::Dynamic => write!(f, "=?"),
+        }
+    }
+}
+
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Stmt::Let { name, kind, value } => write!(f, "let {}: {} = {};", name, kind, value),
+            Stmt::Print { expr } => write!(f, "print({});", expr),
+            Stmt::ExprStmt { expr } => write!(f, "{}", expr),
+            Stmt::Function { name, params, body } => {
+                write!(f, "fn {}({}) {{ ... }}", name, params.join(", "))
+            }
+            Stmt::Return { value } => match value {
+                Some(v) => write!(f, "return {};", v),
+                None => write!(f, "return;"),
+            },
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                write!(f, "if ({}) {{ ... }}", condition)
+            }
+            Stmt::While { condition, body } => write!(f, "while ({}) {{ ... }}", condition),
+            Stmt::Loop { body } => write!(f, "loop {{ ... }}"),
+            Stmt::For {
+                iterator,
+                iterable,
+                body,
+            } => write!(f, "for {} in {} {{ ... }}", iterator, iterable),
+            Stmt::DoWhile { body, condition } => write!(f, "do {{ ... }} while ({})", condition),
+            Stmt::Block { body } => write!(f, "{{ ... }}"),
+        }
+    }
 }
 
 impl std::fmt::Display for BinOp {
@@ -239,13 +293,6 @@ impl std::fmt::Display for BinOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum UnOp {
-    Neg,
-    Not,
-    AddrOf,
-}
-
 impl std::fmt::Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -256,12 +303,6 @@ impl std::fmt::Display for UnOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum AssignOp {
-    Assign,    // =
-    Immutable, // =!
-    Dynamic,   // =?
-}
 impl std::fmt::Display for AssignOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -270,42 +311,6 @@ impl std::fmt::Display for AssignOp {
             AssignOp::Dynamic => write!(f, "=?"),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Expr {
-    Unary {
-        op: UnOp,
-        expr: Box<Expr>,
-    },
-    Binary {
-        left: Box<Expr>,
-        op: BinOp,
-        right: Box<Expr>,
-    },
-    Assign {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        op: AssignOp,
-    },
-    Number(f64),
-    Bool(bool),
-    String(String),
-    Var(String),
-    Array(Vec<Expr>),
-
-    Call {
-        callee: Box<Expr>,
-        args: Vec<Expr>,
-    },
-    Index {
-        target: Box<Expr>,
-        index: Box<Expr>,
-    },
-    Member {
-        target: Box<Expr>,
-        field: String,
-    },
 }
 
 impl std::fmt::Display for Expr {
@@ -327,7 +332,7 @@ impl Expr {
                 BinOp::Mul | BinOp::Div => 7,
                 BinOp::Assign => 1,
             },
-            _ => 10, // Unary, Calls, Index, Members, etc. are high precedence
+            _ => 10,
         }
     }
     pub fn format_prec(&self, f: &mut std::fmt::Formatter<'_>, min_prec: i8) -> std::fmt::Result {
@@ -392,13 +397,24 @@ impl Expr {
             write!(f, ")")?;
         }
 
-        Ok(()) // Return Ok(()) at the very end
+        Ok(())
     }
+    fn wrap(expr: &Expr) -> String {
+        match expr {
+            // Only wrap complex structures (Binary, Assign, Unary)
+            // to avoid redundant parens on simple postfix chains
+            Expr::Binary { .. } | Expr::Assign { .. } | Expr::Unary { .. } => {
+                format!("({})", expr.to_sexpr())
+            }
+            _ => expr.to_sexpr(),
+        }
+    }
+    // Standardized S-Expr rules:
+    // 1. Every operation is (Op Arg1 Arg2)
+    // 2. Every assignment is (Assign Target Value)
+    // 3. Declarations (let) are handled specifically if the node is a Stmt
     pub fn to_sexpr(&self) -> String {
         match self {
-            Expr::Assign { left, right, op } => {
-                format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
-            }
             Expr::Number(n) => n.to_string(),
             Expr::Bool(b) => b.to_string(),
             Expr::String(s) => format!("\"{}\"", s),
@@ -407,21 +423,24 @@ impl Expr {
                 let els: Vec<String> = elements.iter().map(|e| e.to_sexpr()).collect();
                 format!("[{}]", els.join(", "))
             }
+            Expr::Assign { left, right, op } => {
+                format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
+            }
             Expr::Binary { left, op, right } => {
                 format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
             }
             Expr::Unary { op, expr } => {
-                format!("({} {})", op, expr.to_sexpr())
+                format!("({}{})", op, expr.to_sexpr())
+            }
+            Expr::Member { target, field } => {
+                format!("({}.{})", target.to_sexpr(), field)
+            }
+            Expr::Index { target, index } => {
+                format!("({}[{}])", target.to_sexpr(), index.to_sexpr())
             }
             Expr::Call { callee, args } => {
                 let args_str: Vec<String> = args.iter().map(|a| a.to_sexpr()).collect();
-                format!("{}({})", callee.to_sexpr(), args_str.join(", "))
-            }
-            Expr::Index { target, index } => {
-                format!("{}[{}]", target.to_sexpr(), index.to_sexpr())
-            }
-            Expr::Member { target, field } => {
-                format!("{}.{}", target.to_sexpr(), field)
+                format!("({}({}))", callee.to_sexpr(), args_str.join(", "))
             }
         }
     }

@@ -3,6 +3,10 @@ use crate::frontend::lexer;
 use crate::frontend::parser::parse;
 use crate::middle::ir::{IROp, Type, TypedExpr};
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static SCOPE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 pub fn analyze(ast: AST) -> Result<Vec<IROp>, String> {
     let mut body = Vec::new();
 
@@ -98,11 +102,16 @@ fn analyze_stmt(stmt: Stmt) -> Result<Vec<IROp>, String> {
             condition,
             then_branch,
             else_branch,
-        } => Ok(one(IROp::If {
-            condition: typed(condition)?,
-            then_branch: analyze_block(then_branch)?,
-            else_branch: else_branch.map_or(Ok(vec![]), analyze_block)?,
-        })),
+        } => {
+            let id = SCOPE_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+            Ok(one(IROp::If {
+                condition: typed(condition)?,
+                then_branch: analyze_block(then_branch)?,
+                else_branch: else_branch.map_or(Ok(vec![]), analyze_block)?,
+                scope_id: id,
+            }))
+        }
         Stmt::Function { name, params, body } => Ok(one(IROp::Function {
             name,
             params: params.into_iter().map(|p| (p, Type::Unknown)).collect(),

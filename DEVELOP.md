@@ -38,6 +38,6 @@ cargo watch -x 'nextest run --test parser_05-3* --test-threads 1 --no-fail-fast 
 ```
 
 ```sh
-
+car watch -x 'nextest run --test-threads 1 --no-fail-fast'
 ./scripts/merge_tests.sh && car watch -x 'nextest run  --test parser_0* --test-threads 1 --no-fail-fast'
 ```

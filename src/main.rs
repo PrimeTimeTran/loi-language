@@ -48,7 +48,7 @@ pub fn main() {
     let current_dir = env::current_dir().unwrap();
     let target_input = current_dir.join("targets/syntax");
     let args: Vec<String> = env::args().collect();
-    if true {
+    if false {
         println!("🚀 Running in Batch Mode...");
         let config = Config {
             input: PathBuf::from("targets/syntax"),

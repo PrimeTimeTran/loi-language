@@ -7,11 +7,6 @@ use crate::frontend::{
     token::Token,
 };
 
-// #[derive(Debug, Serialize)]
-// pub struct AST {
-//     pub stmts: Vec<Stmt>,
-// }
-
 pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
     let mut tokens = tokens.into_iter().peekable();
     let mut stmts = vec![];
@@ -58,15 +53,6 @@ where
                 expr: parse_expr(tokens)?,
             })
         }
-        // 1. "Initial"
-        // Fails: p07_declaration_still_creates_let
-        // _ => {
-        //     let expr = parse_expr(tokens)?;
-        //     Ok(Stmt::ExprStmt { expr })
-        // }
-
-        // 2. Fix of p07
-        // Fails p08_test_variable_declarations
         _ => {
             let expr = parse_expr(tokens)?;
 
@@ -93,48 +79,7 @@ where
 
                 other => Ok(Stmt::ExprStmt { expr: other }),
             }
-        } // Some(Token::Ident(name)) => {
-          //     let name = name.clone();
-          //     tokens.next();
-
-          //     let op = match tokens.peek() {
-          //         Some(Token::Assign | Token::EqualsBang | Token::EqualsQ) => tokens.next().unwrap(),
-          //         _ => {
-          //             let expr = parse_expr(tokens)?;
-          //             return Ok(Stmt::ExprStmt { expr });
-          //         }
-          //     };
-
-          //     let kind = match op {
-          //         Token::Assign => DeclKind::MutableStatic,
-          //         Token::EqualsBang => DeclKind::ImmutableStatic,
-          //         Token::EqualsQ => DeclKind::Dynamic,
-          //         _ => unreachable!(),
-          //     };
-
-          //     let value = parse_expr(tokens)?;
-
-          //     Ok(Stmt::Let { name, kind, value })
-          // }
-          // _ => {
-          //     let expr = parse_expr(tokens)?;
-
-          //     if let Expr::Assign { left, right } = expr {
-          //         if let Expr::Var(name) = *left {
-          //             return Ok(Stmt::Let {
-          //                 name,
-          //                 kind: DeclKind::MutableStatic,
-          //                 value: *right,
-          //             });
-          //         }
-
-          //         return Ok(Stmt::ExprStmt {
-          //             expr: Expr::Assign { left, right },
-          //         });
-          //     }
-
-          //     Ok(Stmt::ExprStmt { expr })
-          // }
+        }
     }
 }
 
@@ -143,12 +88,6 @@ where
     I: Iterator<Item = Token>,
 {
     parse_assignment(tokens, None)
-}
-fn is_assignable(expr: &Expr) -> bool {
-    matches!(
-        expr,
-        Expr::Var(_) | Expr::Member { .. } | Expr::Index { .. }
-    )
 }
 
 fn parse_assignment<I>(tokens: &mut Peekable<I>, lhs: Option<Expr>) -> Result<Expr, String>
@@ -480,18 +419,6 @@ where
     }
 }
 
-// fn is_expr_start(tok: Option<&Token>) -> bool {
-//     matches!(
-//         tok,
-//         Some(Token::Number(_))
-//             | Some(Token::String(_))
-//             | Some(Token::Ident(_))
-//             | Some(Token::LParen)
-//             | Some(Token::LBracket)
-//             | Some(Token::Ampersand)
-//     )
-// }
-
 fn parse_factor<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
 where
     I: Iterator<Item = Token>,
@@ -819,19 +746,6 @@ where
     Ok(Stmt::Let { name, kind, value })
 }
 
-fn looks_like_declaration<I>(tokens: &mut Peekable<I>) -> bool
-where
-    I: Iterator<Item = Token> + Clone,
-{
-    let mut lookahead = tokens.clone();
-
-    match (lookahead.next(), lookahead.next()) {
-        (Some(Token::Ident(_)), Some(Token::Eq | Token::EqualsBang | Token::EqualsQ)) => true,
-
-        _ => false,
-    }
-}
-
 fn parse_declaration<I>(tokens: &mut Peekable<I>) -> Result<Stmt, String>
 where
     I: Iterator<Item = Token>,
@@ -858,34 +772,24 @@ pub fn parse_source(input: &str) -> Result<AST, String> {
     parse(tokens)
 }
 
-// fn parse_binary<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
-// where
-//     I: Iterator<Item = Token>,
-// {
-//     let mut left = parse_unary(tokens)?;
+fn is_assignable(expr: &Expr) -> bool {
+    matches!(
+        expr,
+        Expr::Var(_) | Expr::Member { .. } | Expr::Index { .. }
+    )
+}
 
-//     loop {
-//         let op = match tokens.peek() {
-//             Some(Token::Plus) => BinOp::Add,
-//             Some(Token::Minus) => BinOp::Sub,
-//             Some(Token::Star) => BinOp::Mul,
-//             Some(Token::Slash) => BinOp::Div,
-//             _ => break,
-//         };
-
-//         tokens.next(); // consume operator
-
-//         let right = parse_unary(tokens)?;
-
-//         left = Expr::Binary {
-//             left: Box::new(left),
-//             op,
-//             right: Box::new(right),
-//         };
-//     }
-
-//     Ok(left)
-// }
+fn is_expr_start(tok: Option<&Token>) -> bool {
+    matches!(
+        tok,
+        Some(Token::Number(_))
+            | Some(Token::String(_))
+            | Some(Token::Ident(_))
+            | Some(Token::LParen)
+            | Some(Token::LBracket)
+            | Some(Token::Ampersand)
+    )
+}
 
 fn kind_from_token(tok: &Token) -> DeclKind {
     match tok {
@@ -895,6 +799,20 @@ fn kind_from_token(tok: &Token) -> DeclKind {
         _ => unreachable!(),
     }
 }
+
+fn looks_like_declaration<I>(tokens: &mut Peekable<I>) -> bool
+where
+    I: Iterator<Item = Token> + Clone,
+{
+    let mut lookahead = tokens.clone();
+
+    match (lookahead.next(), lookahead.next()) {
+        (Some(Token::Ident(_)), Some(Token::Eq | Token::EqualsBang | Token::EqualsQ)) => true,
+
+        _ => false,
+    }
+}
+
 #[test]
 fn parse_simple_program() {
     let tokens = lex("x = 1 + 2;").unwrap();

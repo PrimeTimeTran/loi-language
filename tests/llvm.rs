@@ -1,3 +1,7 @@
+mod harness;
+
+use crate::harness::helpers::add_var;
+
 use loi::{
     backend::compile,
     frontend::ast::Expr,
@@ -6,6 +10,11 @@ use loi::{
         semantic::analyze,
     },
 };
+
+#[test]
+fn test_simple_addition() {
+    let ir = vec![add_var("c", "a", "b")];
+}
 
 #[test]
 fn generates_bitcode() {
@@ -19,9 +28,4 @@ fn generates_bitcode() {
     let result = compile(&ir, &out_path, "test");
 
     assert!(result.is_ok());
-}
-
-#[test]
-fn test_simple_addition() {
-    let ir = vec![add_var("c", "a", "b")];
 }
