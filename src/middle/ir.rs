@@ -2,11 +2,19 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use frontend::ast::Expr;
+use crate::frontend::ast::{BinOp, Expr};
 
 use crate::{backend::symbol::registry::Symbol, frontend};
 
-#[derive(Debug, Clone, PartialEq)]
+pub type IrInstruction = IROp;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Type {
     I32,
     F64,
@@ -19,16 +27,11 @@ pub enum Type {
     Unknown,
 }
 
-#[derive(Clone)]
-pub struct TypedExpr(pub Expr, pub Type);
-
-impl std::fmt::Debug for TypedExpr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TypedExpr")
-            .field("expr", &self.0)
-            .field("ty", &self.1)
-            .finish()
-    }
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TypedExpr {
+    pub expr: Expr,
+    pub ty: Type,
+    pub span: Span,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -66,8 +69,6 @@ impl fmt::Display for IR {
                 symbols,
                 metadata,
             } => {
-                // Example of how to flatten structured IR into a string
-                // You can customize this format based on your needs
                 writeln!(f, "--- Metadata ---")?;
                 for (k, v) in metadata {
                     writeln!(f, "{}: {}", k, v)?;
@@ -78,7 +79,7 @@ impl fmt::Display for IR {
                 }
                 writeln!(f, "--- Body ---")?;
                 for op in body {
-                    writeln!(f, "{:?}", op)?; // Assumes IROp implements Debug
+                    writeln!(f, "{:?}", op)?;
                 }
                 Ok(())
             }
@@ -131,7 +132,12 @@ pub enum LoweredOp {
 
 #[derive(Debug, Clone)]
 pub enum IROp {
-    // --- Program Structure ---
+    Binary {
+        target: String,
+        left: TypedExpr,
+        op: BinOp,
+        right: TypedExpr,
+    },
     Module {
         body: Vec<IROp>,
     },
@@ -145,7 +151,6 @@ pub enum IROp {
         body: Vec<IROp>,
     },
 
-    // --- High-Level Logic ---
     Declare {
         name: String,
         value: TypedExpr,

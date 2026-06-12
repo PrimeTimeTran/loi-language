@@ -2,6 +2,8 @@
 source: tests/harness/llvm.rs
 expression: self.ir
 ---
+; ModuleID = 'test_module'
+source_filename = "test_module"
 
 @fmt_f64 = global [4 x i8] c"%f\0A\00"
 @fmt_i32 = global [4 x i8] c"%d\0A\00"

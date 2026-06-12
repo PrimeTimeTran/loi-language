@@ -11,55 +11,39 @@ use crate::frontend::ast::UnOp;
 use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
 
-pub struct LlvmRuntime<'ctx> {
-    pub main: FunctionValue<'ctx>,
-    pub builder: &'ctx Builder<'ctx>,
-    pub printf: FunctionValue<'ctx>,
-    pub fmt_f64: PointerValue<'ctx>,
-    pub fmt_i32: PointerValue<'ctx>,
-    pub fmt_str: PointerValue<'ctx>,
-}
+pub use llvm::{LLVM, Runtime};
 
-impl<'ctx> LlvmRuntime<'ctx> {
-    pub fn get_fmt_for_type(&self, ty: &Type) -> PointerValue<'ctx> {
-        match ty {
-            Type::Str => self.fmt_str,
-            Type::F64 => self.fmt_f64,
-            Type::I32 | Type::Bool => self.fmt_i32,
-            // Add a fallback for debugging
-            Type::Unknown => panic!("Compiler error: Type check failed to resolve type!"),
-            _ => todo!("Add format string for type: {:?}", ty),
-        }
-    }
-}
-
-pub struct CodegenState<'ctx, 'env> {
+pub struct CodegenState<'ctx> {
     pub context: &'ctx Context,
-    pub module: &'ctx Module<'ctx>,
-    pub builder: &'ctx Builder<'ctx>,
-    pub env: &'env mut HashMap<String, PointerValue<'ctx>>,
+    pub module: Module<'ctx>,
+    pub builder: Builder<'ctx>,
+    pub env: HashMap<String, PointerValue<'ctx>>,
 }
 
-impl<'ctx, 'env> CodegenState<'ctx, 'env> {
+impl<'ctx> CodegenState<'ctx> {
     pub fn load_var(&self, name: &str) -> FloatValue<'ctx> {
-        let ptr = *self
-            .env
-            .get(name)
-            .unwrap_or_else(|| panic!("undefined variable: {}", name));
+        let ptr = self.env.get(name).copied().unwrap_or_else(|| {
+            let keys: Vec<_> = self.env.keys().collect();
+            panic!(
+                "Undefined variable: '{}'. Available variables: {:?}",
+                name, keys
+            );
+        });
 
-        // 2. Fetch the float type from the context
-        let f64_type = self.context.f64_type();
         self.builder
-            .build_load(f64_type, ptr, name)
+            .build_load(self.context.f64_type(), ptr, name)
             .expect("Failed to build load instruction")
             .into_float_value()
     }
 }
 
-fn codegen_expr<'ctx, 'env>(
+struct CodeGenExpress {}
+impl CodeGenExpress {}
+
+fn codegen_expr<'ctx>(
     expr: &Expr,
     ty: &Type,
-    state: &mut CodegenState<'ctx, 'env>,
+    state: &mut CodegenState<'ctx>,
 ) -> BasicValueEnum<'ctx> {
     match expr {
         Expr::Call { callee, args } => {
@@ -221,54 +205,23 @@ fn codegen_expr<'ctx, 'env>(
     }
 }
 
-pub fn setup_module<'ctx>(
-    context: &'ctx Context,
-    module: &'ctx Module<'ctx>,
-    builder: &'ctx Builder<'ctx>,
-) -> LlvmRuntime<'ctx> {
-    // Helper to create global format strings
-    let create_fmt = |val: &[u8], name: &str| {
-        let fmt_type = context.i8_type().array_type(val.len() as u32);
-        let gv = module.add_global(fmt_type, None, name);
-        gv.set_initializer(&context.const_string(val, false));
-        gv.as_pointer_value()
-    };
-
-    let fmt_f64 = create_fmt(b"%f\n\0", "fmt_f64");
-    let fmt_i32 = create_fmt(b"%d\n\0", "fmt_i32");
-    let fmt_str = create_fmt(b"%s\n\0", "fmt_str");
-
-    let i32_type = context.i32_type();
-    let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
-    let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
-    let printf = module.add_function("printf", printf_type, None);
-
-    let main = module.add_function("main", i32_type.fn_type(&[], false), None);
-    builder.position_at_end(context.append_basic_block(main, "entry"));
-
-    LlvmRuntime {
-        main,
-        builder,
-        printf,
-        fmt_f64,
-        fmt_i32,
-        fmt_str,
-    }
-}
-pub fn lower_ir<'ctx, 'env>(
-    state: &mut CodegenState<'ctx, 'env>,
+pub fn lower_ir<'ctx>(
+    state: &mut CodegenState<'ctx>,
     ir: IROp,
-    runtime: &LlvmRuntime<'ctx>,
+    runtime: &Runtime<'ctx>,
     zero: IntValue<'ctx>,
 ) -> Result<(), String> {
     match ir {
         IROp::Print { value } => {
-            let TypedExpr(expr, ty) = value;
-            if matches!(ty, Type::Unknown) {
+            let TypedExpr { expr, ty, .. } = value;
+            let resolved_ty = ty;
+
+            if matches!(resolved_ty, Type::Unknown) {
                 panic!("Found an UNTYPED expression: {:?}", expr);
             }
-            let llvm_val = codegen_expr(&expr, &ty, state);
-            let fmt_ptr = runtime.get_fmt_for_type(&ty);
+
+            let llvm_val = codegen_expr(&expr, &resolved_ty, state);
+            let fmt_ptr = runtime.get_fmt_for_type(&resolved_ty);
             state
                 .builder
                 .build_call(
@@ -279,7 +232,29 @@ pub fn lower_ir<'ctx, 'env>(
                 .unwrap();
             Ok(())
         }
+        IROp::Declare { name, value, .. } => {
+            println!("DEBUG: Declaring variable '{}'", name); // ADD THIS
+            let ptr = state
+                .builder
+                .build_alloca(state.context.f64_type(), &name)
+                .unwrap();
+            let val = codegen_expr(&value.expr, &value.ty, state);
+            state.builder.build_store(ptr, val).unwrap();
+            state.env.insert(name, ptr);
 
+            Ok(())
+        }
+        IROp::Assign { name, value } => {
+            let val = codegen_expr(&value.expr, &value.ty, state);
+
+            let ptr = state
+                .env
+                .get(&name)
+                .expect(&format!("Variable '{}' not declared!", name));
+
+            state.builder.build_store(*ptr, val).unwrap();
+            Ok(())
+        }
         IROp::If {
             condition,
             then_branch,
@@ -304,7 +279,7 @@ pub fn lower_ir<'ctx, 'env>(
                 .context
                 .append_basic_block(parent, &format!("merge_{}", scope_id));
 
-            let cond_val = codegen_expr(&condition.0, &condition.1, state).into_int_value();
+            let cond_val = codegen_expr(&condition.expr, &condition.ty, state).into_int_value();
             state
                 .builder
                 .build_conditional_branch(cond_val, then_bb, else_bb)
@@ -343,81 +318,31 @@ pub fn lower_ir<'ctx, 'env>(
             Ok(())
         }
 
-        IROp::Lowered(lowered) => match lowered {
-            LoweredOp::Binary {
-                target,
-                left,
-                op,
-                right,
-            } => {
-                let lhs = state.load_var(&left);
-                let rhs = state.load_var(&right);
-                let res = match op {
-                    Op::Add => state.builder.build_float_add(lhs, rhs, &target).unwrap(),
-                    Op::Sub => state.builder.build_float_sub(lhs, rhs, &target).unwrap(),
-                    Op::Mul => state.builder.build_float_mul(lhs, rhs, &target).unwrap(),
-                    Op::Div => state.builder.build_float_div(lhs, rhs, &target).unwrap(),
-                    Op::Neg => state.builder.build_float_neg(lhs, &target).unwrap(),
-                    Op::Cmp => {
-                        let cmp = state
-                            .builder
-                            .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, &target)
-                            .unwrap();
-                        state
-                            .builder
-                            .build_unsigned_int_to_float(cmp, state.context.f64_type(), "cmp_res")
-                            .unwrap()
-                    }
-                };
-                let ptr = state
-                    .builder
-                    .build_alloca(state.context.f64_type(), &target)
-                    .unwrap();
-                state.builder.build_store(ptr, res).unwrap();
-                state.env.insert(target, ptr);
-                Ok(())
-            }
-            LoweredOp::Move { target, source } => {
-                let val = state.load_var(&source);
-                let ptr = state
-                    .builder
-                    .build_alloca(state.context.f64_type(), &target)
-                    .unwrap();
-                state.builder.build_store(ptr, val).unwrap();
-                state.env.insert(target, ptr);
-                Ok(())
-            }
-            _ => Ok(()),
-        },
-
-        IROp::Assign { name, value } => {
-            let TypedExpr(expr, ty) = value;
-            let ptr = state
-                .builder
-                .build_alloca(state.context.f64_type(), &name)
-                .unwrap();
-            let val = codegen_expr(&expr, &ty, state);
-            state.builder.build_store(ptr, val).unwrap();
-            state.env.insert(name.clone(), ptr);
-            Ok(())
+        IROp::Binary {
+            target,
+            left,
+            op,
+            right,
+        } => {
+            let lhs = codegen_expr(&left.expr, &left.ty, state).into_float_value();
+            let rhs = codegen_expr(&right.expr, &right.ty, state).into_float_value();
+            bin::emit_binary_op(state, &target, lhs, rhs, bin::map_binop(op))
+        }
+        IROp::Lowered(LoweredOp::Binary {
+            target,
+            left,
+            op,
+            right,
+        }) => {
+            let lhs = state.load_var(&left);
+            let rhs = state.load_var(&right);
+            bin::emit_binary_op(state, &target, lhs, rhs, op)
         }
 
         IROp::Module { body } => {
             for stmt in body {
                 lower_ir(state, stmt, runtime, zero)?;
             }
-            Ok(())
-        }
-
-        IROp::Declare { name, value, .. } => {
-            let ptr = state
-                .builder
-                .build_alloca(state.context.f64_type(), &name)
-                .unwrap();
-            let TypedExpr(expr, ty) = value;
-            let val = codegen_expr(&expr, &Type::F64, state);
-            state.builder.build_store(ptr, val).unwrap();
-            state.env.insert(name.clone(), ptr);
             Ok(())
         }
 
@@ -441,45 +366,204 @@ pub fn lower_ir<'ctx, 'env>(
     }
 }
 
-pub fn lower_ir_to_llvm<'ctx>(
-    context: &'ctx Context,
-    module: &Module<'ctx>,
+pub fn lower_ir_raw<'ctx>(
     builder: &Builder<'ctx>,
-    ir: &[IROp],
+    module: &Module<'ctx>,
+    env: &mut HashMap<String, PointerValue<'ctx>>,
+    op: IROp,
+    runtime: &Runtime<'ctx>,
+    zero: inkwell::values::IntValue<'ctx>,
 ) -> Result<(), String> {
-    let module_ref: &'ctx Module<'ctx> = unsafe { std::mem::transmute(module) };
-    let builder_ref: &'ctx Builder<'ctx> = unsafe { std::mem::transmute(builder) };
-    let runtime = setup_module(context, module_ref, builder_ref);
-    let zero = context.i32_type().const_int(0, false);
-    let main_fn = runtime.main;
+    match op {
+        IROp::Declare { name, value, .. } => {
+            let ptr = builder
+                .build_alloca(module.get_context().f64_type(), &name)
+                .unwrap();
+            env.insert(name, ptr);
+            Ok(())
+        }
+        // ... other ops
+        _ => todo!(),
+    }
+}
 
-    let entry = main_fn
-        .get_first_basic_block()
-        .unwrap_or_else(|| context.append_basic_block(main_fn, "entry"));
-    builder_ref.position_at_end(entry);
-
-    let mut env: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-    let mut state = CodegenState {
-        context,
-        module: module_ref,
-        builder: builder_ref,
-        env: &mut env,
+mod llvm {
+    use crate::{
+        backend::llvm::lower_ir_raw,
+        middle::ir::{IROp, Type},
     };
+    use inkwell::{
+        AddressSpace,
+        builder::Builder,
+        context::Context,
+        module::Module,
+        values::{FunctionValue, PointerValue},
+    };
+    use std::collections::HashMap;
 
-    for op in ir {
-        lower_ir(&mut state, op.clone(), &runtime, zero)?;
+    pub struct Runtime<'ctx> {
+        pub main: FunctionValue<'ctx>,
+        pub printf: FunctionValue<'ctx>,
+        pub fmt_f64: PointerValue<'ctx>,
+        pub fmt_i32: PointerValue<'ctx>,
+        pub fmt_str: PointerValue<'ctx>,
     }
 
-    module.print_to_stderr();
-    if builder
-        .get_insert_block()
-        .and_then(|b| b.get_terminator())
-        .is_none()
-    {
-        builder
-            .build_return(Some(&zero))
-            .map_err(|e| e.to_string())?;
+    impl<'ctx> Runtime<'ctx> {
+        pub fn get_fmt_for_type(&self, ty: &Type) -> PointerValue<'ctx> {
+            match ty {
+                Type::Str => self.fmt_str,
+                Type::F64 => self.fmt_f64,
+                Type::I32 | Type::Bool => self.fmt_i32,
+                // Add a fallback for debugging
+                Type::Unknown => panic!("Compiler error: Type check failed to resolve type!"),
+                _ => todo!("Add format string for type: {:?}", ty),
+            }
+        }
     }
 
-    Ok(())
+    pub struct LLVM<'ctx> {
+        pub module: Module<'ctx>,
+    }
+
+    impl<'ctx> LLVM<'ctx> {
+        pub fn new(context: &'ctx Context, ops: &[IROp]) -> Self {
+            let module = context.create_module("test_module");
+
+            let builder = context.create_builder();
+
+            let mut env = HashMap::new();
+
+            let runtime = setup_module(context, &module, &builder);
+
+            let zero = context.i32_type().const_int(0, false);
+
+            builder.position_at_end(context.append_basic_block(runtime.main, "entry"));
+
+            for op in ops {
+                lower_ir_raw(&builder, &module, &mut env, op.clone(), &runtime, zero);
+            }
+
+            Self { module }
+        }
+        pub fn default(context: &'ctx Context, name: &str) -> Self {
+            Self {
+                module: context.create_module(name),
+            }
+        }
+        pub fn lower(&self, context: &'ctx Context, ops: &[IROp]) -> Result<(), String> {
+            let builder = context.create_builder();
+            let mut env = HashMap::new();
+            let runtime = setup_module(context, &self.module, &builder);
+            let zero = context.i32_type().const_int(0, false);
+            builder.position_at_end(context.append_basic_block(runtime.main, "entry"));
+            for op in ops {
+                lower_ir_raw(&builder, &self.module, &mut env, op.clone(), &runtime, zero);
+            }
+            Ok(())
+        }
+        pub fn ir(&self) -> String {
+            self.module.print_to_string().to_string()
+        }
+
+        pub fn verify(&self) -> Result<(), String> {
+            self.module.verify().map_err(|e| e.to_string())
+        }
+    }
+
+    pub fn setup_module<'ctx>(
+        context: &'ctx Context,
+        module: &Module<'ctx>,
+        builder: &Builder<'ctx>,
+    ) -> Runtime<'ctx> {
+        let create_fmt = |val: &[u8], name: &str| {
+            let fmt_type = context.i8_type().array_type(val.len() as u32);
+
+            let gv = module.add_global(fmt_type, None, name);
+
+            gv.set_initializer(&context.const_string(val, false));
+
+            gv.as_pointer_value()
+        };
+
+        let fmt_f64 = create_fmt(b"%f\n\0", "fmt_f64");
+        let fmt_i32 = create_fmt(b"%d\n\0", "fmt_i32");
+        let fmt_str = create_fmt(b"%s\n\0", "fmt_str");
+
+        let i32_type = context.i32_type();
+
+        let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
+
+        let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
+
+        let printf = module.add_function("printf", printf_type, None);
+
+        let main = module.add_function("main", i32_type.fn_type(&[], false), None);
+
+        builder.position_at_end(context.append_basic_block(main, "entry"));
+
+        Runtime {
+            main,
+            printf,
+            fmt_f64,
+            fmt_i32,
+            fmt_str,
+        }
+    }
+}
+mod bin {
+    use crate::{backend::llvm::CodegenState, frontend::ast::BinOp, middle::ir::Op};
+    use inkwell::values::FloatValue;
+
+    pub fn emit_binary_op(
+        state: &mut CodegenState,
+        target: &str,
+        lhs: FloatValue,
+        rhs: FloatValue,
+        op: Op,
+    ) -> Result<(), String> {
+        let res = match op {
+            Op::Add => state.builder.build_float_add(lhs, rhs, target).unwrap(),
+            Op::Sub => state.builder.build_float_sub(lhs, rhs, target).unwrap(),
+            Op::Mul => state.builder.build_float_mul(lhs, rhs, target).unwrap(),
+            Op::Div => state.builder.build_float_div(lhs, rhs, target).unwrap(),
+            Op::Neg => state.builder.build_float_neg(lhs, target).unwrap(),
+            Op::Cmp => {
+                let cmp = state
+                    .builder
+                    .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, target)
+                    .unwrap();
+                state
+                    .builder
+                    .build_unsigned_int_to_float(cmp, state.context.f64_type(), "cmp_res")
+                    .unwrap()
+            }
+        };
+
+        let ptr = state
+            .builder
+            .build_alloca(state.context.f64_type(), target)
+            .unwrap();
+        state.builder.build_store(ptr, res).unwrap();
+        state.env.insert(target.to_string(), ptr);
+        Ok(())
+    }
+
+    pub fn map_binop(op: BinOp) -> Op {
+        match op {
+            BinOp::Add => Op::Add,
+            BinOp::Sub => Op::Sub,
+            BinOp::Mul => Op::Mul,
+            BinOp::Div => Op::Div,
+            BinOp::Eq => todo!(),
+            BinOp::Neq => todo!(),
+            BinOp::Lt => todo!(),
+            BinOp::Gt => todo!(),
+            BinOp::And => todo!(),
+            BinOp::Or => todo!(),
+            BinOp::Assign => todo!(),
+            BinOp::Mod => todo!(),
+            BinOp::Power => todo!(),
+        }
+    }
 }

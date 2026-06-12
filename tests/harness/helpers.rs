@@ -1,9 +1,12 @@
 use owo_colors::OwoColorize;
+use std::cell::RefCell;
 
-use loi::frontend::ast::{AST, DeclKind, Expr, Stmt};
+use loi::frontend::ast::{AST, BinOp, DeclKind, Expr, Stmt};
 use loi::frontend::lexer::lex;
 use loi::frontend::parser::{parse, parse_source};
-use loi::middle::ir::{IROp, LoweredOp, Op, Type, TypedExpr};
+use loi::middle::ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr};
+
+use crate::harness::IrTestHarness;
 
 pub fn clean(s: &str) -> String {
     s.replace(|c: char| c.is_whitespace(), "")
@@ -70,27 +73,6 @@ macro_rules! assert_expr {
     };
 }
 
-// #[track_caller]
-// pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: &str) {
-//     let location = std::panic::Location::caller();
-//     let snapshot_name = format!(
-//         "{}_{}",
-//         std::path::Path::new(location.file())
-//             .file_stem()
-//             .unwrap()
-//             .to_str()
-//             .unwrap(),
-//         location.line()
-//     );
-//     insta::with_settings!({snapshot_path => "../snapshots/ast"}, {
-//         insta::assert_yaml_snapshot!(snapshot_name, parse_to_ast(input));
-//     });
-
-//     assert_expr(input, expected);
-// }
-
-use std::cell::RefCell;
-
 thread_local! {
     static ASSERT_COUNT: RefCell<usize> = RefCell::new(0);
 }
@@ -134,13 +116,64 @@ pub fn fails(input: &str) {
     assert!(result.is_err());
 }
 
-pub fn add_var(target: &str, left: &str, right: &str) -> IROp {
-    IROp::Lowered(LoweredOp::Binary {
+#[test]
+fn test_binary_operations() {
+    let default_span = Span { start: 0, end: 0 };
+
+    // 1. Manually create the TypedExprs
+    let left = TypedExpr {
+        expr: Expr::Var("a".to_string()),
+        ty: Type::F64,
+        span: default_span.clone(),
+    };
+
+    let right = TypedExpr {
+        expr: Expr::Var("b".to_string()),
+        ty: Type::F64,
+        span: default_span,
+    };
+
+    // 2. Manually construct the IR instruction
+    let ir = IROp::Binary {
+        target: "res".to_string(),
+        left,
+        op: BinOp::Add,
+        right,
+    };
+
+    // 3. Wrap it in a vector for the harness
+    let harness = IrTestHarness::new(&vec![ir]);
+
+    // 4. Run your assertion
+    harness.assert_contains("%res = fadd double %load_a, %load_b");
+}
+
+pub fn generate_binary_ir(target: &str, left: TypedExpr, right: TypedExpr) -> IROp {
+    IROp::Binary {
         target: target.to_string(),
-        left: left.to_string(),
-        op: Op::Add,
-        right: right.to_string(),
-    })
+        left,
+        op: BinOp::Add,
+        right,
+    }
+}
+
+pub fn add_var(target: &str, left: &str, right: &str) -> IrInstruction {
+    let e1 = Expr::Var(left.to_string());
+    let e2 = Expr::Var(right.to_string());
+    let default_span = Span { start: 0, end: 0 };
+    // Note: ty is now a concrete Type, not an Option
+    let te1 = TypedExpr {
+        expr: e1,
+        ty: Type::F64,
+        span: default_span.clone(),
+    };
+
+    let te2 = TypedExpr {
+        expr: e2,
+        ty: Type::F64,
+        span: default_span,
+    };
+    generate_binary_ir(target, te1, te2)
 }
 
 #[test]

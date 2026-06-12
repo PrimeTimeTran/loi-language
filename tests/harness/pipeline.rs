@@ -5,7 +5,7 @@ use loi::{
     },
     build_system::BuildSystem,
     frontend::{lexer, parser},
-    middle::semantic,
+    middle::semantic::{self, SemanticAnalyzer},
     registry::{file_meta::FileMeta, registry::Registry},
 };
 use std::{
@@ -52,7 +52,7 @@ pub fn run_test(file_path: &Path) {
     }
 
     // 3. Full Pipeline/Semantic Tests
-    semantic::analyze(ast).expect("Semantic check failed");
+    SemanticAnalyzer::analyze(ast).expect("Semantic check failed");
 }
 
 pub fn make_registry(files: &[&str]) -> Registry {

@@ -2,7 +2,7 @@ use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
 use crate::cli::ir_runner::Config;
 use crate::frontend::{lexer, parser};
-use crate::middle::semantic::analyze;
+use crate::middle::semantic::{SemanticAnalyzer, analyze};
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -74,7 +74,7 @@ pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), CompilerError>
     println!("DEBUG: Writing output to: {:?}", out_base);
     let tokens = lexer::lex(&source).map_err(CompilerError::Lexer)?;
     let ast = parser::parse(tokens).map_err(CompilerError::Parser)?;
-    let ir = analyze(ast).map_err(CompilerError::Analysis)?;
+    let ir = SemanticAnalyzer::analyze(ast).map_err(CompilerError::Analysis)?;
     let bc_path = compile(&ir, &out_base, file_name).map_err(CompilerError::Backend)?;
     link_with_clang(Path::new(&bc_path), &out_base).map_err(CompilerError::Backend)?;
 

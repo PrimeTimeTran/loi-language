@@ -16,15 +16,32 @@ fn test_variable_lifecycle() {
     harness.assert_snapshot("variable_declaration");
 }
 
-// --- GROUP 2: Arithmetic & Expressions ---
 #[test]
 fn test_binary_operations() {
-    let ir = vec![helpers::add_var("res", "a", "b")];
+    let ir = vec![
+        // 1. Declare the variables so they exist in the environment
+        ir_factory::declare_f64("a", 10.0),
+        ir_factory::declare_f64("b", 5.0),
+        // 2. Now perform the operation
+        helpers::add_var("res", "a", "b"),
+    ];
+
     let harness = IrTestHarness::new(&ir);
 
     harness.assert_contains("%res = fadd double %load_a, %load_b");
     harness.assert_snapshot("binary_addition");
 }
+
+// --- GROUP 2: Arithmetic & Expressions ---
+// #[test]
+// fn test_binary_operations() {
+//     let ir = vec![helpers::add_var("res", "a", "b")];
+//     println!("{:#?}", ir);
+//     let harness = IrTestHarness::new(&ir);
+
+//     harness.assert_contains("%res = fadd double %load_a, %load_b");
+//     harness.assert_snapshot("binary_addition");
+// }
 
 #[test]
 fn test_complex_expression_flow() {
@@ -52,14 +69,14 @@ fn test_print_output() {
 // --- GROUP 4: Integration ---
 #[test]
 fn test_full_bitcode_generation() {
-    let ir = vec![IROp::Print {
-        value: TypedExpr(Expr::Number(42.0), Type::F64),
-    }];
+    let ir = vec![ir_factory::print_val(42.0)];
 
     let dir = tempfile::tempdir().unwrap();
     let out_path = dir.path().join("test");
-
-    // Integration test: Ensure no errors in full pipeline
     let result = compile(&ir, &out_path, "test");
-    assert!(result.is_ok(), "Compiler failed to generate valid bitcode");
+    assert!(
+        result.is_ok(),
+        "Compiler failed to generate valid bitcode: {:?}",
+        result.err()
+    );
 }

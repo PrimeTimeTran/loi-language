@@ -1,23 +1,17 @@
+use std::collections::HashMap;
+
 use inkwell::context::Context;
-use loi::backend::llvm::lower_ir_to_llvm;
+use loi::backend::llvm::{CodegenState, LLVM};
 use loi::middle::ir::IROp;
 
 pub fn get_ir_string(ops: &[IROp]) -> String {
     let context = Context::create();
-    let module = context.create_module("test_module");
-    let builder = context.create_builder();
 
-    lower_ir_to_llvm(&context, &module, &builder, ops).expect("Failed to generate IR");
+    let llvm = LLVM::default(&context, "test_module");
 
-    let raw_ir = module.print_to_string().to_string();
+    llvm.lower(&context, ops).expect("Failed to generate IR");
 
-    // Sanitize the output: strip header info so tests are stable
-    raw_ir
-        .lines()
-        .filter(|line| !line.starts_with("; ModuleID"))
-        .filter(|line| !line.starts_with("source_filename"))
-        .collect::<Vec<_>>()
-        .join("\n")
+    llvm.ir()
 }
 
 pub struct IrTestHarness {
@@ -26,9 +20,10 @@ pub struct IrTestHarness {
 
 impl IrTestHarness {
     pub fn new(ops: &[IROp]) -> Self {
-        Self {
-            ir: get_ir_string(ops),
-        }
+        let context = Context::create();
+        let llvm = LLVM::default(&context, "test_module");
+        llvm.lower(&context, ops).expect("lower_ir failed");
+        Self { ir: llvm.ir() }
     }
 
     pub fn assert_contains(&self, snippet: &str) {
@@ -39,6 +34,7 @@ impl IrTestHarness {
             self.ir
         );
     }
+
     pub fn assert_snapshot(&self, name: &str) {
         insta::with_settings!({
             snapshot_path => "../snapshots/ir"
@@ -51,15 +47,24 @@ impl IrTestHarness {
 pub mod ir_factory {
     use loi::{
         frontend::ast::Expr,
-        middle::ir::{Type, TypedExpr},
+        middle::ir::{Span, Type, TypedExpr},
     };
 
     use super::*;
 
+    // Helper to keep code clean
+    fn dummy_span() -> Span {
+        Span { start: 0, end: 0 }
+    }
+
     pub fn declare_f64(name: &str, val: f64) -> IROp {
         IROp::Declare {
             name: name.to_string(),
-            value: TypedExpr(Expr::Number(val), Type::F64),
+            value: TypedExpr {
+                expr: Expr::Number(val),
+                ty: Type::F64,
+                span: dummy_span(),
+            },
             mutable: true,
             dynamic: false,
         }
@@ -67,7 +72,11 @@ pub mod ir_factory {
 
     pub fn print_val(val: f64) -> IROp {
         IROp::Print {
-            value: TypedExpr(Expr::Number(val), Type::F64),
+            value: TypedExpr {
+                expr: Expr::Number(val),
+                ty: Type::F64,
+                span: dummy_span(),
+            },
         }
     }
 }
