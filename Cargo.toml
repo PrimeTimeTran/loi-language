@@ -3,6 +3,11 @@ name = "loi"
 version = "0.0.1"
 edition = "2024"
 
+[workspace]
+members = [
+  "tools/evaluator"
+]
+
 [lib]
 name = "loi"
 path = "src/lib.rs"

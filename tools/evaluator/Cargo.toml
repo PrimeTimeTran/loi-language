@@ -1,0 +1,10 @@
+[package]
+name = "evaluator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+walkdir = "2"
+prettyplease = "0.2"
+quote = "1.0.45"

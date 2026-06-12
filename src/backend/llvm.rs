@@ -37,8 +37,8 @@ impl<'ctx> CodegenState<'ctx> {
     }
 }
 
-struct CodeGenExpress {}
-impl CodeGenExpress {}
+struct ModuleState {}
+impl ModuleState {}
 
 fn codegen_expr<'ctx>(
     expr: &Expr,
@@ -511,6 +511,7 @@ mod llvm {
         }
     }
 }
+
 mod bin {
     use crate::{backend::llvm::CodegenState, frontend::ast::BinOp, middle::ir::Op};
     use inkwell::values::FloatValue;

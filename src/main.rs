@@ -7,6 +7,7 @@ pub mod backend;
 pub mod build;
 pub mod build_system;
 pub mod cli;
+pub mod compiler_context;
 pub mod frontend;
 pub mod middle;
 pub mod pipeline;
@@ -14,35 +15,7 @@ pub mod registry;
 pub mod watcher;
 use crate::build_system::BuildSystem;
 use crate::cli::controller::CliController;
-use crate::cli::ir_runner::{self, Config};
-
-pub struct CompilerContext {
-    pub root_dir: PathBuf,
-    pub output_dir: PathBuf,
-    pub mode: CompileMode,
-    pub registry: Registry,
-    pub build: BuildSystem,
-}
-
-pub enum CompileMode {
-    Batch,
-    Interactive,
-    Watch,
-}
-
-// pub fn main_new() {
-//     let root = env::current_dir().unwrap();
-
-//     // let ctx = CompilerContext {
-//     //     root_dir: root.join("targets/fs"),
-//     //     output_dir: root.join("output/fs"),
-//     //     mode: CompileMode::Interactive,
-//     //     // registry: Registry::new(),
-//     //     // build: BuildSystem::new(...),
-//     // };
-
-//     // CliController::new(ctx).run();
-// }
+use crate::compiler_context::Config;
 
 pub fn main() {
     let current_dir = env::current_dir().unwrap();
@@ -68,3 +41,5 @@ pub fn main() {
         controller.run();
     }
 }
+
+

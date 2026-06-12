@@ -14,3 +14,4 @@ pub mod middle;
 pub mod pipeline;
 pub mod registry;
 pub mod watcher;
+pub mod compiler_context;
