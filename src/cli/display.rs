@@ -1,5 +1,5 @@
 use colored::Colorize;
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, colors::css::*};
 use strum::IntoEnumIterator;
 use tabled::{
     Table, Tabled,
@@ -51,11 +51,26 @@ pub trait RegistryUI {
     fn render_version_history(&self, registry: &Registry, target: Option<&str>);
     fn render_capability_map(&self, registry: &Registry);
     fn render_diff(&self, registry: &Registry, a: &str, b: &str);
+    fn render_file_contents(&self, path: &std::path::Path, contents: &str);
+    fn render_error(&self, text: String);
 }
 
 pub struct RegistryRenderer;
 
 impl RegistryUI for RegistryRenderer {
+    fn render_file_contents(&self, path: &std::path::Path, contents: &str) {
+        println!(
+            "\n{}",
+            format!("----- Viewing: {} ", path.display())
+                .bold()
+                .fg::<LightCoral>()
+        );
+        println!("{}", contents);
+        println!(
+            "{}",
+            "-----------------------------------".fg::<LightCoral>()
+        );
+    }
     fn render_header(&self, registry: &Registry) {
         let total_files = registry.files.len() + registry.files_archive.len();
         let files = registry.files.values().filter(|f| f.active).count();
@@ -102,17 +117,12 @@ impl RegistryUI for RegistryRenderer {
 
         let mut stacks: Vec<&FileStack> = registry.stacks.iter().collect();
 
-        // group order (DESC by version)
         stacks.sort_by(|a, b| {
             b.active_file
                 .version
                 .cmp(&a.active_file.version)
                 .then_with(|| b.active_file.name.cmp(&a.active_file.name))
         });
-
-        // ---------------------------
-        // 🔥 FIX 1: sort inside each group BEFORE flattening
-        // ---------------------------
         for stack in &mut stacks {
             let mut sorted_archive: Vec<&FileMeta> = stack
                 .files
@@ -140,10 +150,6 @@ impl RegistryUI for RegistryRenderer {
                 }
             }
         }
-
-        // ---------------------------
-        // 2. BUILD ROWS
-        // ---------------------------
         for (i, (f, is_active)) in flat.iter().enumerate() {
             rows.push(FileView {
                 index: i + 1,
@@ -167,9 +173,7 @@ impl RegistryUI for RegistryRenderer {
         // ---------------------------
         for (i, (_, is_active)) in flat.iter().enumerate() {
             if !is_active {
-                table.with(
-                    Modify::new(Rows::new(i + 1..i + 2)).with(Color::FG_BLACK | Color::BG_BLACK),
-                );
+                table.with(Modify::new(Rows::new(i + 1..i + 2)).with(Color::FG_BRIGHT_BLACK));
             }
         }
 
@@ -327,13 +331,19 @@ impl RegistryUI for RegistryRenderer {
 
         println!();
     }
+    fn render_error(&self, text: String) {
+        println!("Error: {}", text);
+    }
 }
 
 pub struct Theme;
 
 impl Theme {
+    pub fn light_grey(text: &str) -> String {
+        format!("{}", text.fg::<DarkGray>())
+    }
     pub fn header(text: &str) -> String {
-        format!("{}", text.bold().cyan())
+        Self::light_grey(text)
     }
     pub fn error(text: &str) -> String {
         format!("{}", text.red())

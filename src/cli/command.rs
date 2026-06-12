@@ -33,13 +33,30 @@ pub struct CommandMeta {
     pub hidden: bool,
     pub weight: u32,
 }
+#[derive(Debug, Default, PartialEq)]
+pub struct ViewArgs {
+    pub target: Option<BuildTarget>,
+    pub flags: ViewFlags,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct ViewFlags {
+    pub name: Option<String>,
+    pub number: Option<i32>,
+    pub sort: Option<SortOrder>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SortOrder {
+    Asc,
+    Desc,
+}
 
 #[derive(Debug, Default, PartialEq)]
 pub struct BuildAllArgs {
     pub target: Option<BuildTarget>,
     pub flags: BuildFlags,
 }
-
 #[derive(Debug, Default, PartialEq)]
 pub struct BuildFlags {
     pub force: bool,
@@ -68,7 +85,7 @@ pub enum Command {
     BuildAll(BuildAllArgs),
 
     #[strum(serialize = "view")]
-    View(String),
+    View(ViewArgs),
     #[strum(serialize = "clear")]
     Clear,
     #[strum(serialize = "help")]
@@ -99,6 +116,7 @@ impl Command {
                     _ => println!("Unknown mode: {}. Use 'mode batch'.", m),
                 }
             }
+            Command::View(args) => controller.handle_view(args, ui),
             Command::BuildAll(args) => controller.handle_build_all(args),
             Command::List(filter) => ui.render_list(registry, *filter),
             Command::Tree => ui.render_tree(registry),
@@ -106,7 +124,7 @@ impl Command {
             Command::CapabilityMap => ui.render_capability_map(registry),
             Command::Diff(a, b) => ui.render_diff(registry, a, b),
             Command::Build(name) => controller.handle_build(name),
-            Command::View(name) => controller.handle_view(Some(name)),
+
             Command::Clear => {
                 let _ = clearscreen::clear();
             }
@@ -182,7 +200,7 @@ impl Command {
             },
             Command::Clear => CommandMeta {
                 label: "clear",
-                alias: None,
+                alias: Some("c"),
                 description: "Clear terminal",
                 hidden: true,
                 weight: 1,
@@ -210,6 +228,44 @@ impl Command {
         } else {
             BuildTarget::ByName(arg.to_string())
         }
+    }
+    fn parse_view(arg: &str) -> ViewArgs {
+        let mut args = ViewArgs::default();
+        let mut iter = arg.split_whitespace().peekable();
+        if let Some(&first) = iter.peek() {
+            if !first.starts_with('-') {
+                // It's not a flag, so assume it's a name
+                let name = iter.next().unwrap();
+                args.flags.name = Some(name.to_string());
+            }
+        }
+
+        while let Some(part) = iter.next() {
+            match part {
+                "-n" | "-name" => {
+                    if let Some(name) = iter.next() {
+                        args.flags.name = Some(name.to_string());
+                    }
+                }
+                "-num" => {
+                    if let Some(num_str) = iter.next() {
+                        if let Ok(num) = num_str.parse::<i32>() {
+                            args.flags.number = Some(num);
+                        }
+                    }
+                }
+                "-s" | "-sort" => {
+                    if let Some(order) = iter.next() {
+                        args.flags.sort = match order.to_lowercase().as_str() {
+                            "desc" => Some(SortOrder::Desc),
+                            _ => Some(SortOrder::Asc),
+                        };
+                    }
+                }
+                _ => {}
+            }
+        }
+        args
     }
     fn parse_build_all(input: &str) -> BuildAllArgs {
         let mut flags = BuildFlags::default();
@@ -248,7 +304,7 @@ impl Command {
     pub fn from_str(cmd: &str, arg: Option<&str>) -> Option<Self> {
         match cmd {
             "mode" => arg.map(|a| Command::Mode(a.to_string())),
-            "build" => {
+            "build" | "b" => {
                 let input = arg.unwrap_or("");
                 Some(Command::BuildAll(Self::parse_build_all(input)))
             }
@@ -262,8 +318,11 @@ impl Command {
             "clear" => Some(Command::Clear),
             "help" => Some(Command::Help),
             "exit" | "quit" => Some(Command::Exit),
-
-            "view" => arg.map(|a| Command::View(a.to_string())),
+            "view" | "v" => {
+                let input = arg.unwrap_or("");
+                Some(Command::View(Self::parse_view(input)))
+            }
+            // "view" => arg.map(|a: &str| Command::View(a.to_string())),
             "history" => Some(Command::History(arg.map(|a| a.to_string()))),
 
             "diff" => arg.and_then(|a| {
@@ -295,5 +354,8 @@ impl Command {
         }
 
         println!();
+    }
+    pub fn render_error() {
+        println!("Error");
     }
 }

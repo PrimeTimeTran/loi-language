@@ -1,3 +1,5 @@
+use owo_colors::OwoColorize;
+
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 use loi::frontend::lexer::lex;
 use loi::frontend::parser::{parse, parse_source};
@@ -9,17 +11,28 @@ pub fn clean(s: &str) -> String {
 
 pub fn assert_expr(input: &str, expected: &str) {
     let actual = parses(input);
-
     let clean_actual = clean(&actual);
     let clean_expected = clean(expected);
 
-    assert_eq!(
-        clean_actual, clean_expected,
-        "\nInput: {}\nExpected: {}\nActual: {}",
-        input, expected, actual
-    );
+    if clean_actual != clean_expected {
+        panic!(
+            "\n{} {} {}\n\
+             {}: {}\n\
+             {}: {}\n\
+             {}:\n  Expected: {}\n  Actual:   {}\n",
+            "=== Test Failed ===".red().bold(),
+            "\nInput:".yellow(),
+            input.yellow(),
+            "Expected:".green(),
+            expected.green(),
+            "Actual:".red(),
+            actual.red(),
+            "\nDiff (Cleaned)".blue(),
+            clean_expected.green(),
+            clean_actual.red(),
+        );
+    }
 }
-
 pub fn parses(src: &str) -> String {
     let tokens = lex(src).expect("Lexing failed");
     let ast = parse(tokens).expect("Parsing failed");

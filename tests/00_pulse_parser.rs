@@ -1,6 +1,8 @@
-use loi::frontend::{ast::{self, BinOp, Expr}, lexer::lex, parser::parse};
-
-
+use loi::frontend::{
+    ast::{self, BinOp, Expr},
+    lexer::lex,
+    parser::parse,
+};
 
 #[test]
 fn parse_simple_expr() {

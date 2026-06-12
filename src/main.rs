@@ -30,19 +30,19 @@ pub enum CompileMode {
     Watch,
 }
 
-pub fn main_new() {
-    let root = env::current_dir().unwrap();
+// pub fn main_new() {
+//     let root = env::current_dir().unwrap();
 
-    // let ctx = CompilerContext {
-    //     root_dir: root.join("targets/fs"),
-    //     output_dir: root.join("output/fs"),
-    //     mode: CompileMode::Interactive,
-    //     // registry: Registry::new(),
-    //     // build: BuildSystem::new(...),
-    // };
+//     // let ctx = CompilerContext {
+//     //     root_dir: root.join("targets/fs"),
+//     //     output_dir: root.join("output/fs"),
+//     //     mode: CompileMode::Interactive,
+//     //     // registry: Registry::new(),
+//     //     // build: BuildSystem::new(...),
+//     // };
 
-    // CliController::new(ctx).run();
-}
+//     // CliController::new(ctx).run();
+// }
 
 pub fn main() {
     let current_dir = env::current_dir().unwrap();
