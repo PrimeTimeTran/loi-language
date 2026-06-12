@@ -15,7 +15,22 @@ pub struct LlvmRuntime<'ctx> {
     pub main: FunctionValue<'ctx>,
     pub builder: &'ctx Builder<'ctx>,
     pub printf: FunctionValue<'ctx>,
-    pub fmt: PointerValue<'ctx>,
+    pub fmt_f64: PointerValue<'ctx>,
+    pub fmt_i32: PointerValue<'ctx>,
+    pub fmt_str: PointerValue<'ctx>,
+}
+
+impl<'ctx> LlvmRuntime<'ctx> {
+    pub fn get_fmt_for_type(&self, ty: &Type) -> PointerValue<'ctx> {
+        match ty {
+            Type::Str => self.fmt_str,
+            Type::F64 => self.fmt_f64,
+            Type::I32 | Type::Bool => self.fmt_i32,
+            // Add a fallback for debugging
+            Type::Unknown => panic!("Compiler error: Type check failed to resolve type!"),
+            _ => todo!("Add format string for type: {:?}", ty),
+        }
+    }
 }
 
 pub struct CodegenState<'ctx, 'env> {
@@ -211,31 +226,33 @@ pub fn setup_module<'ctx>(
     module: &'ctx Module<'ctx>,
     builder: &'ctx Builder<'ctx>,
 ) -> LlvmRuntime<'ctx> {
+    // Helper to create global format strings
+    let create_fmt = |val: &[u8], name: &str| {
+        let fmt_type = context.i8_type().array_type(val.len() as u32);
+        let gv = module.add_global(fmt_type, None, name);
+        gv.set_initializer(&context.const_string(val, false));
+        gv.as_pointer_value()
+    };
+
+    let fmt_f64 = create_fmt(b"%f\n\0", "fmt_f64");
+    let fmt_i32 = create_fmt(b"%d\n\0", "fmt_i32");
+    let fmt_str = create_fmt(b"%s\n\0", "fmt_str");
+
     let i32_type = context.i32_type();
-
-    // 1. Setup Global Strings first (Don't use builder for this!)
-    let fmt_type = context.i8_type().array_type(4); // "%f\n" is 4 bytes
-    let fmt_gv = module.add_global(fmt_type, None, "fmt");
-    fmt_gv.set_initializer(&context.const_string(b"%f\n\0", false));
-    let fmt = fmt_gv.as_pointer_value();
-
-    // 2. Declare functions
     let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
     let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
     let printf = module.add_function("printf", printf_type, None);
 
-    let fn_type = i32_type.fn_type(&[], false);
-    let main = module.add_function("main", fn_type, None);
-
-    // 3. Now position the builder
-    let entry = context.append_basic_block(main, "entry");
-    builder.position_at_end(entry);
+    let main = module.add_function("main", i32_type.fn_type(&[], false), None);
+    builder.position_at_end(context.append_basic_block(main, "entry"));
 
     LlvmRuntime {
         main,
         builder,
         printf,
-        fmt,
+        fmt_f64,
+        fmt_i32,
+        fmt_str,
     }
 }
 pub fn lower_ir<'ctx, 'env>(
@@ -247,36 +264,19 @@ pub fn lower_ir<'ctx, 'env>(
     match ir {
         IROp::Print { value } => {
             let TypedExpr(expr, ty) = value;
-            match ty {
-                Type::Str => {
-                    let str_val = codegen_expr(&expr, &ty, state);
-                    let fmt_str = state
-                        .builder
-                        .build_global_string_ptr("%s\n", "fmt_str")
-                        .unwrap();
-
-                    state
-                        .builder
-                        .build_call(
-                            runtime.printf, // Use runtime
-                            &[fmt_str.as_pointer_value().into(), str_val.into()],
-                            "printf_call",
-                        )
-                        .unwrap();
-                }
-                Type::F64 => {
-                    let llvm_val = codegen_expr(&expr, &ty, state);
-                    state
-                        .builder
-                        .build_call(
-                            runtime.printf,                         // Use runtime
-                            &[runtime.fmt.into(), llvm_val.into()], // Use runtime
-                            "printf_call",
-                        )
-                        .unwrap();
-                }
-                _ => todo!("Implement print for this type"),
+            if matches!(ty, Type::Unknown) {
+                panic!("Found an UNTYPED expression: {:?}", expr);
             }
+            let llvm_val = codegen_expr(&expr, &ty, state);
+            let fmt_ptr = runtime.get_fmt_for_type(&ty);
+            state
+                .builder
+                .build_call(
+                    runtime.printf,
+                    &[fmt_ptr.into(), llvm_val.into()],
+                    "printf_call",
+                )
+                .unwrap();
             Ok(())
         }
 

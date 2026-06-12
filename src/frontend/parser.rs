@@ -13,7 +13,10 @@ pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
 
     while let Some(tok) = tokens.peek() {
         match tok {
-            Token::EOF => break,
+            Token::EOF => {
+                tokens.next();
+                break; // Exit
+            }
             Token::Semicolon => {
                 tokens.next();
             }
