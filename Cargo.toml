@@ -3,7 +3,17 @@ name = "loi"
 version = "0.0.1"
 edition = "2024"
 
+[lib]
+name = "loi"
+path = "src/lib.rs"
+
+[features]
+default = []
+# snapshotting = ["insta"]
+snapshotting = []
+
 [dependencies]
+insta = { version = "1", features = ["yaml"] }
 syn = { version = "2", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 console = "0.15"
@@ -47,7 +57,7 @@ regex = "1.12.4"
 
 [dev-dependencies]
 criterion = "0.5"
-insta = { version = "1", features = ["yaml"] }
+
 pretty_assertions = "1"
 tempfile = "3"
 
@@ -58,3 +68,4 @@ harness = false
 [[bench]]
 name = "parser"
 harness = false
+

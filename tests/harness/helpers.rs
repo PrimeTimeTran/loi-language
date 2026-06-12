@@ -2,24 +2,24 @@ use loi::frontend::ast::{DeclKind, Expr, Stmt};
 use loi::frontend::lexer::lex;
 use loi::frontend::parser::{parse, parse_source};
 
-pub fn parses(src: &str) -> String {
-    let tokens = lex(src).expect("Lexing failed");
-    let ast = parse(tokens).expect("Parsing failed");
-    ast.stmts[0].to_sexpr()
-}
-pub fn parses2(src: &str) -> String {
-    let tokens = lex(src).expect("Lexing failed");
-    let result = parse(tokens).expect("Parsing failed");
-
-    format!("{}", result)
+#[test]
+#[cfg(feature = "snapshotting")]
+fn debug_parser() {
+    let output = parses("x = 5");
+    panic!("DEBUG OUTPUT: {}", output);
 }
 
+/// Helper to normalize any string by removing all whitespace
+pub fn clean(s: &str) -> String {
+    s.replace(|c: char| c.is_whitespace(), "")
+}
+
+/// Use this when you have an expected structure to verify against
 pub fn assert_expr(input: &str, expected: &str) {
     let actual = parses(input);
 
-    // Normalize: remove all whitespace and newlines for a structural comparison
-    let clean_actual = actual.replace(|c: char| c.is_whitespace(), "");
-    let clean_expected = expected.replace(|c: char| c.is_whitespace(), "");
+    let clean_actual = clean(&actual);
+    let clean_expected = clean(expected);
 
     assert_eq!(
         clean_actual, clean_expected,
@@ -28,10 +28,20 @@ pub fn assert_expr(input: &str, expected: &str) {
     );
 }
 
-pub fn fails(input: &str) {
-    let tokens = lex(input).unwrap();
-    let result = parse(tokens);
-    assert!(result.is_err());
+/// Use this if you just want to verify the parser succeeds and returns
+/// something that matches a structure you provide directly
+pub fn assert_parses_as(input: &str, expected_structure: &str) {
+    // This is essentially the same as assert_expr,
+    // but makes your test code read more like a specification.
+    assert_expr(input, expected_structure);
+}
+
+pub fn parses(src: &str) -> String {
+    let tokens = lex(src).expect("Lexing failed");
+    let ast = parse(tokens).expect("Parsing failed");
+
+    // Return the full structural representation of all statements
+    ast.to_sexpr()
 }
 
 pub fn assert_let_stmt(
@@ -60,4 +70,25 @@ pub fn assert_let_stmt(
         }
         other => panic!("Expected Let statement, got {:?}", other),
     }
+}
+
+pub fn fails(input: &str) {
+    let tokens = lex(input).unwrap();
+    let result = parse(tokens);
+    assert!(result.is_err());
+}
+
+pub fn print_str(val: &str) -> IROp {
+    IROp::Print {
+        value: TypedExpr(Expr::String(val.to_string()), Type::Str),
+    }
+}
+
+pub fn add_var(target: &str, left: &str, right: &str) -> IROp {
+    IROp::Lowered(LoweredOp::Binary {
+        target: target.to_string(),
+        left: left.to_string(),
+        op: Op::Add,
+        right: right.to_string(),
+    })
 }

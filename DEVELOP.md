@@ -36,3 +36,8 @@ cargo test --features snapshotting
 cargo watch -x 'nextest run --test parser_05* --test-threads 1 --no-fail-fast --features snapshotting'
 cargo watch -x 'nextest run --test parser_05-3* --test-threads 1 --no-fail-fast --features snapshotting'
 ```
+
+```sh
+
+./scripts/merge_tests.sh && car watch -x 'nextest run  --test parser_0* --test-threads 1 --no-fail-fast'
+```

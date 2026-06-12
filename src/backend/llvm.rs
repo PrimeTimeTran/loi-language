@@ -8,17 +8,53 @@ use inkwell::{builder::Builder, values::PointerValue};
 use std::collections::HashMap;
 
 use crate::backend::compile;
+use crate::frontend::ast::UnOp;
 use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
+
+pub struct CodegenState<'ctx> {
+    pub context: &'ctx Context,
+    pub module: &'ctx Module<'ctx>,
+    pub builder: &'ctx Builder<'ctx>,
+    // Notice: We don't put a lifetime on the HashMap itself,
+    // just on the reference to it if it's a field.
+    pub env: &'ctx mut HashMap<String, PointerValue<'ctx>>,
+}
 
 fn codegen_expr<'ctx>(
     expr: &Expr,
     ty: &Type,
     context: &'ctx Context,
+    // module: &Module<'ctx>,
     builder: &Builder<'ctx>,
     env: &mut HashMap<String, PointerValue<'ctx>>,
 ) -> BasicValueEnum<'ctx> {
     match expr {
+        Expr::Unary { op, expr } => {
+            let val = codegen_expr(expr, ty, context, builder, env);
+            match op {
+                UnOp::Neg => {
+                    // Assuming float negation for now
+                    builder
+                        .build_float_neg(val.into_float_value(), "neg")
+                        .unwrap()
+                        .into()
+                }
+                UnOp::Not => {
+                    // Logical not: flip 0 and 1
+                    builder
+                        .build_not(val.into_int_value(), "not")
+                        .unwrap()
+                        .into()
+                }
+                _ => todo!("Implement other unary ops"),
+            }
+        }
+        Expr::String(val) => {
+            // Create a global constant for the string literal
+            let gv = builder.build_global_string_ptr(val, "str_lit").unwrap();
+            gv.as_pointer_value().into()
+        }
         Expr::Assign { left, right, op } => match (&**left, op) {
             (Expr::Var(name), _) => {
                 let ptr = *env.get(name).expect("undefined variable");
@@ -155,10 +191,36 @@ fn codegen_expr<'ctx>(
         Expr::Member { .. } => {
             panic!("member access not yet supported in codegen");
         }
-        Expr::Bool(_) => todo!(),
-        Expr::String(_) => todo!(),
-        Expr::Unary { op, expr } => todo!(),
-        Expr::Call { callee, args } => todo!(),
+        Expr::Bool(val) => {
+            let bool_val = context
+                .bool_type()
+                .const_int(if *val { 1 } else { 0 }, false);
+            bool_val.into()
+        }
+
+        Expr::Call { callee, args } => {
+            // 1. Get the function reference from the module
+            let fn_name = match &**callee {
+                Expr::Var(name) => name,
+                _ => panic!("Expected identifier for function call"),
+            };
+            let function = module.get_function(fn_name).expect("Function not found");
+
+            // 2. Codegen all arguments
+            let mut llvm_args = Vec::new();
+            for arg in args {
+                llvm_args.push(codegen_expr(arg, ty, context, builder, env).into());
+            }
+
+            // 3. Build the call
+            builder
+                .build_call(function, &llvm_args, "call_res")
+                .unwrap()
+                .try_as_basic_value()
+                .left()
+                .unwrap()
+                .into()
+        }
     }
 }
 pub struct LlvmRuntime<'ctx> {
@@ -232,7 +294,35 @@ pub fn lower_ir<'ctx>(
     zero: IntValue<'ctx>,
     env: &mut std::collections::HashMap<String, inkwell::values::PointerValue<'ctx>>,
 ) -> Result<(), String> {
+    // println!("DEBUG: I am about to process variant: {:?}", ir);
     match ir {
+        IROp::Print { value } => {
+            let TypedExpr(expr, ty) = value;
+            match ty {
+                Type::Str => {
+                    // 1. Get the string value (needs a different global format for strings)
+                    let str_val = codegen_expr(&expr, &ty, context, builder, env);
+                    // 2. Use a format string for strings "%s\n"
+                    let fmt_str = builder.build_global_string_ptr("%s\n", "fmt_str").unwrap();
+                    builder
+                        .build_call(
+                            printf_fn,
+                            &[fmt_str.as_pointer_value().into(), str_val.into()],
+                            "printf_call",
+                        )
+                        .unwrap();
+                }
+                Type::F64 => {
+                    // Your existing float logic
+                    let llvm_val = codegen_expr(&expr, &ty, context, builder, env);
+                    builder
+                        .build_call(printf_fn, &[fmt.into(), llvm_val.into()], "printf_call")
+                        .unwrap();
+                }
+                _ => todo!("Implement print for this type"),
+            }
+            Ok(())
+        }
         // --- BRIDGE: Handle Lowered Operations ---
         IROp::Lowered(lowered) => match lowered {
             LoweredOp::Binary {
@@ -250,6 +340,7 @@ pub fn lower_ir<'ctx>(
                     Op::Sub => builder.build_float_sub(lhs, rhs, &target).unwrap(),
                     Op::Mul => builder.build_float_mul(lhs, rhs, &target).unwrap(),
                     Op::Div => builder.build_float_div(lhs, rhs, &target).unwrap(),
+                    Op::Neg => builder.build_float_neg(lhs, &target).unwrap(),
                     Op::Cmp => {
                         let cmp = builder
                             .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, &target)
@@ -275,8 +366,10 @@ pub fn lower_ir<'ctx>(
                 env.insert(target, ptr);
                 Ok(())
             }
-            _ => Ok(()), // Implement Jump/Label/Nop as needed
+            _ => Ok(()),
         },
+
+        IROp::ExprStmt { .. } => Ok(()),
 
         // --- HIGH LEVEL OPERATIONS ---
         IROp::Assign { name, value } => {
@@ -293,18 +386,6 @@ pub fn lower_ir<'ctx>(
             }
             Ok(())
         }
-        IROp::Print { value } => {
-            let TypedExpr(expr, ty) = value;
-            let llvm_val = codegen_expr(&expr, &ty, context, builder, env);
-            builder
-                .build_call(printf_fn, &[fmt.into(), llvm_val.into()], "printf_call")
-                .unwrap();
-            Ok(())
-        }
-        IROp::Return { .. } => {
-            builder.build_return(Some(&zero));
-            Ok(())
-        }
         IROp::Declare { name, value, .. } => {
             let ptr = builder.build_alloca(context.f64_type(), &name).unwrap();
             let TypedExpr(expr, ty) = value;
@@ -313,7 +394,28 @@ pub fn lower_ir<'ctx>(
             env.insert(name.clone(), ptr);
             Ok(())
         }
-        _ => Ok(()),
+
+        IROp::ModuleScope { .. } => Ok(()),
+        IROp::Load { .. } => Ok(()),
+        IROp::Block { .. } => Ok(()),
+
+        IROp::Function { .. } => Ok(()),
+        IROp::Return { .. } => {
+            builder.build_return(Some(&zero));
+            Ok(())
+        }
+
+        IROp::If { .. } => Ok(()),
+        IROp::While { .. } => Ok(()),
+        IROp::Call { .. } => Ok(()),
+        IROp::ExternalCall { .. } => Ok(()),
+        IROp::Loop { .. } => Ok(()),
+        IROp::DoWhile { .. } => Ok(()),
+        // IROp::For { .. } => Ok(()),
+        _ => {
+            println!("DEBUG: Found an unhandled IR variant: {:?}", ir);
+            Ok(())
+        }
     }
 }
 pub fn lower_ir_to_llvm<'ctx>(
@@ -400,6 +502,7 @@ pub fn lower_ir_to_llvm<'ctx>(
 
     Ok(())
 }
+
 // #[test]
 // fn generates_bitcode() {
 //     let ir = IROp::Module { body: vec![] };

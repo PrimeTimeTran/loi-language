@@ -274,6 +274,15 @@ impl std::fmt::Display for AssignOp {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Expr {
+    Unary {
+        op: UnOp,
+        expr: Box<Expr>,
+    },
+    Binary {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+    },
     Assign {
         left: Box<Expr>,
         right: Box<Expr>,
@@ -284,15 +293,7 @@ pub enum Expr {
     String(String),
     Var(String),
     Array(Vec<Expr>),
-    Binary {
-        left: Box<Expr>,
-        op: BinOp,
-        right: Box<Expr>,
-    },
-    Unary {
-        op: UnOp,
-        expr: Box<Expr>,
-    },
+
     Call {
         callee: Box<Expr>,
         args: Vec<Expr>,

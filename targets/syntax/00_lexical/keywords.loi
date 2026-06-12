@@ -1,4 +1,4 @@
 # This test checks if the lexer can identify keywords even when packed tight
 if(x){else}
 while(true){break}
-func test(a){return a}
+fn test(a){return a}

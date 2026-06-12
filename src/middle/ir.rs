@@ -30,7 +30,6 @@ impl std::fmt::Debug for TypedExpr {
             .finish()
     }
 }
-// #[derive(Debug, Serialize, Clone)]
 
 #[derive(Debug, Serialize, Clone)]
 pub enum Op {
@@ -39,6 +38,7 @@ pub enum Op {
     Mul,
     Div,
     Cmp,
+    Neg,
 }
 pub enum IR {
     Raw(String),
