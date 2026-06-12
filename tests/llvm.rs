@@ -1,23 +1,57 @@
 mod harness;
 
-use crate::harness::helpers::add_var;
+use crate::harness::{IrTestHarness, helpers, ir_factory};
+use loi::backend::compile;
+use loi::frontend::ast::Expr;
+use loi::middle::ir::{IROp, Type, TypedExpr};
 
-use loi::{
-    backend::compile,
-    frontend::ast::Expr,
-    middle::{
-        ir::{IROp, Type, TypedExpr},
-        semantic::analyze,
-    },
-};
-
+// --- GROUP 1: Variable & Memory Management ---
 #[test]
-fn test_simple_addition() {
-    let ir = vec![add_var("c", "a", "b")];
+fn test_variable_lifecycle() {
+    let ir = vec![ir_factory::declare_f64("x", 5.0)];
+    let harness = IrTestHarness::new(&ir);
+
+    harness.assert_contains("%x = alloca double");
+    harness.assert_contains("store double 5.000000e+00, ptr %x");
+    harness.assert_snapshot("variable_declaration");
+}
+
+// --- GROUP 2: Arithmetic & Expressions ---
+#[test]
+fn test_binary_operations() {
+    let ir = vec![helpers::add_var("res", "a", "b")];
+    let harness = IrTestHarness::new(&ir);
+
+    harness.assert_contains("%res = fadd double %load_a, %load_b");
+    harness.assert_snapshot("binary_addition");
 }
 
 #[test]
-fn generates_bitcode() {
+fn test_complex_expression_flow() {
+    let ir = vec![
+        ir_factory::declare_f64("x", 1.0),
+        ir_factory::declare_f64("y", 2.0),
+        helpers::add_var("res", "x", "y"),
+    ];
+    let harness = IrTestHarness::new(&ir);
+
+    harness.assert_contains("fadd double");
+    harness.assert_snapshot("complex_math_structure");
+}
+
+// --- GROUP 3: IO & Side Effects ---
+#[test]
+fn test_print_output() {
+    let ir = vec![ir_factory::print_val(10.5)];
+    let harness = IrTestHarness::new(&ir);
+
+    harness.assert_contains("call i32 (ptr, ...) @printf(ptr @fmt_f64, double 1.050000e+01)");
+    harness.assert_snapshot("print_f64");
+}
+
+// --- GROUP 4: Integration ---
+#[test]
+fn test_full_bitcode_generation() {
     let ir = vec![IROp::Print {
         value: TypedExpr(Expr::Number(42.0), Type::F64),
     }];
@@ -25,7 +59,7 @@ fn generates_bitcode() {
     let dir = tempfile::tempdir().unwrap();
     let out_path = dir.path().join("test");
 
+    // Integration test: Ensure no errors in full pipeline
     let result = compile(&ir, &out_path, "test");
-
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "Compiler failed to generate valid bitcode");
 }

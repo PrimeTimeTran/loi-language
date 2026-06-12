@@ -1,5 +1,12 @@
-addition = 10 + 10
+addition = 10 + 1
 print(addition);
 
-subtraction = 10 + 10
+subtraction = 10 - 1
 print(subtraction);
+
+
+multiplication = 10 * 2
+print(multiplication);
+
+division = 10 / 10
+print(division);

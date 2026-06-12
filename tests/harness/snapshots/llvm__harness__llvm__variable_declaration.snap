@@ -1,0 +1,19 @@
+---
+source: tests/harness/llvm.rs
+expression: self.ir
+---
+; ModuleID = 'test_module'
+source_filename = "test_module"
+
+@fmt_f64 = global [4 x i8] c"%f\0A\00"
+@fmt_i32 = global [4 x i8] c"%d\0A\00"
+@fmt_str = global [4 x i8] c"%s\0A\00"
+
+declare i32 @printf(ptr, ...)
+
+define i32 @main() {
+entry:
+  %x = alloca double, align 8
+  store double 5.000000e+00, ptr %x, align 8
+  ret i32 0
+}
