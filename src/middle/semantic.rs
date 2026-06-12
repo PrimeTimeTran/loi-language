@@ -1,8 +1,5 @@
-use crate::frontend::ast::DeclKind;
-use crate::frontend::ast::Expr;
-use crate::frontend::ast::Stmt;
+use crate::frontend::ast::{AST, DeclKind, Expr, Stmt};
 use crate::frontend::lexer;
-use crate::frontend::parser::AST;
 use crate::frontend::parser::parse;
 use crate::middle::ir::{IROp, Type, TypedExpr};
 

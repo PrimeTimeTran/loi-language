@@ -1,4 +1,9 @@
 
+mod harness;
+
+// 2. Now you can use it
+use crate::harness::helpers::parses;
+
 #[test]
 fn p01_parses_if() {
     todo!("12");
@@ -18,4 +23,3 @@ fn p03_parses_else_if() {
 fn p04_parses_nested_if() {
     todo!("12");
 }
-

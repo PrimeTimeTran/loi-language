@@ -1,3 +1,8 @@
+#[path = "../harness/mod.rs"]
+mod harness;
+
+// 2. Now you can use it
+use harness::helpers::parses;
 
 #[test]
 fn p01_reports_unclosed_paren() {
@@ -18,4 +23,3 @@ fn p03_reports_invalid_assignment_target() {
 fn p04_reports_unexpected_token() {
     todo!("15");
 }
-

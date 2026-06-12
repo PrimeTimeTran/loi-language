@@ -10,11 +10,14 @@ pub mod unary;
 #[path = "04_binary.rs"]
 pub mod binary;
 
-#[path = "05_assignment_expression.rs"]
+#[path = "05-1_assignment_expression.rs"]
 pub mod assignment_expression;
 
-#[path = "05_declaration_statements.rs"]
+#[path = "05-2_declaration_statements.rs"]
 pub mod declaration_statements;
+
+#[path = "05-3_pratt_evaluation.rs"]
+pub mod pratt_evaluation;
 
 #[path = "06_arrays.rs"]
 pub mod arrays;

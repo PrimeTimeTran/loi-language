@@ -1,4 +1,9 @@
 
+mod harness;
+
+// 2. Now you can use it
+use crate::harness::helpers::parses;
+
 #[test]
 fn p01_reports_unclosed_paren() {
     todo!("15");
@@ -18,4 +23,3 @@ fn p03_reports_invalid_assignment_target() {
 fn p04_reports_unexpected_token() {
     todo!("15");
 }
-

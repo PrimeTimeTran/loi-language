@@ -1,4 +1,9 @@
 
+mod harness;
+
+// 2. Now you can use it
+use crate::harness::helpers::parses;
+
 #[test]
 fn p01_parses_empty_block() {
     todo!("11");
@@ -13,4 +18,3 @@ fn p02_parses_single_statement_block() {
 fn p03_parses_nested_blocks() {
     todo!("11");
 }
-

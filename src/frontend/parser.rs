@@ -2,15 +2,15 @@ use serde::Serialize;
 use std::iter::Peekable;
 
 use crate::frontend::{
-    ast::{AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp},
+    ast::{AST, AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp},
     lexer::lex,
     token::Token,
 };
 
-#[derive(Debug, Serialize)]
-pub struct AST {
-    pub stmts: Vec<Stmt>,
-}
+// #[derive(Debug, Serialize)]
+// pub struct AST {
+//     pub stmts: Vec<Stmt>,
+// }
 
 pub fn parse(tokens: Vec<Token>) -> Result<AST, String> {
     let mut tokens = tokens.into_iter().peekable();

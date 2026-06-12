@@ -1,4 +1,9 @@
 
+mod harness;
+
+// 2. Now you can use it
+use crate::harness::helpers::parses;
+
 #[test]
 fn p01_parses_empty_function() {
     todo!("14");
@@ -18,4 +23,3 @@ fn p03_parses_function_with_return() {
 fn p04_parses_nested_function_calls() {
     todo!("14");
 }
-
