@@ -1,132 +1,3 @@
-// use serde::Serialize;
-
-// use crate::frontend::parser::{parse, parse_source};
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Program {
-//     pub stmts: Vec<Stmt>,
-// }
-
-// #[derive(Debug, Clone, PartialEq, Serialize)]
-// pub enum DeclKind {
-//     MutableStatic,   // =
-//     ImmutableStatic, // =!
-//     Dynamic,         // =?
-// }
-
-// #[derive(Debug, Clone, Serialize, PartialEq)]
-// pub enum Stmt {
-//     Let {
-//         name: String,
-//         kind: DeclKind,
-//         value: Expr,
-//     },
-
-//     Print {
-//         expr: Expr,
-//     },
-
-//     ExprStmt {
-//         expr: Expr,
-//     },
-
-//     Function {
-//         name: String,
-//         params: Vec<String>,
-//         body: Vec<Stmt>,
-//     },
-//     Return {
-//         value: Option<Expr>,
-//     },
-//     If {
-//         condition: Expr,
-//         then_branch: Vec<Stmt>,
-//         else_branch: Option<Vec<Stmt>>,
-//     },
-//     While {
-//         condition: Expr,
-//         body: Vec<Stmt>,
-//     },
-//     Loop {
-//         body: Vec<Stmt>,
-//     },
-//     For {
-//         iterator: String,
-//         iterable: Expr,
-//         body: Vec<Stmt>,
-//     },
-//     DoWhile {
-//         body: Vec<Stmt>,
-//         condition: Expr,
-//     },
-//     Block {
-//         body: Vec<Stmt>,
-//     },
-// }
-
-// #[derive(Debug, Clone, PartialEq, Serialize)]
-// pub enum BinOp {
-//     Add,
-//     Sub,
-//     Mul,
-//     Div,
-//     Eq,
-//     Neq,
-//     Lt,
-//     Gt,
-//     And,
-//     Or,
-//     Assign,
-// }
-
-// #[derive(Debug, Clone, PartialEq, Serialize)]
-// pub enum UnOp {
-//     Neg,
-//     Not,
-//     AddrOf,
-// }
-// #[derive(Debug, Clone, PartialEq, Serialize)]
-// pub enum AssignOp {
-//     Assign,    // =
-//     Immutable, // =!
-//     Dynamic,   // =?
-// }
-
-// #[derive(Debug, Clone, PartialEq, Serialize)]
-// pub enum Expr {
-//     Assign {
-//         left: Box<Expr>,
-//         right: Box<Expr>,
-//         op: AssignOp,
-//     },
-//     Number(f64),
-//     Bool(bool),
-//     String(String),
-//     Var(String),
-//     Array(Vec<Expr>),
-//     Binary {
-//         left: Box<Expr>,
-//         op: BinOp,
-//         right: Box<Expr>,
-//     },
-//     Unary {
-//         op: UnOp,
-//         expr: Box<Expr>,
-//     },
-//     Call {
-//         callee: Box<Expr>,
-//         args: Vec<Expr>,
-//     },
-//     Index {
-//         target: Box<Expr>,
-//         index: Box<Expr>,
-//     },
-//     Member {
-//         target: Box<Expr>,
-//         field: String,
-//     },
-// }
-
 use crate::frontend::parser::parse;
 use serde::Serialize;
 use std::fmt;
@@ -139,6 +10,15 @@ pub struct Program {
 #[derive(Debug, Serialize)]
 pub struct AST {
     pub stmts: Vec<Stmt>,
+}
+impl AST {
+    pub fn to_sexpr(&self) -> String {
+        self.stmts
+            .iter()
+            .map(|s| s.to_sexpr())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 
 impl fmt::Display for AST {
@@ -249,6 +129,83 @@ impl fmt::Display for Stmt {
     }
 }
 
+impl Stmt {
+    pub fn to_sexpr(&self) -> String {
+        match self {
+            Stmt::Let { name, kind, value } => {
+                format!("(let {} {} {})", name, kind, value.to_sexpr())
+            }
+            Stmt::Print { expr } => format!("(print {})", expr.to_sexpr()),
+            Stmt::ExprStmt { expr } => expr.to_sexpr(),
+            Stmt::Function { name, params, body } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!(
+                    "(fn {} ({}) ({}))",
+                    name,
+                    params.join(" "),
+                    body_str.join(" ")
+                )
+            }
+            Stmt::Return { value } => match value {
+                Some(v) => format!("(return {})", v.to_sexpr()),
+                None => "(return)".to_string(),
+            },
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let then_str: Vec<String> = then_branch.iter().map(|s| s.to_sexpr()).collect();
+                match else_branch {
+                    Some(e) => {
+                        let else_str: Vec<String> = e.iter().map(|s| s.to_sexpr()).collect();
+                        format!(
+                            "(if {} ({}) ({}))",
+                            condition.to_sexpr(),
+                            then_str.join(" "),
+                            else_str.join(" ")
+                        )
+                    }
+                    None => format!("(if {} ({}))", condition.to_sexpr(), then_str.join(" ")),
+                }
+            }
+            Stmt::While { condition, body } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!("(while {} ({}))", condition.to_sexpr(), body_str.join(" "))
+            }
+            Stmt::Loop { body } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!("(loop ({}))", body_str.join(" "))
+            }
+            Stmt::For {
+                iterator,
+                iterable,
+                body,
+            } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!(
+                    "(for {} {} ({}))",
+                    iterator,
+                    iterable.to_sexpr(),
+                    body_str.join(" ")
+                )
+            }
+            Stmt::DoWhile { body, condition } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!(
+                    "(do ({}) while {})",
+                    body_str.join(" "),
+                    condition.to_sexpr()
+                )
+            }
+            Stmt::Block { body } => {
+                let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
+                format!("(block ({}))", body_str.join(" "))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum BinOp {
     Add,
@@ -352,36 +309,119 @@ pub enum Expr {
 
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format_prec(f, 0)
+    }
+}
+
+impl Expr {
+    pub fn precedence(&self) -> i8 {
         match self {
-            Expr::Assign { left, right, op } => write!(f, "({} {} {})", left, op, right),
-            Expr::Number(n) => write!(f, "{}", n),
-            Expr::Bool(b) => write!(f, "{}", b),
-            Expr::String(s) => write!(f, "\"{}\"", s),
-            Expr::Var(name) => write!(f, "{}", name),
-            Expr::Array(elements) => {
+            Expr::Assign { .. } => 1,
+            Expr::Binary { op, .. } => match op {
+                BinOp::Or => 2,
+                BinOp::And => 3,
+                BinOp::Eq | BinOp::Neq => 4,
+                BinOp::Lt | BinOp::Gt => 5,
+                BinOp::Add | BinOp::Sub => 6,
+                BinOp::Mul | BinOp::Div => 7,
+                BinOp::Assign => 1,
+            },
+            _ => 10, // Unary, Calls, Index, Members, etc. are high precedence
+        }
+    }
+    pub fn format_prec(&self, f: &mut std::fmt::Formatter<'_>, min_prec: i8) -> std::fmt::Result {
+        let prec = self.precedence();
+        let wrap = prec < min_prec;
+
+        if wrap {
+            write!(f, "(")?;
+        }
+
+        match self {
+            Expr::Number(n) => write!(f, "{}", n)?, // Add ? to propagate the Result
+            Expr::Bool(b) => write!(f, "{}", b)?,
+            Expr::String(s) => write!(f, "\"{}\"", s)?,
+            Expr::Var(name) => write!(f, "{}", name)?,
+            Expr::Array(els) => {
                 write!(f, "[")?;
-                for (i, expr) in elements.iter().enumerate() {
-                    write!(f, "{}", expr)?;
-                    if i < elements.len() - 1 {
+                for (i, e) in els.iter().enumerate() {
+                    e.format_prec(f, 0)?; // Recursively call format_prec
+                    if i < els.len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, "]")
+                write!(f, "]")?;
             }
-            Expr::Binary { left, op, right } => write!(f, "({} {} {})", left, op, right),
-            Expr::Unary { op, expr } => write!(f, "{}{}", op, expr),
+            Expr::Binary { left, op, right } => {
+                left.format_prec(f, prec)?;
+                write!(f, " {} ", op)?;
+                right.format_prec(f, prec + 1)?;
+            }
+            Expr::Unary { op, expr } => {
+                write!(f, "{}", op)?;
+                expr.format_prec(f, 10)?;
+            }
+            Expr::Assign { left, right, op } => {
+                left.format_prec(f, prec)?;
+                write!(f, " {} ", op)?;
+                right.format_prec(f, prec)?;
+            }
             Expr::Call { callee, args } => {
-                write!(f, "{}(", callee)?;
+                callee.format_prec(f, 10)?;
+                write!(f, "(")?;
                 for (i, arg) in args.iter().enumerate() {
-                    write!(f, "{}", arg)?;
+                    arg.format_prec(f, 0)?;
                     if i < args.len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, ")")
+                write!(f, ")")?;
             }
-            Expr::Index { target, index } => write!(f, "{}[{}]", target, index),
-            Expr::Member { target, field } => write!(f, "{}.{}", target, field),
+            Expr::Index { target, index } => {
+                target.format_prec(f, 10)?;
+                write!(f, "[{}]", index)?;
+            }
+            Expr::Member { target, field } => {
+                target.format_prec(f, 10)?;
+                write!(f, ".{}", field)?;
+            }
+        }
+
+        if wrap {
+            write!(f, ")")?;
+        }
+
+        Ok(()) // Return Ok(()) at the very end
+    }
+    pub fn to_sexpr(&self) -> String {
+        match self {
+            Expr::Assign { left, right, op } => {
+                format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
+            }
+            Expr::Number(n) => n.to_string(),
+            Expr::Bool(b) => b.to_string(),
+            Expr::String(s) => format!("\"{}\"", s),
+            Expr::Var(name) => name.clone(),
+            Expr::Array(elements) => {
+                let els: Vec<String> = elements.iter().map(|e| e.to_sexpr()).collect();
+                format!("[{}]", els.join(", "))
+            }
+            Expr::Binary { left, op, right } => {
+                format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
+            }
+            Expr::Unary { op, expr } => {
+                format!("({} {})", op, expr.to_sexpr())
+            }
+            Expr::Call { callee, args } => {
+                let args_str: Vec<String> = args.iter().map(|a| a.to_sexpr()).collect();
+                format!("{}({})", callee.to_sexpr(), args_str.join(", "))
+            }
+            Expr::Index { target, index } => {
+                format!("{}[{}]", target.to_sexpr(), index.to_sexpr())
+            }
+            Expr::Member { target, field } => {
+                format!("{}.{}", target.to_sexpr(), field)
+            }
         }
     }
 }

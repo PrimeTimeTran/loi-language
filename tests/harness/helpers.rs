@@ -2,38 +2,29 @@ use loi::frontend::ast::{DeclKind, Expr, Stmt};
 use loi::frontend::lexer::lex;
 use loi::frontend::parser::{parse, parse_source};
 
-// pub fn parses(src: &str) {
-//     let tokens = lex(src).unwrap();
-//     let result = parse(tokens);
-
-//     assert!(
-//         result.is_ok(),
-//         "Expected parse success for:\n{}\n\nGot:\n{:?}",
-//         src,
-//         result
-//     );
-// }
-
-// In harness/mod.rs
 pub fn parses(src: &str) -> String {
+    let tokens = lex(src).expect("Lexing failed");
+    let ast = parse(tokens).expect("Parsing failed");
+    ast.stmts[0].to_sexpr()
+}
+pub fn parses2(src: &str) -> String {
     let tokens = lex(src).expect("Lexing failed");
     let result = parse(tokens).expect("Parsing failed");
 
-    // Convert the AST/Result to a String format
-    // Use format!("{:?}", result) if your AST derives Debug
-    format!("{:?}", result)
+    format!("{}", result)
 }
 
-// Add this for your new tests
 pub fn assert_expr(input: &str, expected: &str) {
     let actual = parses(input);
+
+    // Normalize: remove all whitespace and newlines for a structural comparison
+    let clean_actual = actual.replace(|c: char| c.is_whitespace(), "");
+    let clean_expected = expected.replace(|c: char| c.is_whitespace(), "");
+
     assert_eq!(
-        actual.replace(" ", ""),
-        expected.replace(" ", ""),
+        clean_actual, clean_expected,
         "\nInput: {}\nExpected: {}\nActual: {}",
-        input,
-        expected,
-        actual
+        input, expected, actual
     );
 }
 
@@ -70,28 +61,3 @@ pub fn assert_let_stmt(
         other => panic!("Expected Let statement, got {:?}", other),
     }
 }
-
-pub fn parses2(src: &str) -> String {
-    let tokens = lex(src).expect("Lexing failed");
-    let ast = parse(tokens).expect(&format!("Parsing failed for: {}", src));
-
-    // Assuming your AST nodes implement Display to produce the string format
-    format!("{}", ast)
-}
-
-// pub fn assert_expr(input: &str, expected: &str) {
-//     // 1. Use your existing parser logic to generate the AST
-//     // Assuming `parses(input)` returns a String representation of the AST
-//     let actual = parses2(input);
-
-//     // 2. Normalize whitespace (optional, but highly recommended for testing)
-//     let normalized_actual = actual.replace(" ", "");
-//     let normalized_expected = expected.replace(" ", "");
-
-//     // 3. Assert equality
-//     assert_eq!(
-//         normalized_actual, normalized_expected,
-//         "\nInput: {}\nExpected: {}\nActual: {}",
-//         input, expected, actual
-//     );
-// }
