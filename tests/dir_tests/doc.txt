@@ -1,0 +1,43 @@
+## TREE
+├── 00-1.foo.rs
+├── 00-2.foo.rs
+├── 00-foo.rs
+├── 00.foo.rs
+├── 00.pulse_parser.rs
+├── 000.rs
+├── 00a.rs
+├── 01-01.foo.rs
+├── 01-02.foo.rs
+├── 01.foo.rs
+├── 02-01.foo.rs
+├── 02-02.foo.rs
+├── 02-1.foo.rs
+├── 02-2.foo.rs
+├── 02.foo.rs
+├── 2-01.foo.rs
+├── 2-02.foo.rs
+└── 2.foo.rs
+
+
+## VSCODE
+$ tree tests/dir_tests
+├── 00-1.foo.rs
+├── 00-2.foo.rs
+├── 00-foo.rs
+├── 00.foo.rs
+├── 00.pulse_parser.rs
+├── 000.rs
+├── 00a.rs
+├── 01-01.foo.rs
+├── 01-02.foo.rs
+├── 01.foo.rs
+
+├── 02-1.foo.rs
+├── 2-01.foo.rs
+├── 02-01.foo.rs
+├── 02-2.foo.rs
+├── 2-02.foo.rs
+├── 02-02.foo.rs
+├── 2.foo.rs
+└── 02.foo.rs
+

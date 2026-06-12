@@ -1,12 +1,5 @@
-// tests/parser/01_literals.rs
-// mod harness;
-// use crate::harness::helpers::parses;
-
-// 1. Declare the harness module, pointing to the file/folder one level up
-
 mod harness;
 
-// 2. Now you can use it
 use crate::harness::helpers::parses;
 
 #[test]

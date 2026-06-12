@@ -20,54 +20,16 @@ pub fn assert_expr(input: &str, expected: &str) {
     );
 }
 
-pub fn assert_parses_as(input: &str, expected_structure: &str) {
-    assert_expr(input, expected_structure);
-}
-
 pub fn parses(src: &str) -> String {
     let tokens = lex(src).expect("Lexing failed");
     let ast = parse(tokens).expect("Parsing failed");
     ast.to_sexpr()
 }
 
-pub fn assert_let_stmt(
-    input: &str,
-    expected_name: &str,
-    expected_kind: DeclKind,
-    expected_val: f64,
-) {
-    let ast = parse_source(input).expect("Parser failed");
-    assert_eq!(
-        ast.stmts.len(),
-        1,
-        "Expected 1 statement for input: {}",
-        input
-    );
-
-    match &ast.stmts[0] {
-        Stmt::Let { name, kind, value } => {
-            assert_eq!(name, expected_name);
-            assert_eq!(kind, &expected_kind);
-            if let Expr::Number(n) = value {
-                assert_eq!(*n, expected_val);
-            } else {
-                panic!("Expected number value, got {:?}", value);
-            }
-        }
-        other => panic!("Expected Let statement, got {:?}", other),
-    }
-}
-
 pub fn fails(input: &str) {
     let tokens = lex(input).unwrap();
     let result = parse(tokens);
     assert!(result.is_err());
-}
-
-pub fn print_str(val: &str) -> IROp {
-    IROp::Print {
-        value: TypedExpr(Expr::String(val.to_string()), Type::Str),
-    }
 }
 
 pub fn add_var(target: &str, left: &str, right: &str) -> IROp {
