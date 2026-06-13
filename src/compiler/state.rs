@@ -13,6 +13,7 @@ use crate::backend::symbol::registry::SymbolRegistry;
 use crate::backend::utter::registry::UtterRegistry;
 use crate::build::asset_optimizer::AssetOptimizer;
 use crate::build::output_resolver::OutputResolver;
+use crate::compiler::diagnostic::DiagnosticStore;
 use crate::middle::ir::{IROp, LoweredOp};
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::{FileStack, Registry};
@@ -156,54 +157,6 @@ pub struct BuildCache {
     /// global cache version (invalidate everything if bumped)
     pub cache_version: u32,
 }
-
-/// =========================
-/// DIAGNOSTIC STORE
-/// =========================
-/// Purpose:
-/// Centralized error/warning/debug reporting system
-#[derive(Default, Debug, Clone)]
-pub struct DiagnosticStore {
-    /// all diagnostics (errors, warnings, notes)
-    pub entries: Vec<Diagnostic>,
-
-    /// file -> diagnostics mapping
-    pub by_file: HashMap<Uuid, Vec<DiagnosticId>>,
-
-    /// symbol -> diagnostics mapping
-    pub by_symbol: HashMap<SymbolId, Vec<DiagnosticId>>,
-
-    /// severity counters
-    pub error_count: u32,
-    pub warning_count: u32,
-    pub info_count: u32,
-
-    /// optional: incremental clearing for watch mode
-    pub dirty: bool,
-}
-
-/// =========================
-/// SUPPORTING TYPES (MINIMAL BOOTSTRAP)
-/// =========================
-
-#[derive(Debug, Clone)]
-pub struct Diagnostic {
-    pub id: DiagnosticId,
-    pub message: String,
-    pub severity: DiagnosticSeverity,
-    pub file: Option<Uuid>,
-    pub symbol: Option<SymbolId>,
-}
-
-pub type DiagnosticId = u64;
-
-#[derive(Debug, Clone)]
-pub enum DiagnosticSeverity {
-    Error,
-    Warning,
-    Info,
-}
-
 // CompilerState is the *mutable brain* of the compiler.
 //
 // IMPORTANT DESIGN NOTE:

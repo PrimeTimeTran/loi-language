@@ -45,16 +45,13 @@ impl IrTestHarness {
 }
 
 pub mod ir_factory {
+    use super::*;
     use loi::{
         frontend::ast::Expr,
         middle::ir::{Span, Type, TypedExpr},
     };
-
-    use super::*;
-
-    // Helper to keep code clean
     fn dummy_span() -> Span {
-        Span { start: 0, end: 0 }
+        Span::default()
     }
 
     pub fn declare_f64(name: &str, val: f64) -> IROp {

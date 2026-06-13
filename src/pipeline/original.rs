@@ -58,10 +58,10 @@ pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), Error> {
     let out_base = output_dir.join(file_name);
     println!("DEBUG: Writing output to: {:?}", out_base);
     let tokens = lexer::lex(&source).map_err(Error::Lexer)?;
-    let ast = parser::parse(tokens).map_err(Error::Parser)?;
-    let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;
-    let bc_path = compile(&ir, &out_base, file_name).map_err(Error::Backend)?;
-    link_with_clang(Path::new(&bc_path), &out_base).map_err(Error::Backend)?;
+    // let ast = parser::parse(tokens).map_err(Error::Parser)?;
+    // let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;
+    // let bc_path = compile(&ir, &out_base, file_name).map_err(Error::Backend)?;
+    // link_with_clang(Path::new(&bc_path), &out_base).map_err(Error::Backend)?;
 
     Ok(())
 }

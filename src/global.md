@@ -6,23 +6,22 @@ We have multiple goals long term. We want to make sure the shape of our structs 
 will accommodate current/future requirements.
 
 - .loi compilation
-    - Multi phase passes 
-        - 1. Symbol identification across multiple files (project dir/root)
-        - 2. Hot compilation (fixing and partial generation)
-        - 3. compilation of 1 - n. files
+  - Multi phase passes
+    - 1. Symbol identification across multiple files (project dir/root)
+    - 2. Hot compilation (fixing and partial generation)
+    - 3. compilation of 1 - n. files
 - CLI tool
 - Bundling.
 - LLVM (lowering)
 - Symbols
-    - Identification
-    - Index/Registry
-    - Registration
-- Diagnostics 
-    - File was loaded in what order?
-    - Symbol is from what file/line?
+  - Identification
+  - Index/Registry
+  - Registration
+- Diagnostics
+  - File was loaded in what order?
+  - Symbol is from what file/line?
 
-First, tell me if there's anything important I've missed. Give me 3 things I haven't thought of.
----
+## First, tell me if there's anything important I've missed. Give me 3 things I haven't thought of.
 
 ## 🧠 Globals
 
@@ -135,7 +134,6 @@ pub struct LLVM<'ctx> {
 
 
 // IR.rs
-pub struct Span {}
 pub enum Type {}
 pub struct TypedExpr {}
 pub enum Token {}

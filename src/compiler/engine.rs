@@ -28,7 +28,8 @@ use crate::development::watcher::{
 };
 use crate::frontend::ast::AST;
 use crate::middle::ir::IR;
-use crate::pipeline::pipeline::{BackendPipeline, FrontendPipeline, MiddlePipeline};
+use crate::pipeline::frontend::FrontendPipeline;
+use crate::pipeline::middle::MiddlePipeline;
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::FileStack;
 
@@ -68,7 +69,7 @@ pub struct CompilerEngine {
     pub middle: MiddlePipeline,
 
     /// Backend: LLVM / WASM / custom codegen backends
-    pub backend: BackendPipeline,
+    pub backend: FrontendPipeline,
 
     /// Optional experimental pipeline extensions (plugins / future passes)
     pub extensions: PipelineExtensions,

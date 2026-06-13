@@ -1,15 +1,24 @@
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::PathBuf;
 
-use crate::frontend::ast::{BinOp, Expr};
+use crate::frontend::ast::{BinOp, Expr, Stmt};
 
 use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+/// Position in source code
+// #[derive(Debug, Clone, Copy, Default)]
+// pub struct Position {
+//     pub line: usize,
+//     pub column: usize,
+// }
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Span {
+    pub file: PathBuf,
     pub start: usize,
     pub end: usize,
 }
@@ -27,7 +36,7 @@ pub enum Type {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypedExpr {
     pub expr: Expr,
     pub ty: Type,
@@ -184,9 +193,6 @@ pub enum IROp {
     Load {
         name: String,
     },
-    ExprStmt {
-        expr: TypedExpr,
-    },
     If {
         condition: TypedExpr,
         then_branch: Vec<IROp>,
@@ -233,8 +239,48 @@ pub enum IROp {
         iterable: TypedExpr,
         body: Vec<IROp>,
     },
+    ExprStmt {
+        expr: TypedExpr,
+    },
+    ControlFlow,
 
     Lowered(LoweredOp),
+}
+
+fn to_typed_expr(expr: Expr) -> TypedExpr {
+    TypedExpr {
+        span: expr.span(),
+        expr,
+        ty: Type::Unknown,
+    }
+}
+
+impl From<Stmt> for IROp {
+    fn from(stmt: Stmt) -> Self {
+        match stmt {
+            Stmt::ExprStmt { expr } => IROp::ExprStmt {
+                expr: to_typed_expr(expr),
+            },
+
+            Stmt::Let { name, value, .. } => IROp::Assign {
+                name,
+                value: to_typed_expr(value),
+            },
+
+            Stmt::Return { value } => IROp::Return {
+                value: value.map(to_typed_expr),
+            },
+
+            Stmt::If { .. } | Stmt::While { .. } => IROp::ControlFlow,
+
+            Stmt::Function { .. } => IROp::ControlFlow, // temporary until lowering pass
+
+            Stmt::Block { .. } => IROp::Block { body: vec![] },
+            _ => {
+                todo!()
+            }
+        }
+    }
 }
 
 //         PARSER
@@ -264,10 +310,8 @@ pub enum RegionKind {
 pub enum RegionMode {
     /// ignore, pass through
     Passthrough,
-
     /// compile externally, then inject result
     CompileAndInject,
-
     /// compile but keep source too (debuggable)
     Dual,
 }

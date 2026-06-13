@@ -4,10 +4,18 @@ use loi::frontend::{
     parser::parse,
 };
 
+mod harness;
+
+use crate::harness::helpers::{assert_expr, parse_to_ast};
+
+#[test]
+fn p01_mul_higher_than_add() {
+    assert_expr("1 + 2 * 3", "(1 + (2 * 3))");
+}
+
 #[test]
 fn parse_simple_expr() {
-    let tokens = lex("1 + 2").unwrap();
-    let ast = parse(tokens).unwrap();
+    let ast = parse_to_ast("1 + 2");
 
     assert_eq!(ast.stmts.len(), 1);
 

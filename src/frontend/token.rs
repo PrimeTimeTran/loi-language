@@ -221,14 +221,14 @@ pub enum Token {
     #[token("and")]
     AndAlias,
 
-    #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
-    Number(f64),
-
-    #[regex(r#""[^"]*""#, |lex| lex.slice()[1..lex.slice().len()-1].to_string())]
-    String(String),
-
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Ident(String),
+
+    #[regex(r"[0-9]+(?:\.[0-9]+)?", |lex| lex.slice().parse::<f64>().unwrap())]
+    Number(f64),
+
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| lex.slice().trim_matches('"').to_string())]
+    String(String),
 
     Error,
     EOF,

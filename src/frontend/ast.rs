@@ -1,80 +1,17 @@
-use crate::frontend::parser::parse;
+use crate::{frontend::parser::parse, middle::ir::Span};
 use serde::Serialize;
 use std::fmt;
 
-// ENUMS
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum DeclKind {
-    MutableStatic,   // =
-    ImmutableStatic, // =!
-    Dynamic,         // =?
+#[derive(Serialize, Debug, Clone, PartialEq, Default)]
+pub struct Program {
+    pub stmts: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum BinOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Eq,
-    Neq,
-    Lt,
-    Gt,
-    And,
-    Or,
-    Assign,
-    Mod,
-    Power,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum UnOp {
-    Neg,
-    Not,
-    AddrOf,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum AssignOp {
-    Assign,    // =
-    Immutable, // =!
-    Dynamic,   // =?
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Expr {
-    Unary {
-        op: UnOp,
-        expr: Box<Expr>,
-    },
-    Binary {
-        left: Box<Expr>,
-        op: BinOp,
-        right: Box<Expr>,
-    },
-    Assign {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        op: AssignOp,
-    },
-    Number(f64),
-    Bool(bool),
-    String(String),
-    Var(String),
-    Array(Vec<Expr>),
-
-    Call {
-        callee: Box<Expr>,
-        args: Vec<Expr>,
-    },
-    Index {
-        target: Box<Expr>,
-        index: Box<Expr>,
-    },
-    Member {
-        target: Box<Expr>,
-        field: String,
-    },
+#[derive(Serialize, Debug, Clone, PartialEq, Default)]
+pub struct AST {
+    pub stmts: Vec<Stmt>,
+    pub expr: Option<Expr>,
+    pub program: Program,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -126,16 +63,80 @@ pub enum Stmt {
     },
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
-pub struct Program {
-    pub stmts: Vec<Stmt>,
+#[derive(Debug, Clone, PartialEq, Serialize)]
+
+pub enum Expr {
+    // Span {},
+    Unary {
+        op: UnOp,
+        expr: Box<Expr>,
+    },
+    Binary {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+    },
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
+        op: AssignOp,
+    },
+    Bool(bool),
+    Number(f64),
+    String(String),
+    Var(String),
+    Array(Vec<Expr>),
+
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Index {
+        target: Box<Expr>,
+        index: Box<Expr>,
+    },
+    Member {
+        target: Box<Expr>,
+        field: String,
+    },
 }
 
-#[derive(Serialize, Debug, Clone, PartialEq)]
-pub struct AST {
-    pub stmts: Vec<Stmt>,
-    pub expr: Option<Expr>,
-    pub program: Program,
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum DeclKind {
+    MutableStatic,   // =
+    ImmutableStatic, // =!
+    Dynamic,         // =?
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    And,
+    Or,
+    Assign,
+    Mod,
+    Power,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum UnOp {
+    Neg,
+    Not,
+    AddrOf,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AssignOp {
+    Assign,    // =
+    Immutable, // =!
+    Dynamic,   // =?
 }
 
 impl AST {
@@ -154,6 +155,13 @@ impl AST {
             .join("\n")
     }
 }
+
+impl Expr {
+    pub fn span(&self) -> Span {
+        Span::default()
+    }
+}
+
 impl Stmt {
     pub fn to_sexpr(&self) -> String {
         match self {
@@ -231,7 +239,6 @@ impl Stmt {
     }
 }
 
-// Trait impls
 impl fmt::Display for AST {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for stmt in &self.stmts {
