@@ -48,7 +48,6 @@ impl From<bool> for AssertOpts {
 
 pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, String> {
     let mut ir = Vec::new();
-
     for stmt in ast.stmts {
         match stmt {
             Stmt::ExprStmt { expr } => match expr {
@@ -169,21 +168,6 @@ pub fn parses(src: &str) -> String {
     let ast = parse_to_ast(src);
     ast.to_sexpr()
 }
-
-// Previous
-// pub fn parses(src: &str) -> String {
-//     // 1. Initialize variables that need to be borrowed
-//     let mut diagnostics = DiagnosticStore::default();
-//     let tokens = lex(src).expect("Lexing failed");
-//     let mut token_stream = TokenStream::new(tokens);
-
-//     // 2. Pass them as mutable references (&mut)
-//     // This allows the parse function to modify the diagnostics
-//     // and consume the stream without taking ownership of them.
-//     let ast = parse(&mut token_stream, &mut diagnostics).expect("Parsing failed");
-
-//     ast.to_sexpr()
-// }
 
 fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
     if !matches!(ir.last(), Some(IROp::Return { .. })) {

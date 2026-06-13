@@ -38,10 +38,7 @@ fn p03_str_number() {
 #[test]
 fn p04_print() {
     let context = Context::create();
-
     let llvm = compile_and_lower(&context, "print(5)").expect("compile failed");
-
     println!("{}", llvm.ir());
-
     llvm.verify().expect("LLVM verify failed");
 }

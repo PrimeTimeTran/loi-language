@@ -7,6 +7,7 @@ use loi::frontend::{
 mod harness;
 
 use crate::harness::helpers::{assert_expr, parse_to_ast};
+use crate::harness::{SNAP_PARSER, lexer::LexerTestHarness};
 
 #[test]
 fn p01_mul_higher_than_add() {
@@ -15,10 +16,9 @@ fn p01_mul_higher_than_add() {
 
 #[test]
 fn parse_simple_expr() {
+    SNAP_PARSER.assert("parser_is_up", "Hello Parser", "Parser Hello");
     let ast = parse_to_ast("1 + 2");
-
     assert_eq!(ast.stmts.len(), 1);
-
     let expr = match &ast.stmts[0] {
         ast::Stmt::ExprStmt { expr } => expr,
         _ => panic!("Expected ExprStmt"),

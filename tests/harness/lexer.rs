@@ -14,7 +14,6 @@ impl LexerTestHarness {
         Self { tokens }
     }
 
-    // This is the missing piece!
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
         let content = fs::read_to_string(path).expect("Failed to read fixture file");
         Self::new(&content)

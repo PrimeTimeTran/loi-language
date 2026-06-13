@@ -20,6 +20,7 @@ impl Parser {
         tokens: &mut TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<AST, ()> {
+        println!("Parser parse");
         parse(tokens, diagnostics)
     }
 
@@ -29,42 +30,34 @@ impl Parser {
         tokens: &mut TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<AST, ()> {
+        println!("Parser parse_incremental");
         parse_incremental(prev, tokens, diagnostics)
     }
 }
 
 pub fn parse(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<AST, ()> {
     let mut stmts = Vec::new();
+    println!("PARSE PARSE START");
 
     while let Some(tok) = tokens.peek() {
-        match tok {
-            Token::EOF => {
-                tokens.bump();
-                break;
+        println!("TOKEN: {:?}", tok);
+
+        if matches!(tok, Token::EOF) {
+            break;
+        }
+
+        match parse_stmt(tokens, diagnostics) {
+            Ok(stmt) => {
+                println!("STMT OK: {:?}", stmt);
+                stmts.push(stmt);
             }
-
-            Token::Semicolon => {
+            Err(_) => {
+                println!("STMT FAIL at {:?}", tokens.peek());
+                diagnostics.push(Diagnostic::error(
+                    "Failed to parse statement",
+                    Span::default(),
+                ));
                 tokens.bump();
-            }
-
-            _ => {
-                match parse_stmt(tokens, diagnostics) {
-                    Ok(stmt) => stmts.push(stmt),
-
-                    Err(_) => {
-                        diagnostics.push(Diagnostic::error(
-                            "Failed to parse statement",
-                            Span::default(),
-                        ));
-
-                        // 🔥 recovery: skip token instead of hard fail
-                        tokens.bump();
-                    }
-                }
-
-                if matches!(tokens.peek(), Some(Token::Semicolon)) {
-                    tokens.bump();
-                }
             }
         }
     }
@@ -137,8 +130,10 @@ pub fn parse_incremental(
 }
 
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
+    println!("parse_stmt at: {:?}", tokens.peek());
     match tokens.peek() {
         Some(Token::Print) => {
+            println!("matched print");
             tokens.bump(); // consume 'print'
 
             Ok(Stmt::Print {
@@ -152,11 +147,13 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
         Some(Token::Function) => control::parse_function(tokens, diagnostics),
 
         Some(Token::LBrace) => {
+            println!("parse l brace");
             tokens.bump(); // consume '{'
             let body = control::parse_block(tokens, diagnostics)?;
             Ok(Stmt::Block { body })
         }
         _ => {
+            println!("parse last arm of statement");
             let expr = parse_expr(tokens, diagnostics)?;
 
             match expr {
@@ -743,6 +740,7 @@ mod control {
         tokens: &mut TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<Stmt, String> {
+        println!("parse if");
         tokens.next(); // consume 'if'
 
         let condition = parse_expr(tokens, diagnostics)?;

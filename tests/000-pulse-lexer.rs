@@ -3,13 +3,7 @@ use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
 mod harness;
-use crate::harness::lexer::LexerTestHarness;
-
-#[test]
-fn test_delimiters_snap() {
-    LexerTestHarness::from_file("tests/fixtures/lexical/single_line.loi")
-        .assert_snapshot("single_line_stream");
-}
+use crate::harness::{SNAP_LEXER, lexer::LexerTestHarness};
 
 #[test]
 fn test_single_line_comments_logic() {
@@ -21,4 +15,6 @@ fn test_single_line_comments_logic() {
     assert!(tokens.contains(&Token::Ident("x".to_string())));
     assert!(tokens.contains(&Token::Ident("y".to_string())));
     assert!(tokens.contains(&Token::EOF));
+
+    SNAP_LEXER.assert("tokens", "# ", " HELLO WORLD");
 }
