@@ -114,20 +114,35 @@ impl DiagnosticStore {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Logger;
 
 impl Logger {
     pub fn log(&self, msg: &str) {
         println!("[LOG] {}", msg);
     }
+    pub fn test() -> Self {
+        Self
+    }
 }
 
 #[derive(Default)]
 pub struct TraceSystem;
 
+impl TraceSystem {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 #[derive(Default)]
 pub struct Profiler;
+
+impl Profiler {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 #[derive(Default)]
 pub struct Inspector;

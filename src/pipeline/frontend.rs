@@ -3,6 +3,7 @@ use crate::frontend::ast::{AST, Stmt};
 use crate::frontend::lexer::Lexer;
 use crate::frontend::parser::Parser;
 use crate::frontend::token::Token;
+use crate::test::TestContext;
 
 /// FRONTEND PIPELINE
 /// Responsible for turning raw source code into a typed AST.
@@ -17,14 +18,29 @@ pub struct FrontendPipeline {
     pub parser: Parser,
     pub diagnostics: DiagnosticStore,
     pub features: FrontendFeatures,
+    pub ctx: TestContext,
 }
 
 impl Default for FrontendPipeline {
     fn default() -> Self {
+        let ctx = TestContext::new();
         Self {
+            ctx,
             lexer: Lexer::default(),
             parser: Parser::default(),
             diagnostics: DiagnosticStore::default(),
+            features: FrontendFeatures::default(),
+        }
+    }
+}
+
+impl FrontendPipeline {
+    pub fn new(ctx: TestContext) -> Self {
+        Self {
+            ctx: ctx,
+            lexer: Lexer::new(),
+            parser: Parser::new(),
+            diagnostics: ctx.diagnostics,
             features: FrontendFeatures::default(),
         }
     }

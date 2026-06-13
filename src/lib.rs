@@ -14,3 +14,4 @@ pub mod frontend;
 pub mod middle;
 pub mod pipeline;
 pub mod registry;
+pub mod test;

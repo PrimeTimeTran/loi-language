@@ -15,6 +15,11 @@ use crate::{
 pub struct Parser;
 
 impl Parser {
+    pub fn new() -> Self {
+        Self
+    }
+}
+impl Parser {
     pub fn parse(
         &mut self,
         tokens: &mut TokenStream,

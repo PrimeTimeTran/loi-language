@@ -18,6 +18,7 @@ use crate::build::service::BundleService;
 use crate::compiler::addon::{BackendRegistry, PassRegistry, PipelineExtensions};
 use crate::compiler::bundler::OutputEmitter;
 use crate::compiler::cache::{CachePolicy, CompilationCache, MemoryCache, PersistentCache};
+use crate::compiler::context::CompilerContext;
 use crate::compiler::diagnostic::{CompilerEventBus, Inspector, Logger, Profiler, TraceSystem};
 use crate::compiler::execution::{JobQueue, PluginSystem, PrioritySystem, TaskScheduler};
 use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
@@ -28,6 +29,7 @@ use crate::development::watcher::{
 };
 use crate::frontend::ast::AST;
 use crate::middle::ir::IR;
+use crate::pipeline::backend::BackendPipeline;
 use crate::pipeline::frontend::FrontendPipeline;
 use crate::pipeline::middle::MiddlePipeline;
 use crate::registry::file_meta::{FileMeta, GroupKey};
@@ -69,7 +71,7 @@ pub struct CompilerEngine {
     pub middle: MiddlePipeline,
 
     /// Backend: LLVM / WASM / custom codegen backends
-    pub backend: FrontendPipeline,
+    pub backend: BackendPipeline,
 
     /// Optional experimental pipeline extensions (plugins / future passes)
     pub extensions: PipelineExtensions,
@@ -202,4 +204,106 @@ pub struct CompilerEngine {
 
     /// Safe-mode compiler (minimal optimizations, maximum stability)
     pub safe_mode: bool,
+}
+
+impl CompilerEngine {
+    pub fn new() -> Self {
+        let context = CompilerContext::new();
+        let logger = Logger::default();
+        let tracer = TraceSystem::new();
+        let profiler = Profiler::new();
+
+        let cache_policy = CachePolicy::default();
+        let memory_cache = MemoryCache::new();
+        let persistent_cache = PersistentCache::new();
+        let cache = CompilationCache::new();
+
+        let scheduler = TaskScheduler::new();
+        let job_queue = JobQueue::new();
+        let priority_system = PrioritySystem::new();
+
+        let frontend = FrontendPipeline::new(context, logger.clone());
+        let middle = MiddlePipeline::new(logger.clone());
+        let backend = BackendPipeline::new(logger.clone());
+
+        let symbol_runtime = SymbolRuntime::new();
+        let ir_runtime = IRRuntime::new();
+        let lowering_runtime = LoweringRuntime::new();
+
+        let bundler = BundleService::new();
+        let resolver = OutputResolver::new();
+        let optimizer = AssetOptimizer::new();
+        let emitter = OutputEmitter::default();
+
+        let plugins = PluginSystem::new();
+        let backend_registry = BackendRegistry::new();
+        let pass_registry = PassRegistry::new();
+
+        let incremental = IncrementalCompiler::new();
+        let change_detector = ChangeDetector::new();
+
+        let watcher = Some(FileWatcher::new());
+        let hot_reload = Some(HotReloadManager::new());
+
+        let recovery = RecoverySystem::new();
+        let fallback = FallbackPipeline::new();
+
+        let inspector = Inspector::new();
+        let event_bus = CompilerEventBus::new();
+
+        let distributed = None;
+        let build_farm = None;
+        let network_cache = None;
+
+        Self {
+            frontend,
+            middle,
+            backend,
+
+            extensions: PipelineExtensions::default(),
+
+            bundler,
+            resolver,
+            optimizer,
+            emitter,
+
+            concurrency: num_cpus::get(),
+            parallel_enabled: true,
+            scheduler,
+            job_queue,
+            priority_system,
+
+            watcher,
+            hot_reload,
+            incremental,
+            change_detector,
+
+            cache,
+            persistent_cache,
+            memory_cache,
+            cache_policy,
+
+            symbol_runtime,
+            ir_runtime,
+            lowering_runtime,
+
+            logger,
+            tracer,
+            profiler,
+            inspector,
+            event_bus,
+
+            plugins,
+            backend_registry,
+            pass_registry,
+
+            distributed,
+            build_farm,
+            network_cache,
+
+            recovery,
+            fallback,
+            safe_mode: false,
+        }
+    }
 }
