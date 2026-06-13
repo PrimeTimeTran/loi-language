@@ -26,13 +26,14 @@ impl PersistentCache {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryCache {
     pub map: HashMap<String, String>,
 }
 impl MemoryCache {
     pub fn new() -> Self {
-        Self
+        let map = HashMap::new();
+        Self { map }
     }
 }
 

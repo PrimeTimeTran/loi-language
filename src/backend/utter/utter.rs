@@ -17,7 +17,7 @@ pub struct UtterFlags {
     pub fs_access: bool,
     pub db_access: bool,
 }
-pub trait Utter: DynClone {
+pub trait Utter: DynClone + Send + Sync {
     fn name(&self) -> &str;
     fn flags(&self) -> UtterFlags;
     fn to_ir(&self, metadata: &FileMeta, symbols: &SymbolRegistry) -> Result<IR, String>;

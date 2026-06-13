@@ -1,8 +1,11 @@
 use loi::compiler::diagnostic::DiagnosticStore;
+use loi::compiler::state::CompileState;
 use loi::diagnostics;
+use loi::frontend::ast::{AST, BinOp, DeclKind, Expr, Stmt};
+use loi::frontend::lexer::{Lexer, TokenStream, lex};
+use loi::frontend::parser::{parse, parse_source};
+use loi::middle::ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr};
 use loi::{backend::llvm::LLVM, pipeline::frontend::FrontendPipeline};
-use owo_colors::OwoColorize;
-use std::cell::RefCell;
 
 use inkwell::{
     AddressSpace,
@@ -11,37 +14,61 @@ use inkwell::{
     module::Module,
     values::{FunctionValue, PointerValue},
 };
+use owo_colors::OwoColorize;
+use std::cell::RefCell;
+use std::sync::{Arc, RwLock};
 
-use loi::frontend::ast::{AST, BinOp, DeclKind, Expr, Stmt};
-use loi::frontend::lexer::{Lexer, TokenStream, lex};
-use loi::frontend::parser::{parse, parse_source};
-use loi::middle::ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr};
-
-use crate::harness::IrTestHarness;
+use crate::common::{AssertOpts, TestHarness};
 
 pub fn clean(s: &str) -> String {
     s.replace(|c: char| c.is_whitespace(), "")
 }
 
-pub struct AssertOpts {
-    pub snapshot: bool,
-    pub verbose: bool,
+struct ParseResult {
+    ast: AST,
+    diagnostics: DiagnosticStore,
 }
 
-impl Default for AssertOpts {
-    fn default() -> Self {
-        Self {
-            snapshot: Default::default(),
-            verbose: Default::default(),
-        }
-    }
+pub fn parses(src: &str) -> String {
+    parse_to_ast(src).expect("Parsing failed").to_sexpr()
 }
 
-impl From<bool> for AssertOpts {
-    fn from(snapshot: bool) -> Self {
-        Self {
-            snapshot,
-            ..Default::default()
+pub fn parse_to_ast(input: &str) -> Result<AST, String> {
+    let (ast, _) = parse_with_diagnostics(input)?;
+    Ok(ast)
+}
+
+pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), String> {
+    // 1. Initialize and configure
+    let harness = TestHarness::new().with_source(input);
+    let pipeline = harness.build_frontend();
+
+    // 2. Execute: harness.run_stage consumes the original harness,
+    // so we must capture the returned value to keep using it.
+    let harness = harness.run_stage(pipeline)?;
+
+    // 3. Extract results: Now we use the returned harness
+    let ast = harness.get_ast()?;
+    let diagnostics = harness.get_diagnostics();
+
+    Ok((ast, diagnostics))
+}
+
+pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
+    let (ast, diagnostics) = parse_with_diagnostics(input)?;
+    diagnostics.check_halt()?;
+    let mut ir = ast_to_ir(ast)?;
+    ir = finalize_ir(ir);
+    Ok(LLVM::new(context, &ir))
+}
+
+pub fn fails(input: &str) {
+    // If it fails to parse, it counts as having errors
+    let result = parse_with_diagnostics(input);
+    match result {
+        Ok((_, diagnostics)) => assert!(diagnostics.has_errors()),
+        Err(_) => {
+            println!("Error in test");
         }
     }
 }
@@ -141,123 +168,11 @@ pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, String> {
     Ok(ir)
 }
 
-struct ParseResult {
-    ast: AST,
-    diagnostics: DiagnosticStore,
-}
-
-pub fn init_pipeline(input: &str) -> (AST, DiagnosticStore) {
-    let mut frontend = FrontendPipeline::default();
-    let ast = frontend.run(input);
-    let diagnostics = frontend.diagnostics;
-    (ast, diagnostics)
-}
-
-pub fn parse_with_diagnostics(input: &str) -> (AST, DiagnosticStore) {
-    let (ast, diagnostics) = init_pipeline(input);
-
-    (ast, diagnostics)
-}
-
-pub fn parse_to_ast(input: &str) -> AST {
-    let (ast, _) = init_pipeline(input);
-    ast
-}
-
-pub fn parses(src: &str) -> String {
-    let ast = parse_to_ast(src);
-    ast.to_sexpr()
-}
-
 fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
     if !matches!(ir.last(), Some(IROp::Return { .. })) {
         ir.push(IROp::Return { value: None });
     }
     ir
-}
-
-pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
-    let (ast, diagnostics) = init_pipeline(input);
-    if diagnostics.has_errors() {
-        diagnostics.report_all();
-        return Err("frontend errors".into());
-    }
-    let mut ir = ast_to_ir(ast)?;
-    ir = finalize_ir(ir);
-    let llvm = LLVM::new(context, &ir);
-    Ok(llvm)
-}
-
-pub fn fails(input: &str) {
-    let (ast, diagnostics) = init_pipeline(input);
-    assert!(diagnostics.has_errors());
-}
-
-#[track_caller]
-pub fn assert_expr(input: &str, expected: &str) {
-    let actual = parses(input);
-    let clean_actual = clean(&actual);
-    let clean_expected = clean(expected);
-    println!(" actual {}", actual);
-    println!(" clean_actual {}", clean_actual);
-    println!(" clean_expected {}", clean_expected);
-
-    if clean_actual != clean_expected {
-        panic!(
-            "\n{} {} {}\n\
-             {}: {}\n\
-             {}: {}\n\
-             {}:\n  Expected: {}\n  Actual:   {}\n",
-            "=== Test Failed ===".red().bold(),
-            "\nInput:".yellow(),
-            input.yellow(),
-            "Expected:".green(),
-            expected.green(),
-            "Actual:".red(),
-            actual.red(),
-            "\nDiff (Cleaned)".blue(),
-            clean_expected.green(),
-            clean_actual.red(),
-        );
-    }
-}
-
-#[macro_export]
-macro_rules! assert_expr {
-    ($input:expr, $expected:expr) => {
-        $crate::harness::helpers::run_assert_with_snapshot(stringify!($input), $input, $expected);
-    };
-}
-
-thread_local! {
-    static ASSERT_COUNT: RefCell<usize> = RefCell::new(0);
-}
-
-#[track_caller]
-pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: &str) {
-    let thread_name = std::thread::current()
-        .name()
-        .unwrap_or("unknown")
-        .to_string();
-    let test_name = thread_name.split("::").last().unwrap_or("unknown");
-
-    // Increment and get the current count for this test
-    let count = ASSERT_COUNT.with(|c| {
-        let mut count = c.borrow_mut();
-        *count += 1;
-        *count
-    });
-
-    // Create a unique name: test_name_1, test_name_2, etc.
-    let snapshot_name = format!("{}_{}", test_name, count);
-
-    insta::with_settings!({
-        snapshot_path => "../snapshots/ast",
-    }, {
-        insta::assert_yaml_snapshot!(snapshot_name, parse_to_ast(input));
-    });
-
-    assert_expr(input, expected);
 }
 
 pub fn generate_binary_ir(target: &str, left: TypedExpr, right: TypedExpr) -> IROp {

@@ -1,14 +1,7 @@
-use clap::Parser;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::values::{FunctionValue, PointerValue};
-use owo_colors::OwoColorize;
-use std::collections::{HashMap, HashSet};
-use std::env;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use uuid::Uuid;
+use std::path::Path;
+use std::sync::{Arc, RwLock};
+
+use anyhow::Error;
 
 use crate::backend::symbol::registry::SymbolRegistry;
 use crate::backend::utter::registry::UtterRegistry;
@@ -18,20 +11,26 @@ use crate::build::service::BundleService;
 use crate::compiler::addon::{BackendRegistry, PassRegistry, PipelineExtensions};
 use crate::compiler::bundler::OutputEmitter;
 use crate::compiler::cache::{CachePolicy, CompilationCache, MemoryCache, PersistentCache};
-use crate::compiler::context::CompilerContext;
+use crate::compiler::config::CompileConfig;
 use crate::compiler::diagnostic::{CompilerEventBus, Inspector, Logger, Profiler, TraceSystem};
 use crate::compiler::execution::{JobQueue, PluginSystem, PrioritySystem, TaskScheduler};
 use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
 use crate::compiler::safety::{FallbackPipeline, RecoverySystem};
 use crate::compiler::scale::{BuildFarm, DistributedCompiler};
+use crate::compiler::state::CompileState;
+use crate::context::{CompileContext, Context, Kernel};
 use crate::development::watcher::{
     ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
 };
 use crate::frontend::ast::AST;
+use crate::frontend::lexer::Lexer;
+use crate::frontend::parser::Parser;
+use crate::interface::CompileEngineProvider;
 use crate::middle::ir::IR;
 use crate::pipeline::backend::BackendPipeline;
-use crate::pipeline::frontend::FrontendPipeline;
+use crate::pipeline::frontend::{FrontendFeatures, FrontendPipeline};
 use crate::pipeline::middle::MiddlePipeline;
+use crate::pipeline::stage::Stage;
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::FileStack;
 
@@ -59,251 +58,302 @@ use crate::registry::registry::FileStack;
 ///
 /// DESIGN GOAL:
 /// This should behave like a "compiler runtime kernel".
-#[derive(Default)]
-pub struct CompilerEngine {
+pub struct CompileEngine {
     // =========================================================
     // PIPELINE STAGES
-    // =========================================================
     /// Frontend: lexing, parsing, AST building, early diagnostics
-    pub frontend: FrontendPipeline,
-
     /// Middle: IR generation, transformation, optimization passes
-    pub middle: MiddlePipeline,
-
     /// Backend: LLVM / WASM / custom codegen backends
-    pub backend: BackendPipeline,
-
-    /// Optional experimental pipeline extensions (plugins / future passes)
-    pub extensions: PipelineExtensions,
-
     // =========================================================
-    // OUTPUT / BUNDLING SYSTEM
-    // =========================================================
-    /// Final bundling of artifacts (JS/WASM/native/etc.)
-    pub bundler: BundleService,
+    pub stages: Vec<Box<dyn Stage>>,
+    // Optional experimental pipeline extensions (plugins / future passes)
+    // pub extensions: PipelineExtensions,
 
-    /// Resolves output paths, module graphs, and artifact placement
-    pub resolver: OutputResolver,
+    // // =========================================================
+    // // OUTPUT / BUNDLING SYSTEM
+    // // =========================================================
+    // /// Final bundling of artifacts (JS/WASM/native/etc.)
+    // pub bundler: BundleService,
 
-    /// Asset optimization (minify, strip, compress, tree-shake)
-    pub optimizer: AssetOptimizer,
+    // pub resolver: OutputResolver,
 
-    /// Output emission strategy (disk, memory, distributed)
-    pub emitter: OutputEmitter,
+    // /// Asset optimization (minify, strip, compress, tree-shake)
+    // pub optimizer: AssetOptimizer,
 
-    // =========================================================
-    // EXECUTION CONTROL
-    // =========================================================
-    /// Number of worker threads allowed for compilation
-    pub concurrency: usize,
+    // /// Output emission strategy (disk, memory, distributed)
+    // pub emitter: OutputEmitter,
 
-    /// Enables parallel execution of pipeline stages
-    pub parallel_enabled: bool,
+    // // =========================================================
+    // // EXECUTION CONTROL
+    // // =========================================================
+    // /// Number of worker threads allowed for compilation
+    // pub concurrency: usize,
 
-    /// Scheduler for tasks (VERY important for scaling + incremental builds)
-    pub scheduler: TaskScheduler,
+    // /// Enables parallel execution of pipeline stages
+    // pub parallel_enabled: bool,
 
-    /// Work queue for compilation jobs
-    pub job_queue: JobQueue,
+    // /// Scheduler for tasks (VERY important for scaling + incremental builds)
+    // pub scheduler: TaskScheduler,
 
-    /// Priority system (hot files, changed symbols, etc.)
-    pub priority_system: PrioritySystem,
+    // /// Work queue for compilation jobs
+    // pub job_queue: JobQueue,
 
-    // =========================================================
-    // INCREMENTAL + HOT RELOAD
-    // =========================================================
-    /// File watcher for dev mode
-    pub watcher: Option<FileWatcher>,
+    // /// Priority system (hot files, changed symbols, etc.)
+    // pub priority_system: PrioritySystem,
 
-    /// Hot reload manager (state preservation between recompiles)
-    pub hot_reload: Option<HotReloadManager>,
+    // // =========================================================
+    // // INCREMENTAL + HOT RELOAD
+    // // =========================================================
+    // /// File watcher for dev mode
+    // pub watcher: Option<FileWatcher>,
 
-    /// Incremental compilation controller
-    pub incremental: IncrementalCompiler,
+    // /// Hot reload manager (state preservation between recompiles)
+    // pub hot_reload: Option<HotReloadManager>,
 
-    /// Change detector (file + symbol + IR diffing)
-    pub change_detector: ChangeDetector,
+    // /// Incremental compilation controller
+    // pub incremental: IncrementalCompiler,
 
-    // =========================================================
-    // CACHING SYSTEM
-    // =========================================================
-    /// Global compilation cache
-    pub cache: CompilationCache,
+    // /// Change detector (file + symbol + IR diffing)
+    // pub change_detector: ChangeDetector,
 
-    /// Persistent disk cache (cross-run speedups)
-    pub persistent_cache: PersistentCache,
+    // // =========================================================
+    // // CACHING SYSTEM
+    // // =========================================================
+    // /// Global compilation cache
+    // pub cache: CompilationCache,
 
-    /// In-memory fast cache (IR, AST, symbol resolution)
-    pub memory_cache: MemoryCache,
+    // /// Persistent disk cache (cross-run speedups)
+    // pub persistent_cache: PersistentCache,
 
-    /// Cache invalidation rules engine
-    pub cache_policy: CachePolicy,
+    // /// In-memory fast cache (IR, AST, symbol resolution)
+    // pub memory_cache: MemoryCache,
 
-    // =========================================================
-    // SYMBOL + IR HOOKS
-    // =========================================================
-    /// Symbol resolution integration layer
-    pub symbol_runtime: SymbolRuntime,
+    // /// Cache invalidation rules engine
+    // pub cache_policy: CachePolicy,
 
-    /// IR transformation pipeline hook
-    pub ir_runtime: IRRuntime,
+    // // =========================================================
+    // // SYMBOL + IR HOOKS
+    // // =========================================================
+    // /// Symbol resolution integration layer
+    // pub symbol_runtime: SymbolRuntime,
 
-    /// Lowering coordination layer
-    pub lowering_runtime: LoweringRuntime,
+    // /// IR transformation pipeline hook
+    // pub ir_runtime: IRRuntime,
 
-    // =========================================================
-    // LOGGING / DEBUG / INTROSPECTION
-    // =========================================================
-    /// Structured logger
-    pub logger: Logger,
+    // /// Lowering coordination layer
+    // pub lowering_runtime: LoweringRuntime,
 
-    /// Tracing system (for performance + compiler visualization)
-    pub tracer: TraceSystem,
+    // // =========================================================
+    // // LOGGING / DEBUG / INTROSPECTION
+    // // =========================================================
+    // /// Structured logger
+    // pub logger: Logger,
 
-    /// Profiler (stage timing, memory usage, hot paths)
-    pub profiler: Profiler,
+    // /// Tracing system (for performance + compiler visualization)
+    // pub tracer: TraceSystem,
 
-    /// Debug inspector (inspect AST/IR/symbol graph live)
-    pub inspector: Inspector,
+    // /// Profiler (stage timing, memory usage, hot paths)
+    // pub profiler: Profiler,
 
-    /// Event bus for compiler events (useful for IDEs, tools)
-    pub event_bus: CompilerEventBus,
+    // /// Debug inspector (inspect AST/IR/symbol graph live)
+    // pub inspector: Inspector,
 
-    // =========================================================
-    // ADDON / PLUGIN / EXTENSIBILITY
-    // =========================================================
-    /// Plugin system for custom passes / backends
-    pub plugins: PluginSystem,
+    // /// Event bus for compiler events (useful for IDEs, tools)
+    // pub event_bus: CompilerEventBus,
 
-    /// Foreign backend interface (LLVM, Cranelift, WASM, etc.)
-    pub backend_registry: BackendRegistry,
+    // // =========================================================
+    // // ADDON / PLUGIN / EXTENSIBILITY
+    // // =========================================================
+    // /// Plugin system for custom passes / backends
+    // pub plugins: PluginSystem,
 
-    /// Custom pass injection system
-    pub pass_registry: PassRegistry,
+    // /// Foreign backend interface (LLVM, Cranelift, WASM, etc.)
+    // pub backend_registry: BackendRegistry,
 
-    // =========================================================
-    // DISTRIBUTED / FUTURE SCALING
-    // =========================================================
-    /// Remote compilation workers (future distributed builds)
-    pub distributed: Option<DistributedCompiler>,
+    // /// Custom pass injection system
+    // pub pass_registry: PassRegistry,
 
-    /// Build farm coordinator
-    pub build_farm: Option<BuildFarm>,
+    // // =========================================================
+    // // DISTRIBUTED / FUTURE SCALING
+    // // =========================================================
+    // /// Remote compilation workers (future distributed builds)
+    // pub distributed: Option<DistributedCompiler>,
 
-    /// Network cache layer (shared builds across machines)
-    pub network_cache: Option<MemoryCache>,
+    // /// Build farm coordinator
+    // pub build_farm: Option<BuildFarm>,
 
-    // =========================================================
-    // SAFETY / RECOVERY
-    // =========================================================
-    /// Crash recovery system (resume interrupted builds)
-    pub recovery: RecoverySystem,
+    // /// Network cache layer (shared builds across machines)
+    // pub network_cache: Option<MemoryCache>,
 
-    /// Fallback pipeline if optimization fails
-    pub fallback: FallbackPipeline,
+    // // =========================================================
+    // // SAFETY / RECOVERY
+    // // =========================================================
+    // /// Crash recovery system (resume interrupted builds)
+    // pub recovery: RecoverySystem,
 
-    /// Safe-mode compiler (minimal optimizations, maximum stability)
-    pub safe_mode: bool,
+    // /// Fallback pipeline if optimization fails
+    // pub fallback: FallbackPipeline,
+
+    // /// Safe-mode compiler (minimal optimizations, maximum stability)
+    // pub safe_mode: bool,
 }
 
-impl CompilerEngine {
-    pub fn new() -> Self {
-        let context = CompilerContext::new();
-        let logger = Logger::default();
-        let tracer = TraceSystem::new();
-        let profiler = Profiler::new();
-
-        let cache_policy = CachePolicy::default();
-        let memory_cache = MemoryCache::new();
-        let persistent_cache = PersistentCache::new();
-        let cache = CompilationCache::new();
-
-        let scheduler = TaskScheduler::new();
-        let job_queue = JobQueue::new();
-        let priority_system = PrioritySystem::new();
-
-        let frontend = FrontendPipeline::new(context, logger.clone());
-        let middle = MiddlePipeline::new(logger.clone());
-        let backend = BackendPipeline::new(logger.clone());
-
-        let symbol_runtime = SymbolRuntime::new();
-        let ir_runtime = IRRuntime::new();
-        let lowering_runtime = LoweringRuntime::new();
-
-        let bundler = BundleService::new();
-        let resolver = OutputResolver::new();
-        let optimizer = AssetOptimizer::new();
-        let emitter = OutputEmitter::default();
-
-        let plugins = PluginSystem::new();
-        let backend_registry = BackendRegistry::new();
-        let pass_registry = PassRegistry::new();
-
-        let incremental = IncrementalCompiler::new();
-        let change_detector = ChangeDetector::new();
-
-        let watcher = Some(FileWatcher::new());
-        let hot_reload = Some(HotReloadManager::new());
-
-        let recovery = RecoverySystem::new();
-        let fallback = FallbackPipeline::new();
-
-        let inspector = Inspector::new();
-        let event_bus = CompilerEventBus::new();
-
-        let distributed = None;
-        let build_farm = None;
-        let network_cache = None;
-
+impl CompileEngine {
+    pub fn run_all(&self) -> Result<(), String> {
+        for stage in &self.stages {
+            println!("Running: {}...", stage.name());
+            stage
+                .run()
+                .map_err(|e| format!("Stage '{}' failed: {}", stage.name(), e))?;
+        }
+        Ok(())
+    }
+    pub fn new(
+        context: Arc<Context>,
+        config: Arc<RwLock<CompileConfig>>,
+        state: Arc<RwLock<CompileState>>,
+    ) -> Self {
         Self {
-            frontend,
-            middle,
-            backend,
-
-            extensions: PipelineExtensions::default(),
-
-            bundler,
-            resolver,
-            optimizer,
-            emitter,
-
-            concurrency: num_cpus::get(),
-            parallel_enabled: true,
-            scheduler,
-            job_queue,
-            priority_system,
-
-            watcher,
-            hot_reload,
-            incremental,
-            change_detector,
-
-            cache,
-            persistent_cache,
-            memory_cache,
-            cache_policy,
-
-            symbol_runtime,
-            ir_runtime,
-            lowering_runtime,
-
-            logger,
-            tracer,
-            profiler,
-            inspector,
-            event_bus,
-
-            plugins,
-            backend_registry,
-            pass_registry,
-
-            distributed,
-            build_farm,
-            network_cache,
-
-            recovery,
-            fallback,
-            safe_mode: false,
+            stages: vec![
+                Box::new(FrontendPipeline::new(
+                    context.clone(),
+                    config.clone(),
+                    state.clone(),
+                )),
+                Box::new(MiddlePipeline::new(
+                    context.clone(),
+                    config.clone(),
+                    state.clone(),
+                )),
+                Box::new(BackendPipeline::new(context, config, state)),
+            ],
         }
     }
 }
+
+#[cfg(test)]
+impl Default for CompileEngine {
+    fn default() -> Self {
+        let context = Arc::new(Context::new());
+        let config = Arc::new(RwLock::new(CompileConfig::default()));
+        let state = Arc::new(RwLock::new(CompileState::default()));
+        Self::new(context, config, state)
+    }
+}
+
+// impl CompileEngine {
+//     pub fn new(config: CompileConfig, state: CompileState) -> Self {
+//         let ctx = Context::new();
+//         let logger = Logger::default();
+//         let tracer = TraceSystem::new();
+//         let profiler = Profiler::new();
+
+//         let cache_policy = CachePolicy::default();
+//         let memory_cache = MemoryCache::new();
+//         let persistent_cache = PersistentCache::new();
+//         let cache = CompilationCache::new();
+
+//         let scheduler = TaskScheduler::new();
+//         let job_queue = JobQueue::new();
+//         let priority_system = PrioritySystem::new();
+
+//         let frontend = FrontendPipeline::new(ctx);
+//         let middle = MiddlePipeline::new(ctx);
+//         let backend = BackendPipeline::new(ctx);
+
+//         let symbol_runtime = SymbolRuntime::new();
+//         let ir_runtime = IRRuntime::new();
+//         let lowering_runtime = LoweringRuntime::new();
+
+//         let bundler = BundleService::new();
+//         let resolver = OutputResolver::new();
+//         let optimizer = AssetOptimizer::new();
+//         let emitter = OutputEmitter::default();
+
+//         let plugins = PluginSystem::new();
+//         let backend_registry = BackendRegistry::new();
+//         let pass_registry = PassRegistry::new();
+
+//         let incremental = IncrementalCompiler::new();
+//         let change_detector = ChangeDetector::new();
+
+//         let watcher = Some(FileWatcher::new());
+//         let hot_reload = Some(HotReloadManager::new());
+
+//         let recovery = RecoverySystem::new();
+//         let fallback = FallbackPipeline::new();
+
+//         let inspector = Inspector::new();
+//         let event_bus = CompilerEventBus::new();
+
+//         let distributed = None;
+//         let build_farm = None;
+//         let network_cache = None;
+
+//         Self {
+//             frontend,
+//             middle,
+//             backend,
+
+//             extensions: PipelineExtensions::default(),
+
+//             bundler,
+//             resolver,
+//             optimizer,
+//             emitter,
+
+//             // concurrency: num_cpus::get(),
+//             parallel_enabled: true,
+//             scheduler,
+//             job_queue,
+//             priority_system,
+
+//             watcher,
+//             hot_reload,
+//             incremental,
+//             change_detector,
+
+//             cache,
+//             persistent_cache,
+//             memory_cache,
+//             cache_policy,
+
+//             symbol_runtime,
+//             ir_runtime,
+//             lowering_runtime,
+
+//             logger,
+//             tracer,
+//             profiler,
+//             inspector,
+//             event_bus,
+
+//             plugins,
+//             backend_registry,
+//             pass_registry,
+
+//             distributed,
+//             build_farm,
+//             network_cache,
+
+//             recovery,
+//             fallback,
+//             safe_mode: false,
+//         }
+//     }
+// }
+
+// impl CompileEngineProvider for CompileEngine {
+//     fn compile(&self, path: &Path) -> Result<String, Error> {
+//         // call your compiler engine here
+//         Ok(String::new())
+//     }
+
+//     fn compile_target(&self) -> &Path {
+//         &self.compile_target
+//     }
+
+//     fn bundle_target(&self) -> &Path {
+//         &self.bundle_target
+//     }
+// }

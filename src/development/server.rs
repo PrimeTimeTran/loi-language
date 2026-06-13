@@ -2,10 +2,10 @@ use clap::Parser;
 use std::path::PathBuf;
 
 use crate::cli::args::CliArgs;
-use crate::compiler::config::{CompilerConfig, ConfigResolver, ConfigSource};
+use crate::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
 use crate::compiler::diagnostic::CompilerEventBus;
-use crate::compiler::engine::CompilerEngine;
-use crate::compiler::state::CompilerState;
+use crate::compiler::engine::CompileEngine;
+use crate::compiler::state::CompileState;
 use crate::development::watcher::FileWatcher;
 use crate::pipeline::original::compile_targets;
 
@@ -13,11 +13,11 @@ pub fn start() {
     let cli = CliArgs::parse();
     let sources = vec![ConfigSource::Defaults, ConfigSource::Cli(cli)];
     let partial = ConfigResolver::resolve(sources);
-    let config = CompilerConfig::from(partial);
+    let config = CompileConfig::from(partial);
     start_server(config);
 }
 
-pub fn start_server(config: CompilerConfig) {
+pub fn start_server(config: CompileConfig) {
     if config.watch {
         return FileWatcher::watch(config).unwrap();
     }
@@ -72,19 +72,18 @@ pub enum Command {
 pub struct Repl {}
 
 #[derive()]
-pub struct CompilerServer {
-    pub engine: CompilerEngine,
-    pub state: CompilerState,
-
+pub struct CompileServer {
+    pub engine: CompileEngine,
+    pub state: CompileState,
     pub watcher: Option<FileWatcher>,
     pub repl: Option<Repl>,
     pub events: CompilerEventBus,
 }
 
-impl CompilerServer {
+impl CompileServer {
     pub fn new(
-        engine: CompilerEngine,
-        state: CompilerState,
+        engine: CompileEngine,
+        state: CompileState,
         watcher: Option<FileWatcher>,
         repl: Option<Repl>,
     ) -> Self {

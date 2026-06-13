@@ -1,6 +1,3 @@
-mod harness;
-use crate::harness::{IrTestHarness, ir_factory};
-
 #[test]
 fn test_08_functions() {
     let ir = vec![/* Define IROp logic here */];

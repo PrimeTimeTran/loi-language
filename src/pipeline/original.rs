@@ -1,6 +1,6 @@
 use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
-use crate::compiler::config::{CompilerConfig, ConfigResolver};
+use crate::compiler::config::{CompileConfig, ConfigResolver};
 use crate::compiler::error::Error;
 use crate::frontend::{lexer, parser};
 use crate::middle::semantic::{SemanticAnalyzer, analyze};
@@ -14,7 +14,7 @@ pub trait CompilerPass<Input, Output> {
     fn run(&self, input: Input) -> Result<Output, Error>;
 }
 
-pub fn compile_targets(config: &CompilerConfig) -> Result<(), Vec<Error>> {
+pub fn compile_targets(config: &CompileConfig) -> Result<(), Vec<Error>> {
     let files: Vec<PathBuf> = WalkDir::new(&config.input)
         .into_iter()
         .filter_map(|e| e.ok())

@@ -8,23 +8,40 @@ use crate::{
     middle::ir::Span,
 };
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct LexerState {
     pub position: usize,
     pub line: usize,
     pub column: usize,
 }
-#[derive(Default)]
+
+#[derive(Default, Debug, Clone)]
 pub struct LexerConfig {
     pub allow_unicode_identifiers: bool,
     pub allow_raw_strings: bool,
     pub comment_support: bool,
 }
 
-#[derive(Default)]
 pub struct Lexer {
     pub state: LexerState,
     pub config: LexerConfig,
+}
+
+impl Default for Lexer {
+    fn default() -> Self {
+        Self {
+            state: LexerState {
+                position: 0,
+                line: 1,
+                column: 0,
+            },
+            config: LexerConfig {
+                allow_unicode_identifiers: true,
+                allow_raw_strings: true,
+                comment_support: true,
+            },
+        }
+    }
 }
 
 impl Lexer {

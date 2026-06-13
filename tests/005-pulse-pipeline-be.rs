@@ -1,16 +1,20 @@
-use loi::pipeline::frontend::FrontendPipeline;
+use loi::{compiler::state::CompileState, context::Context, pipeline::frontend::FrontendPipeline};
+use std::sync::{Arc, RwLock};
+
+use common::harness::TestHarness;
 
 #[test]
-fn test_pipeline() {
-    let fixtures = std::fs::read_dir("targets/syntax").unwrap();
-    for entry in fixtures {
-        let path = entry.unwrap().path();
-        if path.extension().and_then(|s| s.to_str()) != Some("loi") {
-            continue;
-        }
-        let source = std::fs::read_to_string(&path).unwrap();
-        let mut pipeline = FrontendPipeline::default();
-        let ast = pipeline.run(&source);
-        println!("test_pipeline {:#?}", ast);
-    }
+fn test_frontend_pipeline() {
+    let harness = TestHarness::new();
+    harness.load_source("your code here".to_string());
+
+    // Construct the specific pipeline
+    let pipeline = FrontendPipeline::new(
+        harness.env.context.clone(),
+        harness.env.config.clone(),
+        harness.env.state.clone(),
+    );
+
+    // Run it using the generic harness method
+    harness.run_stage(pipeline).expect("Frontend failed");
 }

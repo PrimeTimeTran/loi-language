@@ -1,5 +1,5 @@
 #[path = "../harness/mod.rs"]
-mod harness;
+
 
 // 2. Now you can use it
 use harness::helpers::parses;

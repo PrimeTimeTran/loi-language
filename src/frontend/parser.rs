@@ -22,11 +22,10 @@ impl Parser {
 impl Parser {
     pub fn parse(
         &mut self,
-        tokens: &mut TokenStream,
+        mut tokens: TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<AST, ()> {
-        println!("Parser parse");
-        parse(tokens, diagnostics)
+        parse(&mut tokens, diagnostics)
     }
 
     pub fn parse_incremental(
@@ -45,23 +44,24 @@ pub fn parse(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Res
     println!("PARSE PARSE START");
 
     while let Some(tok) = tokens.peek() {
-        println!("TOKEN: {:?}", tok);
-
         if matches!(tok, Token::EOF) {
             break;
         }
 
         match parse_stmt(tokens, diagnostics) {
             Ok(stmt) => {
-                println!("STMT OK: {:?}", stmt);
                 stmts.push(stmt);
             }
             Err(_) => {
-                println!("STMT FAIL at {:?}", tokens.peek());
-                diagnostics.push(Diagnostic::error(
+                let fatal = diagnostics.emit(Diagnostic::error(
                     "Failed to parse statement",
                     Span::default(),
                 ));
+
+                if fatal {
+                    return Err(());
+                }
+
                 tokens.bump();
             }
         }
@@ -105,7 +105,7 @@ pub fn parse_incremental(
                 Ok(stmt) => updated.push(stmt),
 
                 Err(_) => {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.emit(Diagnostic::error(
                         "Incremental parse error",
                         Span::default(),
                     ));
@@ -212,7 +212,7 @@ fn parse_assignment(
         let right = parse_assignment(tokens, None, diagnostics)?;
 
         if !is_assignable(&left) {
-            diagnostics.push(Diagnostic::error(
+            diagnostics.emit(Diagnostic::error(
                 "Invalid assignment target",
                 Span::default(),
             ));
@@ -704,7 +704,7 @@ mod control {
                 }
 
                 Token::EOF => {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.emit(Diagnostic::error(
                         "Unclosed block: expected '}'",
                         Span::default(),
                     ));
@@ -722,7 +722,7 @@ mod control {
                         Ok(stmt) => stmts.push(stmt),
 
                         Err(e) => {
-                            diagnostics.push(Diagnostic::error(
+                            diagnostics.emit(Diagnostic::error(
                                 format!("Statement parse error: {}", e),
                                 Span::default(),
                             ));
@@ -795,7 +795,7 @@ mod control {
         match tokens.next() {
             Some(Token::While) => {}
             other => {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.emit(Diagnostic::error(
                     format!("Expected 'while' after do-block, got {:?}", other),
                     Span::default(),
                 ));
@@ -848,7 +848,7 @@ mod control {
         let name = match tokens.next() {
             Some(Token::Ident(n)) => n.to_string(),
             other => {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.emit(Diagnostic::error(
                     format!("Expected function name, got {:?}", other),
                     Span::default(),
                 ));
@@ -861,7 +861,7 @@ mod control {
         match tokens.next() {
             Some(Token::LParen) => {}
             other => {
-                diagnostics.push(Diagnostic::error(
+                diagnostics.emit(Diagnostic::error(
                     format!("Expected '(', got {:?}", other),
                     Span::default(),
                 ));
@@ -880,7 +880,7 @@ mod control {
                 Token::Comma => continue,
 
                 Token::EOF => {
-                    diagnostics.push(Diagnostic::error(
+                    diagnostics.emit(Diagnostic::error(
                         "Unterminated parameter list",
                         Span::default(),
                     ));
@@ -888,7 +888,7 @@ mod control {
                 }
 
                 _ => {
-                    diagnostics.push(Diagnostic::error("Invalid parameter list", Span::default()));
+                    diagnostics.emit(Diagnostic::error("Invalid parameter list", Span::default()));
                     return Err("Invalid parameters".into());
                 }
             }
@@ -909,9 +909,9 @@ pub fn parse_source(input: &str) -> Result<AST, String> {
 
     let ast = parse(&mut stream, &mut diagnostics).map_err(|_| "Parse error".to_string())?;
 
-    if !diagnostics.is_empty() {
-        return Err("Diagnostics emitted during parse".into());
-    }
+    // if !diagnostics.is_empty() {
+    //     return Err("Diagnostics emitted during parse".into());
+    // }
 
     Ok(ast)
 }

@@ -13,8 +13,6 @@ use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
 
 pub use llvm::{LLVM, Runtime};
-struct ModuleState {}
-impl ModuleState {}
 
 fn codegen_expr<'ctx>(
     expr: &Expr,

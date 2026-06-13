@@ -1,5 +1,5 @@
 
-mod harness;
+
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
 use crate::harness::helpers::{assert_expr, fails, parses};

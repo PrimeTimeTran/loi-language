@@ -1,5 +1,5 @@
 #[path = "../harness/mod.rs"]
-mod harness;
+
 use crate::harness::helpers::parses;
 
 #[test]

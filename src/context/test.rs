@@ -1,9 +1,13 @@
-use crate::compiler::{cache::MemoryCache, diagnostic::{DiagnosticStore, Logger}};
+use crate::compiler::{
+    cache::MemoryCache,
+    diagnostic::{DiagnosticStore, Logger},
+};
 
+#[derive(Default, Debug)]
 pub struct TestContext {
     pub logger: Logger,
-    pub diagnostics: DiagnosticStore,
     pub cache: MemoryCache,
+    pub diagnostics: DiagnosticStore,
 }
 
 impl TestContext {

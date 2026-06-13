@@ -1,7 +1,3 @@
-// tests/mod.rs
-// pub mod common;
-pub mod harness;
-pub mod harness;
-// pub mod parser;
-// pub mod lexer;
-// pub mod llvm;
+pub mod common;
+#[path = "z.pulse-testing/mod.rs"]
+pub mod test_setup;

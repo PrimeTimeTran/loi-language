@@ -14,6 +14,7 @@ use crate::backend::utter::registry::UtterRegistry;
 use crate::build::asset_optimizer::AssetOptimizer;
 use crate::build::output_resolver::OutputResolver;
 use crate::compiler::diagnostic::DiagnosticStore;
+use crate::frontend::ast::AST;
 use crate::middle::ir::{IROp, LoweredOp};
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::{FileStack, Registry};
@@ -166,8 +167,10 @@ pub struct BuildCache {
 //
 // This struct should be safe to discard/rebuild from scratch,
 // except for caches if you later introduce persistent incremental builds.
-#[derive(Default)]
-pub struct CompilerState {
+pub struct CompileState {
+    pub source: Option<String>,
+    pub ast: Option<AST>,
+
     // =========================
     // FILE SYSTEM MODEL
     // =========================
@@ -231,4 +234,27 @@ pub struct CompilerState {
 
     /// IR format version (must bump when IR structure changes)
     pub ir_version: u32,
+}
+
+impl Default for CompileState {
+    fn default() -> Self {
+        Self {
+            source: None,
+            ast: None,
+            registry: Registry::default(),
+            file_graph: FileGraph::default(),
+            dependency_graph: DependencyGraph::default(),
+            symbols: SymbolRegistry::default(),
+            symbol_index: SymbolIndex::default(),
+            ir_cache: IRCache::default(),
+            lowered_cache: LoweredCache::default(),
+            dirty_files: HashSet::new(),
+            dirty_symbols: HashSet::new(),
+            content_hashes: HashMap::new(),
+            build_cache: BuildCache::default(),
+            diagnostics: DiagnosticStore::default(),
+            compiler_version: env!("CARGO_PKG_VERSION").to_string(),
+            ir_version: 1,
+        }
+    }
 }

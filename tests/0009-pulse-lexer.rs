@@ -2,8 +2,8 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
-mod harness;
-use crate::harness::{SNAP_LEXER, lexer::LexerTestHarness};
+mod common;
+use common::snapshot::SNAP_LEXER;
 
 #[test]
 fn test_single_line_comments_logic() {

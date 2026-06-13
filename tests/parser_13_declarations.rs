@@ -1,6 +1,3 @@
-
-mod harness;
-
 // 2. Now you can use it
 use crate::harness::helpers::parses;
 

@@ -1,4 +1,4 @@
-use crate::compiler::config::CompilerConfig;
+use crate::compiler::config::CompileConfig;
 use crate::pipeline::original::compile_targets;
 use notify::{RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ use std::sync::mpsc::channel;
 pub struct FileWatcher;
 
 impl FileWatcher {
-    pub fn watch(config: CompilerConfig) -> Result<(), String> {
+    pub fn watch(config: CompileConfig) -> Result<(), String> {
         let (tx, rx) = channel();
 
         println!("👀 REAL WATCH PATH: {}", config.input.display());

@@ -1,4 +1,4 @@
-mod harness;
+
 use harness::{file, get_test_root, setup_test_context};
 
 use loi::backend::utter::registry::UtterRegistry;

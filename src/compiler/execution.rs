@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TaskScheduler;
 
 impl TaskScheduler {
@@ -18,7 +18,7 @@ impl TaskScheduler {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct JobQueue {
     pub jobs: Arc<Mutex<Vec<String>>>,
 }

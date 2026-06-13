@@ -2,9 +2,6 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
-mod harness;
-use crate::harness::lexer::LexerTestHarness;
-
 #[test]
 fn test_operators_snap() {
     LexerTestHarness::from_file("tests/fixtures/lexical/operators.loi")

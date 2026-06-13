@@ -10,14 +10,19 @@ use loi::{
         utter::{registry::UtterRegistry, utter::Utter},
     },
     build::build_system::BuildSystem,
+    compiler::diagnostic::DiagnosticStore,
+    frontend::ast::AST,
     frontend::{lexer, parser},
     middle::semantic,
+    pipeline::{frontend::FrontendPipeline, stage::Stage},
     registry::{file_meta::FileMeta, registry::Registry},
+    test_utils::TestEnv,
 };
 
-use crate::harness::mock_engine::MockEngine;
+use crate::common::MockEngine;
 
 pub struct TestHarness {
+    pub env: TestEnv,
     pub registry: Registry,
     pub engines: HashMap<String, Box<dyn Utter>>,
 }
@@ -25,11 +30,28 @@ pub struct TestHarness {
 impl TestHarness {
     pub fn new() -> Self {
         Self {
+            env: TestEnv::new(),
             registry: Registry::new(),
             engines: HashMap::new(),
         }
     }
+    pub fn with_source(self, source: &str) -> Self {
+        {
+            let mut state = self.env.state.write().unwrap();
+            state.source = Some(source.to_string());
+        }
+        self
+    }
 
+    // 5. Inspection / Result Extraction
+    pub fn get_ast(&self) -> Result<AST, String> {
+        let state = self.env.state.read().unwrap();
+        state.ast.clone().ok_or_else(|| "AST missing".to_string())
+    }
+
+    pub fn get_diagnostics(&self) -> DiagnosticStore {
+        self.env.context.diagnostics.read().unwrap().clone()
+    }
     pub fn with_file(mut self, path: &str) -> Self {
         self.registry.add_file(FileMeta::mock(path));
         self
@@ -59,22 +81,6 @@ impl TestHarness {
         self
     }
 
-    /// Run the full symbol pipeline
-    pub fn run_pipeline(&self) -> SymbolRegistry {
-        let mut sym = SymbolRegistry::new();
-        sym.build_all(&self.registry, &self.engines);
-        sym
-    }
-
-    pub fn run_incremental(&self) -> SymbolRegistry {
-        let mut sym = SymbolRegistry::new();
-        for stack in &self.registry.stacks {
-            let engine = self.engines.get("default").expect("No engine found");
-            sym.build_incremental(stack, engine.as_ref());
-        }
-        sym
-    }
-
     pub fn assert_symbol_exists(&self, sym: &SymbolRegistry, name: &str, file: &str) {
         assert!(
             sym.lookup(name, file).is_some(),
@@ -91,5 +97,47 @@ impl TestHarness {
             name,
             file
         );
+    }
+}
+
+impl TestHarness {
+    pub fn build_frontend(&self) -> FrontendPipeline {
+        FrontendPipeline::new(
+            self.env.context.clone(),
+            self.env.config.clone(),
+            self.env.state.clone(),
+        )
+    }
+    pub fn bootstrap(source: &str, symbol_data: Vec<(&str, &str, &str)>) -> Self {
+        let mut harness = Self::new().with_source(source);
+        for (name, val, file) in symbol_data {
+            harness = harness.with_symbol(name, val, file);
+        }
+        harness
+    }
+    pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
+        let pipeline = self.build_frontend();
+        let harness = self.run_stage(pipeline)?;
+
+        let sym = harness.run_pipeline();
+        Ok(sym)
+    }
+    pub fn run_stage<T: Stage>(self, stage: T) -> Result<Self, String> {
+        stage.run()?;
+        Ok(self)
+    }
+    pub fn run_pipeline(&self) -> SymbolRegistry {
+        let mut sym = SymbolRegistry::new();
+        sym.build_all(&self.registry, &self.engines);
+        sym
+    }
+
+    pub fn run_incremental(&self) -> SymbolRegistry {
+        let mut sym = SymbolRegistry::new();
+        for stack in &self.registry.stacks {
+            let engine = self.engines.get("default").expect("No engine found");
+            sym.build_incremental(stack, engine.as_ref());
+        }
+        sym
     }
 }

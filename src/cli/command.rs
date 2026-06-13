@@ -11,7 +11,7 @@ use tabled::{
 
 use crate::cli::display::{ListFilter, RegistryUI};
 use crate::cli::{args::CliArgs, controller::CliController};
-use crate::compiler::config::{CompilerConfig, ConfigResolver, ConfigSource};
+use crate::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
 use crate::registry::file_meta::FileMeta;
 use crate::registry::registry::Registry;
 use crate::{build::args::BuildTarget, cli::display::RegistryRenderer};
@@ -95,7 +95,7 @@ impl Command {
                         let cli = CliArgs::parse();
                         let sources = vec![ConfigSource::Defaults, ConfigSource::Cli(cli)];
                         let partial = ConfigResolver::resolve(sources);
-                        let config = CompilerConfig::from(partial);
+                        let config = CompileConfig::from(partial);
                         // crate::cli::ir_runner::run(config);
                     }
                     "interactive" => println!("Already in interactive mode."),

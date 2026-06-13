@@ -1,6 +1,13 @@
 use bincode::de;
+use std::sync::{Arc, RwLock};
 
-use crate::middle::ir::IR;
+use crate::{
+    compiler::{config::CompileConfig, state::CompileState},
+    context::Context,
+    interface::CompileEngineProvider,
+    middle::ir::IR,
+    pipeline::Metadata,
+};
 
 /// BACKEND PIPELINE
 /// Converts IR → executable representation.
@@ -9,21 +16,47 @@ use crate::middle::ir::IR;
 /// - LLVM lowering
 /// - WASM generation
 /// - custom bytecode
-#[derive(Default)]
 pub struct BackendPipeline {
-    /// Target backend selection
+    pub metadata: Metadata,
+    pub context: Arc<Context>,
+    pub config: Arc<RwLock<CompileConfig>>,
+    pub state: Arc<RwLock<CompileState>>,
+
     pub target: BackendTarget,
-
-    /// optimization level
     pub opt_level: OptimizationLevel,
-
-    /// codegen configuration
     pub codegen_config: CodegenConfig,
-
-    /// debug symbols support
     pub debug: bool,
 }
 
+impl BackendPipeline {
+    pub fn new(
+        context: Arc<Context>,
+        config: Arc<RwLock<CompileConfig>>,
+        state: Arc<RwLock<CompileState>>,
+    ) -> Self {
+        Self::with_name("BackendPipeline", context, config, state)
+    }
+    pub fn with_name(
+        name: &str,
+        context: Arc<Context>,
+        config: Arc<RwLock<CompileConfig>>,
+        state: Arc<RwLock<CompileState>>,
+    ) -> Self {
+        Self {
+            metadata: Metadata {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+            },
+            context,
+            config,
+            state,
+            target: BackendTarget::default(),
+            opt_level: OptimizationLevel::default(),
+            codegen_config: CodegenConfig::default(),
+            debug: false,
+        }
+    }
+}
 #[derive(Default)]
 pub enum BackendTarget {
     #[default]
@@ -71,5 +104,15 @@ impl BackendPipeline {
 
     fn emit_wasm(&self, _ir: IR) -> Vec<u8> {
         vec![] // future wasm backend
+    }
+}
+
+#[cfg(test)]
+impl Default for BackendPipeline {
+    fn default() -> Self {
+        let context = Arc::new(Context::new());
+        let config = Arc::new(RwLock::new(CompileConfig::default()));
+        let state = Arc::new(RwLock::new(CompileState::default()));
+        Self::new(context, config, state)
     }
 }

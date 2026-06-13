@@ -1,7 +1,16 @@
+use std::sync::{Arc, RwLock};
+
 use crate::backend::symbol::registry::SymbolRegistry;
+use crate::compiler::config::CompileConfig;
 use crate::compiler::diagnostic::DiagnosticStore;
+use crate::compiler::state::CompileState;
+use crate::context::test::TestContext;
+use crate::context::{Context, Kernel};
+use crate::diagnostics;
 use crate::frontend::ast::AST;
+use crate::interface::CompileEngineProvider;
 use crate::middle::ir::{IR, IROp};
+use crate::pipeline::Metadata;
 
 /// MIDDLE PIPELINE
 /// Converts AST → IR and performs semantic analysis.
@@ -11,19 +20,59 @@ use crate::middle::ir::{IR, IROp};
 /// - symbol resolution
 /// - IR construction
 /// - macro expansion (future)
-#[derive(Default)]
 pub struct MiddlePipeline {
-    /// Global symbol registry (cross-file resolution)
-    pub symbols: SymbolRegistry,
-
-    /// Diagnostics from semantic analysis
-    pub diagnostics: DiagnosticStore,
-
-    /// IR generation settings
+    pub metadata: Metadata,
+    pub context: Arc<Context>,
+    pub config: Arc<RwLock<CompileConfig>>,
+    pub state: Arc<RwLock<CompileState>>,
     pub ir_config: IRConfig,
-
-    /// feature flags for semantic layer
     pub features: MiddleFeatures,
+}
+
+impl MiddlePipeline {
+    pub fn new(
+        context: Arc<Context>,
+        config: Arc<RwLock<CompileConfig>>,
+        state: Arc<RwLock<CompileState>>,
+    ) -> Self {
+        Self::with_name("MiddlePipeline", context, config, state)
+    }
+    pub fn with_name(
+        name: &str,
+        context: Arc<Context>,
+        config: Arc<RwLock<CompileConfig>>,
+        state: Arc<RwLock<CompileState>>,
+    ) -> Self {
+        Self {
+            metadata: Metadata {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+            },
+            context,
+            config,
+            state,
+            ir_config: IRConfig::default(),
+            features: MiddleFeatures::default(),
+        }
+    }
+}
+
+impl MiddlePipeline {
+    pub fn run(&mut self, ast: AST) -> IR {
+        let mut ir = IR::default();
+        self.resolve_symbols(&ast);
+        ir.nodes = self.lower_ast(ast);
+        ir.metadata.insert("stage".into(), "middle".into());
+        ir
+    }
+
+    pub fn resolve_symbols(&mut self, ast: &AST) {
+        // future: scope building, imports, exports
+    }
+
+    pub fn lower_ast(&self, ast: AST) -> Vec<IROp> {
+        ast.stmts.into_iter().map(|stmt| IROp::from(stmt)).collect()
+    }
 }
 
 #[derive(Default)]
@@ -39,27 +88,12 @@ pub struct IRConfig {
     pub optimize_early: bool,
 }
 
-impl MiddlePipeline {
-    pub fn run(&mut self, ast: AST) -> IR {
-        let mut ir = IR::default();
-
-        // 1. semantic pass (symbols)
-        self.resolve_symbols(&ast);
-
-        // 2. AST → IR lowering
-        ir.nodes = self.lower_ast(ast);
-
-        // 3. attach metadata
-        ir.metadata.insert("stage".into(), "middle".into());
-
-        ir
-    }
-
-    pub fn resolve_symbols(&mut self, ast: &AST) {
-        // future: scope building, imports, exports
-    }
-
-    pub fn lower_ast(&self, ast: AST) -> Vec<IROp> {
-        ast.stmts.into_iter().map(|stmt| IROp::from(stmt)).collect()
+// #[cfg(test)]
+impl Default for MiddlePipeline {
+    fn default() -> Self {
+        let context = Arc::new(Context::new());
+        let config = Arc::new(RwLock::new(CompileConfig::default()));
+        let state = Arc::new(RwLock::new(CompileState::default()));
+        Self::new(context, config, state)
     }
 }

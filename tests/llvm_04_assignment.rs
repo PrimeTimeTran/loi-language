@@ -1,5 +1,4 @@
-mod harness;
-use crate::harness::{IrTestHarness, ir_factory};
+
 
 #[test]
 fn test_04_assignment() {

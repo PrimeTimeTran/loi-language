@@ -1,4 +1,4 @@
-mod harness;
+// 
 
 use crate::harness::{IrTestHarness, helpers, ir_factory};
 use loi::backend::compile;

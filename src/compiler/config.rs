@@ -1,21 +1,29 @@
-use std::path::{Path, PathBuf};
-
-use clap::Parser;
-
 use crate::cli::args::CliArgs;
+use clap::Parser;
+use std::{
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct Config {
+    // Wrap the RwLock in an Arc to make it shareable and Clone-able
+    pub root: Arc<RwLock<PathBuf>>,
+    pub name: Arc<RwLock<String>>,
+
+    // Simple types that implement Clone can stay as they are
     pub input: Option<PathBuf>,
     pub output: Option<PathBuf>,
     pub watch: Option<bool>,
     pub concurrency: Option<usize>,
 }
 
-impl From<Config> for CompilerConfig {
+impl From<Config> for CompileConfig {
     fn from(cfg: Config) -> Self {
         Self {
-            input: cfg.input.expect("input dir must be set (e.g. ./src)"),
+            root: cfg.root.read().unwrap().clone(),
+            name: cfg.name.read().unwrap().clone(),
+            input: cfg.input.expect("input dir must be set"),
             output: cfg.output.unwrap_or_else(|| "./dist".into()),
             watch: cfg.watch.unwrap_or(false),
             concurrency: cfg.concurrency.unwrap_or(4),
@@ -24,7 +32,9 @@ impl From<Config> for CompilerConfig {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct CompilerConfig {
+pub struct CompileConfig {
+    pub root: PathBuf,
+    pub name: String,
     pub input: PathBuf,
     pub output: PathBuf,
     pub watch: bool,
@@ -48,6 +58,8 @@ impl ConfigResolver {
             match source {
                 ConfigSource::Defaults => {
                     config = Config {
+                        root: Arc::new(RwLock::new(PathBuf::from("."))),
+                        name: Arc::new(RwLock::new("DefaultProject".to_string())),
                         input: Some(PathBuf::from("./src")),
                         output: Some(PathBuf::from("./dist")),
                         watch: Some(false),
@@ -62,6 +74,9 @@ impl ConfigResolver {
 
                 ConfigSource::Cli(cli) => {
                     let cli_cfg = Config {
+                        // For CLI, we might create a new lock or inherit the previous
+                        root: config.root.clone(),
+                        name: config.name.clone(),
                         input: cli.input,
                         output: cli.output,
                         watch: Some(cli.watch),
@@ -82,6 +97,9 @@ impl ConfigResolver {
 
     fn merge(base: Config, override_cfg: Config) -> Config {
         Config {
+            // Choose the lock from the override if it exists, otherwise keep base
+            root: override_cfg.root,
+            name: override_cfg.name,
             input: override_cfg.input.or(base.input),
             output: override_cfg.output.or(base.output),
             watch: override_cfg.watch.or(base.watch),

@@ -59,35 +59,37 @@ impl Diagnostic {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DiagnosticStore {
-    /// All diagnostics in order of occurrence
-    pub diagnostics: VecDeque<Diagnostic>,
-
-    /// Whether to stop on first error (strict mode)
     pub halt_on_error: bool,
-
-    /// Count of errors (fast access)
     pub error_count: usize,
+    pub diagnostics: VecDeque<Diagnostic>,
 }
 impl DiagnosticStore {
-    fn default() -> Self {
+    pub fn check_halt(&self) -> Result<(), String> {
+        if self.has_errors() {
+            return Err("frontend errors".into());
+        }
+        Ok(())
+    }
+    pub fn new(halt_on_error: bool) -> Self {
         Self {
-            diagnostics: VecDeque::new(),
-            halt_on_error: false,
-            error_count: 0,
+            halt_on_error,
+            ..Default::default()
         }
     }
-    pub fn has_errors(&self) -> bool {
-        self.error_count > 0
-    }
 
-    pub fn push(&mut self, diag: Diagnostic) {
+    pub fn emit(&mut self, diag: Diagnostic) -> bool {
         if matches!(diag.severity, Severity::Error) {
             self.error_count += 1;
         }
-
         self.diagnostics.push_back(diag);
+
+        self.halt_on_error && self.has_errors()
+    }
+
+    pub fn has_errors(&self) -> bool {
+        self.error_count > 0
     }
 
     pub fn clear(&mut self) {
@@ -95,26 +97,15 @@ impl DiagnosticStore {
         self.error_count = 0;
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics.iter()
-    }
-
-    pub fn errors(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics
-            .iter()
-            .filter(|d| matches!(d.severity, Severity::Error))
-    }
-    pub fn is_empty(&self) -> bool {
-        !self.has_errors()
-    }
-    pub fn report_all(&self) {
+    // 'flush' is standard for outputting a stream
+    pub fn flush(&self) {
         for diag in &self.diagnostics {
             println!("[{:?}] {}", diag.severity, diag.message);
         }
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Logger;
 
 impl Logger {
