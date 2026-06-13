@@ -7,43 +7,19 @@ use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, IntValue, Point
 use std::collections::HashMap;
 
 use crate::backend::compile;
+use crate::backend::llvm::llvm::CodeGenContext;
 use crate::frontend::ast::UnOp;
 use crate::frontend::ast::{BinOp, Expr};
 use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
 
 pub use llvm::{LLVM, Runtime};
-
-pub struct CodegenState<'ctx> {
-    pub context: &'ctx Context,
-    pub module: Module<'ctx>,
-    pub builder: Builder<'ctx>,
-    pub env: HashMap<String, PointerValue<'ctx>>,
-}
-
-impl<'ctx> CodegenState<'ctx> {
-    pub fn load_var(&self, name: &str) -> FloatValue<'ctx> {
-        let ptr = self.env.get(name).copied().unwrap_or_else(|| {
-            let keys: Vec<_> = self.env.keys().collect();
-            panic!(
-                "Undefined variable: '{}'. Available variables: {:?}",
-                name, keys
-            );
-        });
-
-        self.builder
-            .build_load(self.context.f64_type(), ptr, name)
-            .expect("Failed to build load instruction")
-            .into_float_value()
-    }
-}
-
 struct ModuleState {}
 impl ModuleState {}
 
 fn codegen_expr<'ctx>(
     expr: &Expr,
     ty: &Type,
-    state: &mut CodegenState<'ctx>,
+    context: &mut CodeGenContext<'ctx>,
 ) -> BasicValueEnum<'ctx> {
     match expr {
         Expr::Call { callee, args } => {
@@ -52,36 +28,35 @@ fn codegen_expr<'ctx>(
                 _ => panic!("Expected identifier for function call"),
             };
 
-            let function = state
+            let function = context
                 .module
                 .get_function(fn_name)
                 .expect(&format!("Function '{}' not found", fn_name));
 
             let mut llvm_args = Vec::new();
+
             for arg in args {
-                // Pass state directly
-                let val = codegen_expr(arg, ty, state);
+                let val = codegen_expr(arg, ty, context);
                 llvm_args.push(val.into());
             }
 
-            state
+            context
                 .builder
-                .build_call(function, &llvm_args, "call_res")
+                .build_call(function, &llvm_args, "call")
                 .unwrap()
                 .try_as_basic_value()
                 .left()
                 .unwrap()
-                .into()
         }
         Expr::Unary { op, expr } => {
-            let val = codegen_expr(expr, ty, state);
+            let val = codegen_expr(expr, ty, context);
             match op {
-                UnOp::Neg => state
+                UnOp::Neg => context
                     .builder
                     .build_float_neg(val.into_float_value(), "neg")
                     .unwrap()
                     .into(),
-                UnOp::Not => state
+                UnOp::Not => context
                     .builder
                     .build_not(val.into_int_value(), "not")
                     .unwrap()
@@ -89,7 +64,7 @@ fn codegen_expr<'ctx>(
                 _ => todo!("Implement other unary ops"),
             }
         }
-        Expr::String(val) => state
+        Expr::String(val) => context
             .builder
             .build_global_string_ptr(val, "str_lit")
             .unwrap()
@@ -97,106 +72,109 @@ fn codegen_expr<'ctx>(
             .into(),
         Expr::Assign { left, right, op } => match (&**left, op) {
             (Expr::Var(name), _) => {
-                let ptr = *state.env.get(name).expect("undefined variable");
-                let val = codegen_expr(right, ty, state).into_float_value();
-                state.builder.build_store(ptr, val).unwrap();
+                let ptr = *context.env.get(name).expect("undefined variable");
+                let val = codegen_expr(right, ty, context).into_float_value();
+                context.builder.build_store(ptr, val).unwrap();
                 val.into()
             }
             (Expr::Index { target, index }, _) => {
-                let base = codegen_expr(target, ty, state).into_pointer_value();
-                let idx = codegen_expr(index, ty, state).into_int_value();
+                let base = codegen_expr(target, ty, context).into_pointer_value();
+                let idx = codegen_expr(index, ty, context).into_int_value();
                 let gep = unsafe {
-                    state
+                    context
                         .builder
                         .build_in_bounds_gep(
-                            state.context.f64_type(),
+                            context.context.f64_type(),
                             base,
-                            &[state.context.i32_type().const_zero(), idx],
+                            &[context.context.i32_type().const_zero(), idx],
                             "idx",
                         )
                         .unwrap()
                 };
-                let val = codegen_expr(right, ty, state).into_float_value();
-                state.builder.build_store(gep, val).unwrap();
+                let val = codegen_expr(right, ty, context).into_float_value();
+                context.builder.build_store(gep, val).unwrap();
                 val.into()
             }
             _ => panic!("invalid assignment target"),
         },
         Expr::Number(n) => match ty {
-            Type::F64 => state.context.f64_type().const_float(*n).into(),
-            Type::I32 => state
+            Type::F64 => context.context.f64_type().const_float(*n).into(),
+            Type::I32 => context
                 .context
                 .i32_type()
                 .const_int(*n as u64, false)
-                .const_signed_to_float(state.context.f64_type())
+                .const_signed_to_float(context.context.f64_type())
                 .into(),
             _ => panic!("unsupported numeric type"),
         },
         Expr::Binary { left, op, right } => {
-            let lhs = codegen_expr(left, ty, state).into_float_value();
-            let rhs = codegen_expr(right, ty, state).into_float_value();
+            let lhs = codegen_expr(left, ty, context).into_float_value();
+            let rhs = codegen_expr(right, ty, context).into_float_value();
 
             let result = match op {
-                BinOp::Add => state.builder.build_float_add(lhs, rhs, "addtmp"),
-                BinOp::Sub => state.builder.build_float_sub(lhs, rhs, "subtmp"),
-                BinOp::Mul => state.builder.build_float_mul(lhs, rhs, "multmp"),
-                BinOp::Div => state.builder.build_float_div(lhs, rhs, "divtmp"),
+                BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
+                BinOp::Sub => context.builder.build_float_sub(lhs, rhs, "subtmp"),
+                BinOp::Mul => context.builder.build_float_mul(lhs, rhs, "multmp"),
+                BinOp::Div => context.builder.build_float_div(lhs, rhs, "divtmp"),
                 _ => todo!(),
             };
             result.unwrap().into()
         }
         Expr::Var(name) => {
-            let ptr = *state.env.get(name).expect("undefined variable");
-            state
+            let ptr = context
+                .env
+                .get(name)
+                .expect(&format!("Variable '{}' not found", name));
+
+            context
                 .builder
-                .build_load(state.context.f64_type(), ptr, name)
+                .build_load(context.context.f64_type(), *ptr, name)
                 .unwrap()
-                .into()
         }
         Expr::Array(items) => {
-            let elem_ty = state.context.f64_type();
+            let elem_ty = context.context.f64_type();
             let array_ty = elem_ty.array_type(items.len() as u32);
-            let ptr = state.builder.build_alloca(array_ty, "arrtmp").unwrap();
+            let ptr = context.builder.build_alloca(array_ty, "arrtmp").unwrap();
 
             for (i, item) in items.iter().enumerate() {
-                let val = codegen_expr(item, ty, state).into_float_value();
-                let idx = state.context.i32_type().const_int(i as u64, false);
+                let val = codegen_expr(item, ty, context).into_float_value();
+                let idx = context.context.i32_type().const_int(i as u64, false);
                 unsafe {
-                    let gep = state
+                    let gep = context
                         .builder
                         .build_in_bounds_gep(
                             array_ty,
                             ptr,
-                            &[state.context.i32_type().const_zero(), idx],
+                            &[context.context.i32_type().const_zero(), idx],
                             "eltptr",
                         )
                         .unwrap();
-                    state.builder.build_store(gep, val).unwrap();
+                    context.builder.build_store(gep, val).unwrap();
                 }
             }
             ptr.into()
         }
         Expr::Index { target, index } => {
-            let base = codegen_expr(target, ty, state).into_pointer_value();
-            let idx = codegen_expr(index, ty, state).into_int_value();
+            let base = codegen_expr(target, ty, context).into_pointer_value();
+            let idx = codegen_expr(index, ty, context).into_int_value();
             let gep = unsafe {
-                state
+                context
                     .builder
                     .build_in_bounds_gep(
-                        state.context.f64_type().array_type(0), // Ensure type matches array
+                        context.context.f64_type().array_type(0), // Ensure type matches array
                         base,
-                        &[state.context.i32_type().const_zero(), idx],
+                        &[context.context.i32_type().const_zero(), idx],
                         "assign_idx",
                     )
                     .unwrap()
             };
-            state
+            context
                 .builder
-                .build_load(state.context.f64_type(), gep, "loadidx")
+                .build_load(context.context.f64_type(), gep, "loadidx")
                 .unwrap()
                 .into()
         }
-        Expr::Bool(val) => state
+        Expr::Bool(val) => context
             .context
             .bool_type()
             .const_int(if *val { 1 } else { 0 }, false)
@@ -206,7 +184,7 @@ fn codegen_expr<'ctx>(
 }
 
 pub fn lower_ir<'ctx>(
-    state: &mut CodegenState<'ctx>,
+    context: &mut CodeGenContext<'ctx>,
     ir: IROp,
     runtime: &Runtime<'ctx>,
     zero: IntValue<'ctx>,
@@ -220,9 +198,9 @@ pub fn lower_ir<'ctx>(
                 panic!("Found an UNTYPED expression: {:?}", expr);
             }
 
-            let llvm_val = codegen_expr(&expr, &resolved_ty, state);
+            let llvm_val = codegen_expr(&expr, &resolved_ty, context);
             let fmt_ptr = runtime.get_fmt_for_type(&resolved_ty);
-            state
+            context
                 .builder
                 .build_call(
                     runtime.printf,
@@ -234,25 +212,25 @@ pub fn lower_ir<'ctx>(
         }
         IROp::Declare { name, value, .. } => {
             println!("DEBUG: Declaring variable '{}'", name); // ADD THIS
-            let ptr = state
+            let ptr = context
                 .builder
-                .build_alloca(state.context.f64_type(), &name)
+                .build_alloca(context.context.f64_type(), &name)
                 .unwrap();
-            let val = codegen_expr(&value.expr, &value.ty, state);
-            state.builder.build_store(ptr, val).unwrap();
-            state.env.insert(name, ptr);
+            let val = codegen_expr(&value.expr, &value.ty, context);
+            context.builder.build_store(ptr, val).unwrap();
+            context.env.insert(name, ptr);
 
             Ok(())
         }
         IROp::Assign { name, value } => {
-            let val = codegen_expr(&value.expr, &value.ty, state);
+            let val = codegen_expr(&value.expr, &value.ty, context);
 
-            let ptr = state
+            let ptr = context
                 .env
                 .get(&name)
                 .expect(&format!("Variable '{}' not declared!", name));
 
-            state.builder.build_store(*ptr, val).unwrap();
+            context.builder.build_store(*ptr, val).unwrap();
             Ok(())
         }
         IROp::If {
@@ -261,60 +239,66 @@ pub fn lower_ir<'ctx>(
             else_branch,
             scope_id,
         } => {
-            let keys_before = state.env.keys().cloned().collect::<Vec<_>>();
-            let parent = state
+            let keys_before = context.env.keys().cloned().collect::<Vec<_>>();
+            let parent = context
                 .builder
                 .get_insert_block()
                 .unwrap()
                 .get_parent()
                 .unwrap();
 
-            let then_bb = state
+            let then_bb = context
                 .context
                 .append_basic_block(parent, &format!("then_{}", scope_id));
-            let else_bb = state
+            let else_bb = context
                 .context
                 .append_basic_block(parent, &format!("else_{}", scope_id));
-            let merge_bb = state
+            let merge_bb = context
                 .context
                 .append_basic_block(parent, &format!("merge_{}", scope_id));
 
-            let cond_val = codegen_expr(&condition.expr, &condition.ty, state).into_int_value();
-            state
+            let cond_val = codegen_expr(&condition.expr, &condition.ty, context).into_int_value();
+            context
                 .builder
                 .build_conditional_branch(cond_val, then_bb, else_bb)
                 .unwrap();
 
-            state.builder.position_at_end(then_bb);
+            context.builder.position_at_end(then_bb);
             for op in then_branch {
-                lower_ir(state, op, runtime, zero)?; // Recursion uses runtime
+                lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
             }
-            if state
+            if context
                 .builder
                 .get_insert_block()
                 .unwrap()
                 .get_terminator()
                 .is_none()
             {
-                state.builder.build_unconditional_branch(merge_bb).unwrap();
+                context
+                    .builder
+                    .build_unconditional_branch(merge_bb)
+                    .unwrap();
             }
 
-            state.builder.position_at_end(else_bb);
+            context.builder.position_at_end(else_bb);
             for op in else_branch {
-                lower_ir(state, op, runtime, zero)?; // Recursion uses runtime
+                lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
             }
-            if state
+            if context
                 .builder
                 .get_insert_block()
                 .unwrap()
                 .get_terminator()
                 .is_none()
             {
-                state.builder.build_unconditional_branch(merge_bb).unwrap();
+                context
+                    .builder
+                    .build_unconditional_branch(merge_bb)
+                    .unwrap();
             }
 
-            state.env.retain(|key, _| keys_before.contains(key));
-            state.builder.position_at_end(merge_bb);
+            context.env.retain(|key, _| keys_before.contains(key));
+            context.builder.position_at_end(merge_bb);
             Ok(())
         }
 
@@ -324,9 +308,9 @@ pub fn lower_ir<'ctx>(
             op,
             right,
         } => {
-            let lhs = codegen_expr(&left.expr, &left.ty, state).into_float_value();
-            let rhs = codegen_expr(&right.expr, &right.ty, state).into_float_value();
-            bin::emit_binary_op(state, &target, lhs, rhs, bin::map_binop(op))
+            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
+            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
+            bin::emit_binary_op(context, &target, lhs, rhs, bin::map_binop(op))
         }
         IROp::Lowered(LoweredOp::Binary {
             target,
@@ -334,20 +318,20 @@ pub fn lower_ir<'ctx>(
             op,
             right,
         }) => {
-            let lhs = state.load_var(&left);
-            let rhs = state.load_var(&right);
-            bin::emit_binary_op(state, &target, lhs, rhs, op)
+            let lhs = context.load_var(&left);
+            let rhs = context.load_var(&right);
+            bin::emit_binary_op(context, &target, lhs, rhs, op)
         }
 
         IROp::Module { body } => {
             for stmt in body {
-                lower_ir(state, stmt, runtime, zero)?;
+                lower_ir(context, stmt, runtime, zero)?;
             }
             Ok(())
         }
 
         IROp::Return { .. } => {
-            state.builder.build_return(Some(&zero));
+            context.builder.build_return(Some(&zero));
             Ok(())
         }
         IROp::ModuleScope { .. } => Ok(()),
@@ -366,47 +350,200 @@ pub fn lower_ir<'ctx>(
     }
 }
 
-pub fn lower_ir_raw<'ctx>(
-    builder: &Builder<'ctx>,
-    module: &Module<'ctx>,
-    env: &mut HashMap<String, PointerValue<'ctx>>,
-    op: IROp,
-    runtime: &Runtime<'ctx>,
-    zero: inkwell::values::IntValue<'ctx>,
-) -> Result<(), String> {
+pub fn lower_ir_raw<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Result<(), String> {
+    println!("CURRENT BLOCK: {:?}", context.builder.get_insert_block());
     match op {
-        IROp::Declare { name, value, .. } => {
-            let ptr = builder
-                .build_alloca(module.get_context().f64_type(), &name)
+        IROp::Binary {
+            target,
+            left,
+            op,
+            right,
+        } => {
+            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
+            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
+
+            let result = match op {
+                BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
+                BinOp::Sub => context.builder.build_float_sub(lhs, rhs, "subtmp"),
+                BinOp::Mul => context.builder.build_float_mul(lhs, rhs, "multmp"),
+                BinOp::Div => context.builder.build_float_div(lhs, rhs, "divtmp"),
+                _ => return Err(format!("unsupported binop: {:?}", op)),
+            }
+            .unwrap();
+
+            // allocate variable slot
+            let ptr = context
+                .builder
+                .build_alloca(context.context.f64_type(), &target)
                 .unwrap();
-            env.insert(name, ptr);
+
+            // store result
+            context.builder.build_store(ptr, result).unwrap();
+
+            // update env
+            context.env.insert(target.clone(), ptr);
+
             Ok(())
         }
-        // ... other ops
-        _ => todo!(),
+        IROp::Print { value } => {
+            let TypedExpr { expr, ty, .. } = value;
+
+            let val = { codegen_expr(&expr, &ty, context) };
+
+            let fmt = context.runtime.get_fmt_for_type(&ty);
+
+            context
+                .builder
+                .build_call(
+                    context.runtime.printf,
+                    &[fmt.into(), val.into()],
+                    "printf_call",
+                )
+                .unwrap();
+
+            Ok(())
+        }
+        IROp::Assign { name, value } => {
+            let ptr = {
+                context
+                    .env
+                    .get(&name)
+                    .ok_or_else(|| format!("Assign to undeclared variable: {}", name))?
+                    .clone()
+            };
+
+            let TypedExpr { expr, ty, .. } = value;
+            let val = codegen_expr(&expr, &ty, context);
+            context.builder.build_store(ptr, val).unwrap();
+            Ok(())
+        }
+
+        IROp::Return { value } => {
+            match value {
+                Some(val) => {
+                    let val = codegen_expr(&val.expr, &val.ty, context);
+                    context
+                        .builder
+                        .build_return(Some(&val))
+                        .map_err(|e| e.to_string())?;
+                }
+                None => {
+                    // but for main, it's usually return 0.
+                    // but for main, it's usually return 0.
+                    let zero = context.context.i32_type().const_int(0, false);
+                    context
+                        .builder
+                        .build_return(Some(&zero))
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            Ok(())
+        }
+
+        _ => {
+            eprintln!("LOWER_IR_RAW UNHANDLED IROP: {:?}", op);
+            Err(format!("not yet implemented: {:?}", op))
+        }
     }
 }
 
-mod llvm {
+pub mod llvm {
     use crate::{
         backend::llvm::lower_ir_raw,
         middle::ir::{IROp, Type},
     };
     use inkwell::{
         AddressSpace,
+        basic_block::BasicBlock,
         builder::Builder,
         context::Context,
         module::Module,
-        values::{FunctionValue, PointerValue},
+        values::{FloatValue, FunctionValue, PointerValue},
     };
     use std::collections::HashMap;
 
     pub struct Runtime<'ctx> {
         pub main: FunctionValue<'ctx>,
+        pub entry_block: BasicBlock<'ctx>,
         pub printf: FunctionValue<'ctx>,
         pub fmt_f64: PointerValue<'ctx>,
         pub fmt_i32: PointerValue<'ctx>,
         pub fmt_str: PointerValue<'ctx>,
+    }
+
+    pub struct CodeGenContext<'ctx> {
+        pub context: &'ctx Context,
+        pub module: Module<'ctx>,
+        pub builder: Builder<'ctx>,
+        pub runtime: Runtime<'ctx>,
+        pub env: HashMap<String, PointerValue<'ctx>>,
+        pub counter: usize,
+    }
+
+    impl<'ctx> CodeGenContext<'ctx> {
+        pub fn new(context: &'ctx Context) -> Self {
+            let module = context.create_module("my_module");
+            let builder = context.create_builder();
+            let runtime = setup_module(context, &module, &builder);
+
+            Self {
+                context,
+                module,
+                builder,
+                runtime,
+                env: HashMap::new(),
+                counter: 0,
+            }
+        }
+        pub fn load_var(&self, name: &str) -> FloatValue<'ctx> {
+            let ptr = self.env.get(name).copied().unwrap_or_else(|| {
+                let keys: Vec<_> = self.env.keys().collect();
+                panic!(
+                    "Undefined variable: '{}'. Available variables: {:?}",
+                    name, keys
+                );
+            });
+
+            self.builder
+                .build_load(self.context.f64_type(), ptr, name)
+                .expect("Failed to build load instruction")
+                .into_float_value()
+        }
+    }
+
+    pub struct LLVM<'ctx> {
+        pub context: CodeGenContext<'ctx>,
+    }
+
+    impl<'ctx> LLVM<'ctx> {
+        pub fn new(ctx: &'ctx Context, ops: &[IROp]) -> Self {
+            let mut context = CodeGenContext::new(ctx);
+
+            for op in ops {
+                println!("LOWERING IR: {:?}", op);
+                lower_ir_raw(&mut context, op.clone()).expect("lowering failed");
+            }
+
+            println!("END OF NEW");
+            Self { context }
+        }
+
+        pub fn default(context: &'ctx Context, name: &str) -> Self {
+            let codegen_context = CodeGenContext::new(context);
+            codegen_context.module.set_name(name);
+
+            Self {
+                context: codegen_context,
+            }
+        }
+
+        pub fn ir(&self) -> String {
+            self.context.module.print_to_string().to_string()
+        }
+
+        pub fn verify(&self) -> Result<(), String> {
+            self.context.module.verify().map_err(|e| e.to_string())
+        }
     }
 
     impl<'ctx> Runtime<'ctx> {
@@ -422,131 +559,109 @@ mod llvm {
         }
     }
 
-    pub struct LLVM<'ctx> {
-        pub module: Module<'ctx>,
-    }
-
-    impl<'ctx> LLVM<'ctx> {
-        pub fn new(context: &'ctx Context, ops: &[IROp]) -> Self {
-            let module = context.create_module("test_module");
-
-            let builder = context.create_builder();
-
-            let mut env = HashMap::new();
-
-            let runtime = setup_module(context, &module, &builder);
-
-            let zero = context.i32_type().const_int(0, false);
-
-            builder.position_at_end(context.append_basic_block(runtime.main, "entry"));
-
-            for op in ops {
-                lower_ir_raw(&builder, &module, &mut env, op.clone(), &runtime, zero);
-            }
-
-            Self { module }
-        }
-        pub fn default(context: &'ctx Context, name: &str) -> Self {
-            Self {
-                module: context.create_module(name),
-            }
-        }
-        pub fn lower(&self, context: &'ctx Context, ops: &[IROp]) -> Result<(), String> {
-            let builder = context.create_builder();
-            let mut env = HashMap::new();
-            let runtime = setup_module(context, &self.module, &builder);
-            let zero = context.i32_type().const_int(0, false);
-            builder.position_at_end(context.append_basic_block(runtime.main, "entry"));
-            for op in ops {
-                lower_ir_raw(&builder, &self.module, &mut env, op.clone(), &runtime, zero);
-            }
-            Ok(())
-        }
-        pub fn ir(&self) -> String {
-            self.module.print_to_string().to_string()
-        }
-
-        pub fn verify(&self) -> Result<(), String> {
-            self.module.verify().map_err(|e| e.to_string())
-        }
-    }
-
     pub fn setup_module<'ctx>(
         context: &'ctx Context,
         module: &Module<'ctx>,
         builder: &Builder<'ctx>,
     ) -> Runtime<'ctx> {
+        // 1. Void?
+        // let void_type = context.void_type();
+        // let fn_type = void_type.fn_type(&[], false);
+        // let entry_block = main.get_first_basic_block();
+        // let main = module.add_function("do_nothing", fn_type, None);
+        // let entry_block = context.append_basic_block(main, "entry");
+        // Doesn't work....
+
+        // 2. Create in module
+        // * Fixes Error: "Segment"
+        // * Current Error
+        // - LOWERING IR: Print { value: TypedExpr { expr: String("Hello"), ty: Str, span: Span { file: "", start: 0, end: 0 } } }
+        // - CURRENT BLOCK: None
+        // let module = context.create_module("my_module");
+        // let builder = context.create_builder();
+        // let void_type = context.void_type();
+        // let fn_type = void_type.fn_type(&[], false);
+        // let main = module.add_function("main", fn_type, None);
+        // let entry_block = context.append_basic_block(main, "entry");
+
+        let i32_type = context.i32_type();
+        let main_fn = module.add_function("main", i32_type.fn_type(&[], false), None);
+        let entry_block = context.append_basic_block(main_fn, "entry");
+        builder.position_at_end(entry_block);
+
         let create_fmt = |val: &[u8], name: &str| {
             let fmt_type = context.i8_type().array_type(val.len() as u32);
-
             let gv = module.add_global(fmt_type, None, name);
-
             gv.set_initializer(&context.const_string(val, false));
-
             gv.as_pointer_value()
         };
-
         let fmt_f64 = create_fmt(b"%f\n\0", "fmt_f64");
         let fmt_i32 = create_fmt(b"%d\n\0", "fmt_i32");
         let fmt_str = create_fmt(b"%s\n\0", "fmt_str");
-
         let i32_type = context.i32_type();
-
         let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
-
         let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
-
         let printf = module.add_function("printf", printf_type, None);
+        // let main = module.add_function("main", i32_type.fn_type(&[], false), None);
+        // let entry_block = main.get_basic_block_iter();
+        // let entry_block = main.get_first_basic_block();
+        // let entry_block = context.append_basic_block(main, "entry");
+        // builder.position_at_end(entry_block);
+        // Position builder immediately
 
-        let main = module.add_function("main", i32_type.fn_type(&[], false), None);
-
-        builder.position_at_end(context.append_basic_block(main, "entry"));
+        // let module = context.create_module("my_module");
+        // let void_type = context.void_type();
+        // let fn_type = void_type.fn_type(&[], false);
+        // let function = module.add_function("do_nothing", fn_type, None);
+        // let basic_block = context.append_basic_block(function, "entry");
+        // builder.position_at_end(basic_block);
 
         Runtime {
-            main,
+            main: main_fn,
             printf,
             fmt_f64,
             fmt_i32,
             fmt_str,
+            entry_block,
         }
     }
 }
 
 mod bin {
-    use crate::{backend::llvm::CodegenState, frontend::ast::BinOp, middle::ir::Op};
+    use crate::{backend::llvm::llvm::CodeGenContext, frontend::ast::BinOp, middle::ir::Op};
     use inkwell::values::FloatValue;
 
     pub fn emit_binary_op(
-        state: &mut CodegenState,
+        context: &mut CodeGenContext,
         target: &str,
         lhs: FloatValue,
         rhs: FloatValue,
         op: Op,
     ) -> Result<(), String> {
         let res = match op {
-            Op::Add => state.builder.build_float_add(lhs, rhs, target).unwrap(),
-            Op::Sub => state.builder.build_float_sub(lhs, rhs, target).unwrap(),
-            Op::Mul => state.builder.build_float_mul(lhs, rhs, target).unwrap(),
-            Op::Div => state.builder.build_float_div(lhs, rhs, target).unwrap(),
-            Op::Neg => state.builder.build_float_neg(lhs, target).unwrap(),
+            Op::Add => context.builder.build_float_add(lhs, rhs, target).unwrap(),
+            Op::Sub => context.builder.build_float_sub(lhs, rhs, target).unwrap(),
+            Op::Mul => context.builder.build_float_mul(lhs, rhs, target).unwrap(),
+            Op::Div => context.builder.build_float_div(lhs, rhs, target).unwrap(),
+            Op::Neg => context.builder.build_float_neg(lhs, target).unwrap(),
             Op::Cmp => {
-                let cmp = state
+                let cmp = context
                     .builder
                     .build_float_compare(inkwell::FloatPredicate::OEQ, lhs, rhs, target)
                     .unwrap();
-                state
+                context
                     .builder
-                    .build_unsigned_int_to_float(cmp, state.context.f64_type(), "cmp_res")
+                    .build_unsigned_int_to_float(cmp, context.context.f64_type(), "cmp_res")
                     .unwrap()
             }
         };
 
-        let ptr = state
+        let ptr = context
             .builder
-            .build_alloca(state.context.f64_type(), target)
+            .build_alloca(context.context.f64_type(), target)
             .unwrap();
-        state.builder.build_store(ptr, res).unwrap();
-        state.env.insert(target.to_string(), ptr);
+        context.builder.build_store(ptr, res).unwrap();
+        context.env.insert(target.to_string(), ptr);
         Ok(())
     }
 

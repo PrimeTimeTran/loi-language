@@ -138,6 +138,13 @@ pub fn parse_incremental(
 
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
     match tokens.peek() {
+        Some(Token::Print) => {
+            tokens.bump(); // consume 'print'
+
+            Ok(Stmt::Print {
+                expr: parse_expr(tokens, diagnostics)?,
+            })
+        }
         Some(Token::If) => control::parse_if(tokens, diagnostics),
         Some(Token::While) => control::parse_while(tokens, diagnostics),
         Some(Token::Do) => control::parse_do_while(tokens, diagnostics),
@@ -149,15 +156,6 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
             let body = control::parse_block(tokens, diagnostics)?;
             Ok(Stmt::Block { body })
         }
-
-        Some(Token::Print) => {
-            tokens.bump(); // consume 'print'
-
-            Ok(Stmt::Print {
-                expr: parse_expr(tokens, diagnostics)?,
-            })
-        }
-
         _ => {
             let expr = parse_expr(tokens, diagnostics)?;
 
@@ -333,10 +331,23 @@ fn parse_primary(
     match tokens.next() {
         Some(Token::True) => Ok(Expr::Bool(true)),
         Some(Token::False) => Ok(Expr::Bool(false)),
-
         Some(Token::Number(n)) => Ok(Expr::Number(n.clone())),
         Some(Token::String(s)) => Ok(Expr::String(s.clone())),
-        Some(Token::Ident(name)) => Ok(Expr::Var(name.clone())),
+        Some(Token::Ident(name)) => {
+            if let Some(Token::LParen) = tokens.peek() {
+                tokens.next();
+                let arg = parse_expr(tokens, diagnostics)?;
+                match tokens.next() {
+                    Some(Token::RParen) => Ok(Expr::Call {
+                        callee: Box::new(Expr::Var(name)),
+                        args: vec![arg],
+                    }),
+                    other => Err(format!("Expected ')', got {:?}", other)),
+                }
+            } else {
+                Ok(Expr::Var(name.clone()))
+            }
+        }
 
         Some(Token::Ampersand) => {
             let expr = parse_primary(tokens, diagnostics)?;
@@ -348,7 +359,6 @@ fn parse_primary(
 
         Some(Token::LParen) => {
             let expr = parse_expr(tokens, diagnostics)?;
-
             match tokens.next() {
                 Some(Token::RParen) => Ok(expr),
                 other => Err(format!("Expected ')', got {:?}", other)),

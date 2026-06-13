@@ -241,13 +241,20 @@ impl Stmt {
 
 impl fmt::Display for AST {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "AST {{")?;
+
         for stmt in &self.stmts {
-            writeln!(f, "{}", stmt)?;
+            writeln!(f, "  {}", stmt)?;
         }
+
+        if let Some(expr) = &self.expr {
+            writeln!(f, "  expr: {}", expr)?;
+        }
+
+        writeln!(f, "}}")?;
         Ok(())
     }
 }
-
 impl std::fmt::Display for DeclKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

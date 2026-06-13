@@ -9,13 +9,6 @@ use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
 
-/// Position in source code
-// #[derive(Debug, Clone, Copy, Default)]
-// pub struct Position {
-//     pub line: usize,
-//     pub column: usize,
-// }
-
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Span {
     pub file: PathBuf,
@@ -32,7 +25,7 @@ pub enum Type {
     Void,
     Ptr(Box<Type>),
     Array(Box<Type>),
-
+    Return,
     Unknown,
 }
 
@@ -64,6 +57,118 @@ impl Default for IR {
     fn default() -> Self {
         Self::raw(String::new())
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum LoweredOp {
+    Binary {
+        target: String,
+        left: String,
+        op: Op,
+        right: String,
+    },
+    Move {
+        target: String,
+        source: String,
+    },
+    Label(String),
+    Jump(String),
+    JumpIf {
+        condition: String,
+        label: String,
+    },
+    Nop,
+}
+
+#[derive(Debug, Clone)]
+pub enum IROp {
+    Return {
+        value: Option<TypedExpr>,
+    },
+    Declare {
+        name: String,
+        value: TypedExpr,
+        mutable: bool,
+        dynamic: bool,
+    },
+
+    Nop,
+    Binary {
+        target: String,
+        left: TypedExpr,
+        op: BinOp,
+        right: TypedExpr,
+    },
+    Module {
+        body: Vec<IROp>,
+    },
+    Function {
+        name: String,
+        params: Vec<(String, Type)>,
+        body: Vec<IROp>,
+        return_type: Type,
+    },
+    Block {
+        body: Vec<IROp>,
+    },
+
+    Assign {
+        name: String,
+        value: TypedExpr,
+    },
+    Load {
+        name: String,
+    },
+    If {
+        condition: TypedExpr,
+        then_branch: Vec<IROp>,
+        else_branch: Vec<IROp>,
+        scope_id: usize,
+    },
+
+    Call {
+        name: String,
+        args: Vec<TypedExpr>,
+    },
+    Print {
+        value: TypedExpr,
+    },
+    ExternalCall {
+        namespace: String,
+        function: String,
+        args: Vec<TypedExpr>,
+    },
+
+    ModuleScope {
+        name: String,
+        body: Vec<IROp>,
+    },
+
+    While {
+        condition: TypedExpr,
+        body: Vec<IROp>,
+    },
+
+    DoWhile {
+        body: Vec<IROp>,
+        condition: TypedExpr,
+    },
+
+    Loop {
+        body: Vec<IROp>,
+    },
+
+    For {
+        iterator: String,
+        iterable: TypedExpr,
+        body: Vec<IROp>,
+    },
+    ExprStmt {
+        expr: TypedExpr,
+    },
+    ControlFlow,
+
+    Lowered(LoweredOp),
 }
 
 impl fmt::Display for IR {
@@ -135,116 +240,6 @@ impl IR {
     pub fn is_raw(&self) -> bool {
         !self.raw.is_empty()
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum LoweredOp {
-    Binary {
-        target: String,
-        left: String,
-        op: Op,
-        right: String,
-    },
-    Move {
-        target: String,
-        source: String,
-    },
-    Label(String),
-    Jump(String),
-    JumpIf {
-        condition: String,
-        label: String,
-    },
-    Nop,
-}
-
-#[derive(Debug, Clone)]
-pub enum IROp {
-    Nop,
-    Binary {
-        target: String,
-        left: TypedExpr,
-        op: BinOp,
-        right: TypedExpr,
-    },
-    Module {
-        body: Vec<IROp>,
-    },
-    Function {
-        name: String,
-        params: Vec<(String, Type)>,
-        body: Vec<IROp>,
-        return_type: Type,
-    },
-    Block {
-        body: Vec<IROp>,
-    },
-
-    Declare {
-        name: String,
-        value: TypedExpr,
-        mutable: bool,
-        dynamic: bool,
-    },
-    Assign {
-        name: String,
-        value: TypedExpr,
-    },
-    Load {
-        name: String,
-    },
-    If {
-        condition: TypedExpr,
-        then_branch: Vec<IROp>,
-        else_branch: Vec<IROp>,
-        scope_id: usize,
-    },
-    Return {
-        value: Option<TypedExpr>,
-    },
-    Call {
-        name: String,
-        args: Vec<TypedExpr>,
-    },
-    Print {
-        value: TypedExpr,
-    },
-    ExternalCall {
-        namespace: String,
-        function: String,
-        args: Vec<TypedExpr>,
-    },
-
-    ModuleScope {
-        name: String,
-        body: Vec<IROp>,
-    },
-
-    While {
-        condition: TypedExpr,
-        body: Vec<IROp>,
-    },
-
-    DoWhile {
-        body: Vec<IROp>,
-        condition: TypedExpr,
-    },
-
-    Loop {
-        body: Vec<IROp>,
-    },
-
-    For {
-        iterator: String,
-        iterable: TypedExpr,
-        body: Vec<IROp>,
-    },
-    ExprStmt {
-        expr: TypedExpr,
-    },
-    ControlFlow,
-
-    Lowered(LoweredOp),
 }
 
 fn to_typed_expr(expr: Expr) -> TypedExpr {

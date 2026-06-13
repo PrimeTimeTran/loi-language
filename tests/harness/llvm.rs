@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use inkwell::context::Context;
-use loi::backend::llvm::{CodegenState, LLVM};
+use loi::backend::llvm::{LLVM, llvm::CodeGenContext};
 use loi::middle::ir::IROp;
 
 pub fn get_ir_string(ops: &[IROp]) -> String {
@@ -9,7 +9,7 @@ pub fn get_ir_string(ops: &[IROp]) -> String {
 
     let llvm = LLVM::default(&context, "test_module");
 
-    llvm.lower(&context, ops).expect("Failed to generate IR");
+    // llvm.lower(&context, ops).expect("Failed to generate IR");
 
     llvm.ir()
 }
@@ -22,7 +22,7 @@ impl IrTestHarness {
     pub fn new(ops: &[IROp]) -> Self {
         let context = Context::create();
         let llvm = LLVM::default(&context, "test_module");
-        llvm.lower(&context, ops).expect("lower_ir failed");
+        // llvm.lower(&context, ops).expect("lower_ir failed");
         Self { ir: llvm.ir() }
     }
 

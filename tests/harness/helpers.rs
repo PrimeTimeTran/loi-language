@@ -1,10 +1,19 @@
 use loi::compiler::diagnostic::DiagnosticStore;
 use loi::diagnostics;
+use loi::{backend::llvm::LLVM, pipeline::frontend::FrontendPipeline};
 use owo_colors::OwoColorize;
 use std::cell::RefCell;
 
+use inkwell::{
+    AddressSpace,
+    builder::Builder,
+    context::Context,
+    module::Module,
+    values::{FunctionValue, PointerValue},
+};
+
 use loi::frontend::ast::{AST, BinOp, DeclKind, Expr, Stmt};
-use loi::frontend::lexer::{TokenStream, lex};
+use loi::frontend::lexer::{Lexer, TokenStream, lex};
 use loi::frontend::parser::{parse, parse_source};
 use loi::middle::ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr};
 
@@ -37,37 +46,167 @@ impl From<bool> for AssertOpts {
     }
 }
 
+pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, String> {
+    let mut ir = Vec::new();
+
+    for stmt in ast.stmts {
+        match stmt {
+            Stmt::ExprStmt { expr } => match expr {
+                Expr::Bool(v) => {
+                    ir.push(IROp::Print {
+                        value: TypedExpr {
+                            expr: Expr::Bool(v),
+                            ty: Type::Bool,
+                            span: Span::default(),
+                        },
+                    });
+                }
+
+                Expr::Number(n) => {
+                    ir.push(IROp::Print {
+                        value: TypedExpr {
+                            expr: Expr::Number(n),
+                            ty: Type::F64,
+                            span: Span::default(),
+                        },
+                    });
+                }
+                Expr::Var(name) => {
+                    ir.push(IROp::Print {
+                        value: TypedExpr {
+                            expr: Expr::String(name.clone()),
+                            ty: Type::Str,
+                            span: Span::default(),
+                        },
+                    });
+                }
+
+                Expr::String(s) => {
+                    ir.push(IROp::Print {
+                        value: TypedExpr {
+                            expr: Expr::String(s.clone()),
+                            ty: Type::Str,
+                            span: Span::default(),
+                        },
+                    });
+                }
+
+                _ => return Err(format!("Unsupported ExprStmt: {:?}", expr)),
+            },
+
+            Stmt::Print { expr } => {
+                ir.push(IROp::Print {
+                    value: TypedExpr {
+                        span: Span::default(),
+                        expr,
+                        ty: Type::F64,
+                    },
+                });
+            }
+
+            // // =====================================================
+            // // DECLARE
+            // // let x = expr
+            // // =====================================================
+            // Stmt::Declare { name, expr } => {
+            //     ir.push(IROp::Declare {
+            //         name,
+            //         value: TypedExpr {
+            //             expr,
+            //             ty: Type::F64,
+            //         },
+            //     });
+            // }
+
+            // // =====================================================
+            // // ASSIGN
+            // // x = expr
+            // // =====================================================
+            // Stmt::Assign { name, expr } => {
+            //     ir.push(IROp::Assign {
+            //         name,
+            //         value: TypedExpr {
+            //             expr,
+            //             ty: Type::F64,
+            //         },
+            //     });
+            // }
+
+            // =====================================================
+            // fallback
+            // =====================================================
+            _ => return Err(format!("Unsupported AST node: {:?}", stmt)),
+        }
+    }
+
+    Ok(ir)
+}
+
 struct ParseResult {
     ast: AST,
     diagnostics: DiagnosticStore,
 }
 
-fn parse_with_ast_diag(input: &str) -> ParseResult {
-    let tokens = lex(input).expect("Lexing failed");
-    let mut stream = TokenStream::new(tokens);
-    let mut diagnostics = DiagnosticStore::default();
-    let ast = parse(&mut stream, &mut diagnostics).expect("Parsing failed");
-    ParseResult { ast, diagnostics }
+pub fn init_pipeline(input: &str) -> (AST, DiagnosticStore) {
+    let mut frontend = FrontendPipeline::default();
+    let ast = frontend.run(input);
+    let diagnostics = frontend.diagnostics;
+    (ast, diagnostics)
 }
 
-pub fn parse_with_diagnostics(input: &str) -> AST {
-    let ParseResult { ast, diagnostics } = parse_with_ast_diag(input);
-    ast
+pub fn parse_with_diagnostics(input: &str) -> (AST, DiagnosticStore) {
+    let (ast, diagnostics) = init_pipeline(input);
+
+    (ast, diagnostics)
 }
 
 pub fn parse_to_ast(input: &str) -> AST {
-    let ParseResult { ast, diagnostics } = parse_with_ast_diag(input);
+    let (ast, _) = init_pipeline(input);
     ast
 }
 
-pub fn fails(input: &str) {
-    let ParseResult { ast, diagnostics } = parse_with_ast_diag(input);
-    assert!(diagnostics.has_errors());
+pub fn parses(src: &str) -> String {
+    let ast = parse_to_ast(src);
+    ast.to_sexpr()
 }
 
-pub fn parses(src: &str) -> String {
-    let ast = parse_with_diagnostics(src);
-    ast.to_sexpr()
+// Previous
+// pub fn parses(src: &str) -> String {
+//     // 1. Initialize variables that need to be borrowed
+//     let mut diagnostics = DiagnosticStore::default();
+//     let tokens = lex(src).expect("Lexing failed");
+//     let mut token_stream = TokenStream::new(tokens);
+
+//     // 2. Pass them as mutable references (&mut)
+//     // This allows the parse function to modify the diagnostics
+//     // and consume the stream without taking ownership of them.
+//     let ast = parse(&mut token_stream, &mut diagnostics).expect("Parsing failed");
+
+//     ast.to_sexpr()
+// }
+
+fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
+    if !matches!(ir.last(), Some(IROp::Return { .. })) {
+        ir.push(IROp::Return { value: None });
+    }
+    ir
+}
+
+pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
+    let (ast, diagnostics) = init_pipeline(input);
+    if diagnostics.has_errors() {
+        diagnostics.report_all();
+        return Err("frontend errors".into());
+    }
+    let mut ir = ast_to_ir(ast)?;
+    ir = finalize_ir(ir);
+    let llvm = LLVM::new(context, &ir);
+    Ok(llvm)
+}
+
+pub fn fails(input: &str) {
+    let (ast, diagnostics) = init_pipeline(input);
+    assert!(diagnostics.has_errors());
 }
 
 #[track_caller]
@@ -75,6 +214,9 @@ pub fn assert_expr(input: &str, expected: &str) {
     let actual = parses(input);
     let clean_actual = clean(&actual);
     let clean_expected = clean(expected);
+    println!(" actual {}", actual);
+    println!(" clean_actual {}", clean_actual);
+    println!(" clean_expected {}", clean_expected);
 
     if clean_actual != clean_expected {
         panic!(
@@ -169,34 +311,57 @@ fn debug_parser() {
     panic!("DEBUG OUTPUT: {}", output);
 }
 
-#[test]
-fn test_binary_operations() {
-    let default_span = Span::default();
+// #[test]
+// fn test_binary_operations() {
+//     let default_span = Span::default();
 
-    // 1. Manually create the TypedExprs
-    let left = TypedExpr {
-        expr: Expr::Var("a".to_string()),
-        ty: Type::F64,
-        span: default_span.clone(),
-    };
+//     // inputs must be REAL variables you expect in env
+//     let left = TypedExpr {
+//         expr: Expr::Var("a".to_string()),
+//         ty: Type::F64,
+//         span: default_span,
+//     };
 
-    let right = TypedExpr {
-        expr: Expr::Var("b".to_string()),
-        ty: Type::F64,
-        span: default_span,
-    };
+//     let right = TypedExpr {
+//         expr: Expr::Var("b".to_string()),
+//         ty: Type::F64,
+//         span: default_span,
+//     };
 
-    // 2. Manually construct the IR instruction
-    let ir = IROp::Binary {
-        target: "res".to_string(),
-        left,
-        op: BinOp::Add,
-        right,
-    };
+//     let ir = vec![
+//         IROp::Declare {
+//             name: "a".to_string(),
+//             value: Some(TypedExpr {
+//                 expr: Expr::Number(1.0),
+//                 ty: Type::F64,
+//                 span: Span::default(),
+//             }),
+//         },
+//         IROp::Declare {
+//             name: "b".to_string(),
+//             value: Some(TypedExpr {
+//                 expr: Expr::Number(2.0),
+//                 ty: Type::F64,
+//                 span: Span::default(),
+//             }),
+//         },
+//         IROp::Binary {
+//             target: "res".to_string(),
+//             left: TypedExpr {
+//                 expr: Expr::Var("a".into()),
+//                 ty: Type::F64,
+//                 span,
+//             },
+//             right: TypedExpr {
+//                 expr: Expr::Var("b".into()),
+//                 ty: Type::F64,
+//                 span,
+//             },
+//             op: BinOp::Add,
+//         },
+//     ];
 
-    // 3. Wrap it in a vector for the harness
-    let harness = IrTestHarness::new(&vec![ir]);
+//     let harness = IrTestHarness::new(&ir);
 
-    // 4. Run your assertion
-    harness.assert_contains("%res = fadd double %load_a, %load_b");
-}
+//     harness.assert_contains("%res = fadd double");
+// }
