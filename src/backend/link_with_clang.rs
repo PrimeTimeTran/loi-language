@@ -15,6 +15,5 @@ pub fn link_with_clang(input_bc: &Path, output_exe: &Path) -> Result<(), String>
     if !status.success() {
         return Err("clang linking failed".into());
     }
-
     Ok(())
 }

@@ -14,10 +14,15 @@ use crate::backend::utter::registry::UtterRegistry;
 use crate::build::asset_optimizer::AssetOptimizer;
 use crate::build::output_resolver::OutputResolver;
 use crate::compiler::diagnostic::DiagnosticStore;
+use crate::compiler::types::BuildArtifact;
 use crate::frontend::ast::AST;
 use crate::middle::ir::{IR, IROp, LoweredOp};
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::{FileStack, Registry};
+use crate::{
+    compiler::config::CompileConfig,
+    pipeline::{CompileError, Metadata, Pipeline},
+};
 
 use std::collections::HashSet;
 
@@ -188,12 +193,6 @@ impl BuildCache {
 }
 
 /// Final backend output
-#[derive(Debug, Clone)]
-pub enum BuildArtifact {
-    Llvm(Vec<u8>),
-    Wasm(Vec<u8>),
-    Bytecode(Vec<u8>),
-}
 // CompilerState is the *mutable brain* of the compiler.
 //
 // IMPORTANT DESIGN NOTE:
@@ -284,6 +283,9 @@ impl CompileState {
 
     pub fn current_artifact(&self) -> Option<BuildArtifact> {
         self.build_cache.current.clone()
+    }
+    pub fn registry_is_empty(&self) -> bool {
+        self.registry.is_empty()
     }
 }
 impl Default for CompileState {

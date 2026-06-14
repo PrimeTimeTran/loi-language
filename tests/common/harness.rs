@@ -13,10 +13,8 @@ use loi::{
     },
     build::build_system::BuildSystem,
     compiler::{
-        config::CompileConfig,
-        diagnostic::DiagnosticStore,
-        engine::CompileEngine,
-        state::{BuildArtifact, CompileState},
+        config::CompileConfig, diagnostic::DiagnosticStore, engine::CompileEngine,
+        state::CompileState, types::BuildArtifact,
     },
     context::Context,
     frontend::{ast::AST, lexer, parser},
@@ -24,10 +22,7 @@ use loi::{
     kernel::{Kernel, KernelBuilder},
     middle::semantic,
     pipeline::{
-        backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
-        frontend::{FrontendFeatures, FrontendPipeline},
-        middle::{IRConfig, MiddleFeatures, MiddlePipeline},
-        stage::Stage,
+        backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel}, frontend::{FrontendFeatures, FrontendPipeline}, middle::{IRConfig, MiddleFeatures, MiddlePipeline}, runner::PipelineRunner, stage::Stage
     },
     registry::{file_meta::FileMeta, registry::Registry},
     test_utils::TestEnv,
@@ -50,66 +45,64 @@ pub struct TestHarness {
 }
 
 impl TestHarness {
-    pub fn run(&mut self, target: PipelineTarget) -> Result<(), ()> {
-        match target {
-            PipelineTarget::Frontend => {
-                let p = self.build_frontend();
-                p.run()?;
-                Ok(())
-            }
+    pub fn run(&mut self) -> Result<(), ()> {
+        let mut runner = PipelineRunner::new();
 
-            PipelineTarget::Middle => {
-                let p = self.build_middle();
-                p.run()?;
-                Ok(())
-            }
-            PipelineTarget::Backend => {
-                let ir = {
-                    let state = self.kernel.engine.state.read().map_err(|_| ())?;
-                    state.current_ir()
-                }
-                .ok_or(())?;
+        runner.add_stage(self.build_frontend());
+        runner.add_stage(self.build_middle());
+        runner.add_stage(self.build_backend());
 
-                let backend = self.build_backend();
-                let output = backend.run(ir.clone());
+        runner.run();
 
-                // compute stable hash for caching
-                let hash = {
-                    use std::collections::hash_map::DefaultHasher;
-                    use std::hash::{Hash, Hasher};
-
-                    let mut hasher = DefaultHasher::new();
-                    ir.nodes.hash(&mut hasher); // assumes IR { nodes: Vec<IROp> }
-                    hasher.finish()
-                };
-
-                let mut state = self.kernel.engine.state.write().map_err(|_| ())?;
-
-                state.build_cache.insert_artifact(hash, output.clone());
-
-                state.build_cache.set_current(BuildArtifact::Llvm(output));
-
-                Ok(())
-            }
-            // PipelineTarget::Backend => {
-            //     let ir = {
-            //         let state = self.kernel.engine.state.read().map_err(|_| ())?;
-            //         state.current_ir()
-            //     }
-            //     .ok_or(())?;
-            //     let backend = self.build_backend();
-            //     let output = backend.run(ir);
-            //     let config = self.kernel.engine.config.write().map_err(|_| ())?;
-            //     let output = config.output.clone();
-            //     Some(output);
-            //     Ok(())
-            // }
-            PipelineTarget::Full => {
-                self.kernel.engine.run_all()?;
-                Ok(())
-            }
-        }
+        Ok(())
     }
+    // pub fn run(&mut self, target: PipelineTarget) -> Result<(), ()> {
+    //     match target {
+    //         PipelineTarget::Frontend => {
+    //             let p = self.build_frontend();
+    //             p.run()?;
+    //             Ok(())
+    //         }
+
+    //         PipelineTarget::Middle => {
+    //             let p = self.build_middle();
+    //             p.run()?;
+    //             Ok(())
+    //         }
+    //         PipelineTarget::Backend => {
+    //             let ir = {
+    //                 let state = self.kernel.engine.state.read().map_err(|_| ())?;
+    //                 state.current_ir()
+    //             }
+    //             .ok_or(())?;
+
+    //             let backend = self.build_backend();
+    //             let output = backend.run(ir.clone());
+
+    //             // compute stable hash for caching
+    //             let hash = {
+    //                 use std::collections::hash_map::DefaultHasher;
+    //                 use std::hash::{Hash, Hasher};
+
+    //                 let mut hasher = DefaultHasher::new();
+    //                 ir.nodes.hash(&mut hasher); // assumes IR { nodes: Vec<IROp> }
+    //                 hasher.finish()
+    //             };
+
+    //             let mut state = self.kernel.engine.state.write().map_err(|_| ())?;
+
+    //             state.build_cache.insert_artifact(hash, output.clone());
+
+    //             state.build_cache.set_current(BuildArtifact::Llvm(output));
+
+    //             Ok(())
+    //         }
+    //         PipelineTarget::Full => {
+    //             self.kernel.engine.run_all()?;
+    //             Ok(())
+    //         }
+    //     }
+    // }
 }
 
 impl TestHarness {
@@ -234,7 +227,7 @@ impl TestHarness {
         )
         .with_target(BackendTarget::default())
         .with_opt_level(OptimizationLevel::default())
-        .with_codegen(CodegenConfig::default())
+        .with_codegen_config(CodegenConfig::default())
         .with_debug(false)
     }
 

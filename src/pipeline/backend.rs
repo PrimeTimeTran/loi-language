@@ -1,12 +1,15 @@
 use bincode::de;
-use std::sync::{Arc, RwLock};
+use inkwell::targets::FileType::Object;
+use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine};
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    compiler::{config::CompileConfig, state::CompileState},
+    compiler,
+    compiler::{config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     interface::CompileEngineProvider,
     middle::ir::IR,
-    pipeline::Metadata,
+    pipeline::{CompileError, Metadata, Pipeline},
 };
 
 /// BACKEND PIPELINE
@@ -18,6 +21,7 @@ use crate::{
 /// - custom bytecode
 #[derive(Debug)]
 pub struct BackendPipeline {
+    pub llvm_context: Mutex<inkwell::context::Context>,
     pub metadata: Metadata,
     pub context: Arc<Context>,
     pub config: Arc<RwLock<CompileConfig>>,
@@ -29,6 +33,38 @@ pub struct BackendPipeline {
     pub debug: bool,
 }
 
+impl Pipeline for BackendPipeline {
+    fn name(&self) -> &str {
+        &self.metadata.name
+    }
+
+    fn compile(&self) -> Result<(), CompileError> {
+        println!(">>> BACKEND RUNNING");
+        let ir = self
+            .state
+            .read()
+            .unwrap()
+            .current_ir()
+            .ok_or(CompileError::Backend("missing IR".into()))?;
+
+        let object = match self.target {
+            BackendTarget::LLVM => self.codegen_llvm(ir)?,
+            BackendTarget::WASM => self.codegen_wasm(ir)?,
+            BackendTarget::Bytecode => {
+                return Err(CompileError::Backend(
+                    "Bytecode backend not implemented".into(),
+                ));
+            }
+        };
+
+        let artifact = BuildArtifact::Object(object);
+        let mut state = self.state.write().unwrap();
+        state.build_cache.current = Some(artifact);
+
+        Ok(())
+    }
+}
+
 impl BackendPipeline {
     pub fn new(
         context: Arc<Context>,
@@ -37,6 +73,7 @@ impl BackendPipeline {
     ) -> Self {
         Self::with_name("BackendPipeline", context, config, state)
     }
+
     pub fn with_name(
         name: &str,
         context: Arc<Context>,
@@ -48,6 +85,7 @@ impl BackendPipeline {
                 name: name.to_string(),
                 version: "1.0.0".to_string(),
             },
+            llvm_context: Mutex::new(inkwell::context::Context::create()),
             context,
             config,
             state,
@@ -67,7 +105,7 @@ impl BackendPipeline {
         self
     }
 
-    pub fn with_codegen(mut self, cfg: CodegenConfig) -> Self {
+    pub fn with_codegen_config(mut self, cfg: CodegenConfig) -> Self {
         self.codegen_config = cfg;
         self
     }
@@ -76,8 +114,101 @@ impl BackendPipeline {
         self.debug = debug;
         self
     }
+
+    fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
+        use inkwell::OptimizationLevel;
+
+        let ctx = self.llvm_context.lock().unwrap();
+        let module = ctx.create_module("main_module");
+        let builder = ctx.create_builder();
+
+        let f64_type = ctx.f64_type();
+        let fn_type = f64_type.fn_type(&[], false);
+
+        let function = module.add_function("main", fn_type, None);
+        let entry = ctx.append_basic_block(function, "entry");
+
+        builder.position_at_end(entry);
+
+        fn emit_expr<'ctx>(
+            ctx: &'ctx inkwell::context::Context,
+            builder: &inkwell::builder::Builder<'ctx>,
+            ir: IR,
+        ) -> inkwell::values::FloatValue<'ctx> {
+            match ir {
+                // IR::Const { value } => ctx.f64_type().const_float(value),
+
+                // IR::Add { lhs, rhs } => {
+                //     let l = emit_expr(ctx, builder, *lhs);
+                //     let r = emit_expr(ctx, builder, *rhs);
+                //     builder.build_float_add(l, r, "addtmp")
+                // }
+                _ => {
+                    todo!("Unhandled IR node: {:?}", ir);
+                }
+            }
+        }
+
+        let result = emit_expr(&ctx, &builder, ir);
+
+        builder.build_return(Some(&result));
+
+        // Verify module (optional but real)
+        if module.verify().is_err() {
+            return Err(CompileError::Backend("invalid LLVM module".into()));
+        }
+
+        // Emit object file
+        let ctx = &self.llvm_context;
+        let target = self.create_native_target_machine()?;
+
+        let buf = target
+            .write_to_memory_buffer(&module, inkwell::targets::FileType::Object)
+            .map_err(|e| CompileError::Backend(format!("{:?}", e)))?;
+
+        Ok(buf.as_slice().to_vec())
+    }
+
+    fn codegen_llvm(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
+        let context = inkwell::context::Context::create();
+        let module = context.create_module("main");
+        let builder = context.create_builder();
+
+        let target_machine = self.create_native_target_machine()?;
+
+        let buf = target_machine
+            .write_to_memory_buffer(&module, Object)
+            .map_err(|e| CompileError::Backend(format!("{:?}", e)))?;
+
+        Ok(buf.as_slice().to_vec())
+    }
+
+    fn codegen_wasm(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
+        // later: wasm backend
+        Ok(vec![])
+    }
+    fn create_native_target_machine(&self) -> Result<TargetMachine, CompileError> {
+        Target::initialize_all(&InitializationConfig::default());
+
+        let triple = TargetMachine::get_default_triple();
+
+        let tm = Target::create_target_machine(
+            &Target::from_triple(&triple).map_err(|e| CompileError::Backend(format!("{:?}", e)))?,
+            &triple,
+            "generic",
+            "",
+            inkwell::OptimizationLevel::Default,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+        .ok_or(CompileError::Backend(
+            "failed to create target machine".into(),
+        ))?;
+        Ok(tm)
+    }
 }
 #[derive(Debug, Default)]
+
 pub enum BackendTarget {
     #[default]
     Bytecode,
@@ -119,11 +250,11 @@ impl BackendPipeline {
     }
 
     fn emit_llvm(&self, _ir: IR) -> Vec<u8> {
-        vec![] // future LLVM binding
+        vec![]
     }
 
     fn emit_wasm(&self, _ir: IR) -> Vec<u8> {
-        vec![] // future wasm backend
+        vec![]
     }
 }
 

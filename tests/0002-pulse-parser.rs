@@ -1,5 +1,5 @@
 use loi::frontend::{
-    ast::{self, BinOp, Expr},
+    ast::{self, BinOp, Expr, HashF64},
     lexer::lex,
     parser::parse,
 };
@@ -24,8 +24,8 @@ fn parse_simple_expr() {
     };
 
     if let Expr::Binary { left, op, right } = expr {
-        assert_eq!(left.as_ref(), &Expr::Number(1.0));
-        assert_eq!(right.as_ref(), &Expr::Number(2.0));
+        assert_eq!(left.as_ref(), &Expr::Number(HashF64(1.0)));
+        assert_eq!(right.as_ref(), &Expr::Number(HashF64(2.0)));
         assert!(matches!(op, BinOp::Add));
     } else {
         panic!("Expected binary expression");

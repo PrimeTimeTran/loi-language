@@ -10,7 +10,7 @@ use crate::diagnostics;
 use crate::frontend::ast::AST;
 use crate::interface::CompileEngineProvider;
 use crate::middle::ir::{IR, IROp};
-use crate::pipeline::Metadata;
+use crate::pipeline::{CompileError, Metadata, Pipeline};
 
 /// MIDDLE PIPELINE
 /// Converts AST → IR and performs semantic analysis.
@@ -30,6 +30,17 @@ pub struct MiddlePipeline {
     pub features: MiddleFeatures,
 }
 
+impl Pipeline for MiddlePipeline {
+    fn name(&self) -> &str {
+        &self.metadata.name
+    }
+
+    fn compile(&self) -> Result<(), CompileError> {
+        let config_guard = self.config.read().unwrap();
+        println!("Middle compiling in: {:?}", config_guard.root);
+        Ok(())
+    }
+}
 impl MiddlePipeline {
     pub fn new(
         context: Arc<Context>,

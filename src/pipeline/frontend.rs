@@ -20,7 +20,8 @@ use crate::frontend::{
 };
 use crate::interface::CompileEngineProvider;
 use crate::middle::types::Span;
-use crate::pipeline::{Metadata, Pipeline, provider::PipelineProvider, stage::Stage};
+// use crate::pipeline::{Metadata, provider::PipelineProvider, stage::Stage};
+use crate::pipeline::{CompileError, Metadata, Pipeline, provider::PipelineProvider, stage::Stage};
 use crate::test_utils::TestEnv;
 
 /// FRONTEND PIPELINE
@@ -46,20 +47,11 @@ impl Pipeline for FrontendPipeline {
     fn name(&self) -> &str {
         &self.metadata.name
     }
-    fn compile(&self) {
-        // 1. Acquire the read lock on the entire CompileConfig struct
-        // config_guard acts like a reference to CompileConfig (&CompileConfig)
-        let config_guard = self.config.read().unwrap();
 
-        // 2. Access the field directly.
-        // No second .read() is needed because root is just a PathBuf.
+    fn compile(&self) -> Result<(), CompileError> {
+        let config_guard = self.config.read().unwrap();
         println!("Frontend compiling in: {:?}", config_guard.root);
-    }
-}
-impl PipelineProvider for FrontendPipeline {
-    type Pipeline = FrontendPipeline;
-    fn create(&self, env: &TestEnv) -> Self::Pipeline {
-        FrontendPipeline::new(env.context.clone(), env.config.clone(), env.state.clone())
+        Ok(())
     }
 }
 

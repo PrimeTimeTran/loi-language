@@ -156,13 +156,15 @@ fn codegen_expr<'ctx>(
             _ => panic!("invalid assignment target"),
         },
         Expr::Number(n) => match ty {
-            Type::F64 => context.context.f64_type().const_float(*n).into(),
+            Type::F64 => context.context.f64_type().const_float(n.0).into(),
+
             Type::I32 => context
                 .context
                 .i32_type()
-                .const_int(*n as u64, false)
+                .const_int(n.0 as u64, false)
                 .const_signed_to_float(context.context.f64_type())
                 .into(),
+
             _ => panic!("unsupported numeric type"),
         },
         Expr::Binary { left, op, right } => {
@@ -385,7 +387,7 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
         }
 
         _ => {
-            eprintln!("LOWER_IR_RAW UNHANDLED IROP: {:?}", op);
+            eprintln!("LOWER_IR_RAW UNHANDLED IR_OP: {:?}", op);
             Err(format!("not yet implemented: {:?}", op))
         }
     }

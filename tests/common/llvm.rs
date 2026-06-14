@@ -48,9 +48,11 @@ impl IrTestHarness {
 pub mod ir_factory {
     use super::*;
     use loi::{
-        frontend::ast::Expr,
-        middle::ir::TypedExpr,
-        middle::types::{Span, Type},
+        frontend::ast::{Expr, HashF64},
+        middle::{
+            ir::TypedExpr,
+            types::{Span, Type},
+        },
     };
     fn dummy_span() -> Span {
         Span::default()
@@ -60,7 +62,7 @@ pub mod ir_factory {
         IROp::Declare {
             name: name.to_string(),
             value: TypedExpr {
-                expr: Expr::Number(val),
+                expr: Expr::Number(HashF64(val)),
                 ty: Type::F64,
                 span: dummy_span(),
             },
@@ -72,7 +74,7 @@ pub mod ir_factory {
     pub fn print_val(val: f64) -> IROp {
         IROp::Print {
             value: TypedExpr {
-                expr: Expr::Number(val),
+                expr: Expr::Number(HashF64(val)),
                 ty: Type::F64,
                 span: dummy_span(),
             },
@@ -84,7 +86,6 @@ pub fn add_var(target: &str, left: &str, right: &str) -> IrInstruction {
     let e1 = Expr::Var(left.to_string());
     let e2 = Expr::Var(right.to_string());
     let default_span = Span::default();
-    // Note: ty is now a concrete Type, not an Option
     let te1 = TypedExpr {
         expr: e1,
         ty: Type::F64,

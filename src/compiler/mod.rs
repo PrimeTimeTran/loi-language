@@ -1,3 +1,5 @@
+use crate::pipeline::Pipeline;
+
 pub mod addon;
 pub mod bundler;
 pub mod cache;
@@ -13,3 +15,18 @@ pub mod runtime;
 pub mod safety;
 pub mod scale;
 pub mod state;
+pub mod types;
+
+pub struct Compiler {
+    pipelines: Vec<Box<dyn Pipeline>>,
+}
+
+impl Compiler {
+    pub fn compile(&self) -> Result<(), Compiler> {
+        for pipeline in &self.pipelines {
+            println!("Running {}", pipeline.name());
+            pipeline.compile();
+        }
+        Ok(())
+    }
+}

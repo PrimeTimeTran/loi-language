@@ -35,6 +35,14 @@ impl Registry {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+            && self.files_archive.is_empty()
+            && self.from_files.is_empty()
+            && self.stacks.is_empty()
+            && self.active_by_group.is_empty()
+    }
+
     pub fn from_files(files: Vec<FileMeta>) -> Self {
         // Convert the Vec into a HashMap
         let file_map = files.into_iter().map(|f| (f.id, f)).collect();

@@ -1,20 +1,6 @@
 use core::fmt;
 
 use crate::frontend::ast::{AST, AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp};
-// impl fmt::Display for AST {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         writeln!(f, "AST {{")?;
-//         for stmt in &self.stmts {
-//             writeln!(f, "  {}", stmt)?;
-//         }
-//         if let Some(expr) = &self.expr {
-//             writeln!(f, "  expr: {}", expr)?;
-//         }
-
-//         writeln!(f, "}}")?;
-//         Ok(())
-//     }
-// }
 
 impl fmt::Display for AST {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
