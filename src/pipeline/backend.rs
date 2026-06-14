@@ -16,6 +16,7 @@ use crate::{
 /// - LLVM lowering
 /// - WASM generation
 /// - custom bytecode
+#[derive(Debug)]
 pub struct BackendPipeline {
     pub metadata: Metadata,
     pub context: Arc<Context>,
@@ -57,7 +58,7 @@ impl BackendPipeline {
         }
     }
 }
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum BackendTarget {
     #[default]
     Bytecode,
@@ -65,7 +66,7 @@ pub enum BackendTarget {
     WASM,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum OptimizationLevel {
     None,
     #[default]
@@ -73,7 +74,7 @@ pub enum OptimizationLevel {
     Aggressive,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CodegenConfig {
     pub emit_debug_info: bool,
     pub inline_functions: bool,

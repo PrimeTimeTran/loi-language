@@ -2,11 +2,11 @@ use crate::common::TestHarness;
 
 #[test]
 fn test_piecemeal() {
-    let mut harness = TestHarness::new()
+    let harness = TestHarness::new()
         .with_source("let x = 10;")
         .with_symbol("x", "10", "main.loi");
     let p = harness.build_frontend();
-    harness = harness.run_stage(p).expect("Pipeline failed");
+    harness.run_stage(p).expect("Pipeline failed");
     let syms = harness.run_incremental();
     harness.assert_symbol_exists(&syms, "x", "main.loi");
 }

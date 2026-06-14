@@ -12,7 +12,7 @@ use crate::{
     middle::types::Span,
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Parser;
 
 impl Parser {
@@ -23,7 +23,7 @@ impl Parser {
         &mut self,
         mut tokens: TokenStream,
         diagnostics: &mut DiagnosticStore,
-    ) -> Result<AST, ()> {
+    ) -> Result<AST, DiagnosticStore> {
         parse(&mut tokens, diagnostics)
     }
 
@@ -32,13 +32,15 @@ impl Parser {
         prev: &AST,
         tokens: &mut TokenStream,
         diagnostics: &mut DiagnosticStore,
-    ) -> Result<AST, ()> {
-        println!("Parser parse_incremental");
+    ) -> Result<AST, DiagnosticStore> {
         parse_incremental(prev, tokens, diagnostics)
     }
 }
 
-pub fn parse(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<AST, ()> {
+pub fn parse(
+    tokens: &mut TokenStream,
+    diagnostics: &mut DiagnosticStore,
+) -> Result<AST, DiagnosticStore> {
     let mut stmts = Vec::new();
     println!("PARSE PARSE START");
 
@@ -58,7 +60,7 @@ pub fn parse(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Res
                 ));
 
                 if fatal {
-                    return Err(());
+                    return Err(diagnostics.clone());
                 }
 
                 tokens.bump();
@@ -80,7 +82,7 @@ pub fn parse_incremental(
     prev: &AST,
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
-) -> Result<AST, ()> {
+) -> Result<AST, DiagnosticStore> {
     let mut stmts = prev.stmts.clone();
 
     let mut updated = Vec::new();
@@ -111,7 +113,6 @@ pub fn parse_incremental(
         }
     }
 
-    // merge strategy (simple replace for now)
     stmts.extend(updated);
 
     let last_expr = stmts.iter().rev().find_map(|stmt| {
@@ -130,7 +131,7 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
     match tokens.peek() {
         Some(Token::Print) => {
             println!("matched print");
-            tokens.bump(); // consume 'print'
+            tokens.bump();
 
             Ok(Stmt::Print {
                 expr: parse_expr(tokens, diagnostics)?,

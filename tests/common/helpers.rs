@@ -61,9 +61,10 @@ pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), Str
 
     // 2. Execute: harness.run_stage consumes the original harness,
     // so we must capture the returned value to keep using it.
-    let harness = harness.run_stage(pipeline)?;
+    let harness = TestHarness::new().with_source(input);
 
-    // 3. Extract results: Now we use the returned harness
+    harness.run_stage(pipeline);
+
     let ast = harness.get_ast()?;
     let diagnostics = harness.get_diagnostics();
 

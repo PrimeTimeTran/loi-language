@@ -1,4 +1,3 @@
-// 2. Now you can use it
 mod common;
 use common::helpers::parses;
 

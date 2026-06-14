@@ -167,6 +167,7 @@ pub struct BuildCache {
 //
 // This struct should be safe to discard/rebuild from scratch,
 // except for caches if you later introduce persistent incremental builds.
+#[derive(Debug)]
 pub struct CompileState {
     pub source: Option<String>,
     pub ast: Option<AST>,

@@ -15,19 +15,3 @@ Ok:
                 op: Neg
                 expr:
                   Var: b
-  expr:
-    Binary:
-      left:
-        Var: a
-      op: Power
-      right:
-        Unary:
-          op: Neg
-          expr:
-            Var: b
-  program:
-    stmts: []
-    modules: []
-    globals: []
-    entry: ~
-  items: []

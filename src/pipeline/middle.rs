@@ -20,6 +20,7 @@ use crate::pipeline::Metadata;
 /// - symbol resolution
 /// - IR construction
 /// - macro expansion (future)
+#[derive(Debug)]
 pub struct MiddlePipeline {
     pub metadata: Metadata,
     pub context: Arc<Context>,
@@ -75,14 +76,14 @@ impl MiddlePipeline {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MiddleFeatures {
     pub enable_type_checking: bool,
     pub enable_macro_expansion: bool,
     pub enable_dead_code_analysis: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct IRConfig {
     pub preserve_raw_blocks: bool,
     pub optimize_early: bool,

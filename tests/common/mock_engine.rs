@@ -14,7 +14,7 @@ use loi::{
     registry::{file_meta::FileMeta, registry::Registry},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockEngine {
     name: String,
     registry: HashMap<String, Vec<Symbol>>,

@@ -70,7 +70,7 @@ pub struct ToolchainPaths {
     pub custom_backend: Option<PathBuf>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Env {
     // project roots
     pub root_dir: PathBuf,

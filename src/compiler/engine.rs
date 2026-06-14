@@ -56,6 +56,7 @@ use crate::registry::registry::FileStack;
 ///
 /// DESIGN GOAL:
 /// This should behave like a "compiler runtime kernel".
+#[derive(Debug)]
 pub struct CompileEngine {
     pub state: Arc<RwLock<CompileState>>,
     pub config: Arc<RwLock<CompileConfig>>,
@@ -199,13 +200,13 @@ pub struct CompileEngine {
 }
 
 impl CompileEngine {
-    pub fn run_all(&self) -> Result<(), String> {
+    pub fn run_all(&self) -> Result<(), ()> {
         for stage in &self.stages {
             println!("Running: {}...", stage.name());
-            stage
-                .run()
-                .map_err(|e| format!("Stage '{}' failed: {}", stage.name(), e))?;
+
+            stage.run()?;
         }
+
         Ok(())
     }
     pub fn new(

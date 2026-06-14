@@ -18,7 +18,7 @@ use thiserror::Error;
 // It holds the data, the state of the compilation, and the
 // references to files. It should be "dumb" data—things you pass down
 // into your functions to provide the environment needed to compute a result.
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Context {
     pub env: Env,
     pub config: Config,

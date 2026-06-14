@@ -5,6 +5,7 @@ use common::{assert_expr, fails, parses};
 
 #[test]
 fn p01_mixed_decl_and_expr_assignment() {
+    // p01_mixed_decl_and_expr_assignment
     assert_expr("x = 5; y = x = 10;", "(let x = 5)\n(let y = (x = 10))");
 }
 

@@ -5,8 +5,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 use crate::pipeline::{backend::BackendPipeline, middle::MiddlePipeline};
 
-pub trait Stage: Send + Sync {
-    fn run(&self) -> Result<(), String>;
+pub trait Stage: std::fmt::Debug + Send + Sync {
+    fn run(&self) -> Result<(), ()>;
     fn name(&self) -> &str;
 }
 
@@ -14,7 +14,7 @@ impl Stage for MiddlePipeline {
     fn name(&self) -> &str {
         &self.metadata.name
     }
-    fn run(&self) -> Result<(), String> {
+    fn run(&self) -> Result<(), ()> {
         // 1. Access the shared state
         // let state = self.state.read().map_err(|e| e.to_string())?;
 
@@ -40,7 +40,7 @@ impl Stage for BackendPipeline {
     fn name(&self) -> &str {
         &self.metadata.name
     }
-    fn run(&self) -> Result<(), String> {
+    fn run(&self) -> Result<(), ()> {
         // // 1. Access shared state
         // let state = self.state.read().map_err(|e| e.to_string())?;
 

@@ -13,12 +13,12 @@ pub struct LexerConfig {
     pub allow_raw_strings: bool,
     pub comment_support: bool,
 }
-
+#[derive(Debug)]
 pub struct Lexer {
     pub state: LexerState,
     pub config: LexerConfig,
 }
-
+#[derive(Debug)]
 pub struct TokenStream {
     pub tokens: Vec<Token>,
     pub pos: usize,

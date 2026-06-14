@@ -12,6 +12,8 @@ use loi::{
     build::build_system::BuildSystem,
     compiler::diagnostic::DiagnosticStore,
     frontend::{ast::AST, lexer, parser},
+    init,
+    kernel::Kernel,
     middle::semantic,
     pipeline::{frontend::FrontendPipeline, stage::Stage},
     registry::{file_meta::FileMeta, registry::Registry},
@@ -21,6 +23,7 @@ use loi::{
 use crate::common::MockEngine;
 
 pub struct TestHarness {
+    pub kernel: Kernel,
     pub env: TestEnv,
     pub registry: Registry,
     pub engines: HashMap<String, Box<dyn Utter>>,
@@ -28,7 +31,9 @@ pub struct TestHarness {
 
 impl TestHarness {
     pub fn new() -> Self {
+        let kernel = init::init();
         Self {
+            kernel,
             env: TestEnv::new(),
             registry: Registry::new(),
             engines: HashMap::new(),
@@ -112,14 +117,14 @@ impl TestHarness {
 
     pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
         let pipeline = self.build_frontend();
-        let harness = self.run_stage(pipeline)?;
+        self.run_stage(pipeline)
+            .map_err(|_| "Pipeline failed".to_string())?;
 
-        let sym = harness.run_pipeline();
+        let sym = self.run_incremental();
         Ok(sym)
     }
-    pub fn run_stage<T: Stage>(self, stage: T) -> Result<Self, String> {
-        stage.run()?;
-        Ok(self)
+    pub fn run_stage<T: Stage>(&self, stage: T) -> Result<(), ()> {
+        stage.run()
     }
     pub fn run_pipeline(&self) -> SymbolRegistry {
         let mut sym = SymbolRegistry::new();

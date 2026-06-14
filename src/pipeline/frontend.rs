@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
+use tracing::Instrument;
+
+use crate::compiler::diagnostic::Severity;
 use crate::compiler::{
     config::CompileConfig,
     diagnostic::{Diagnostic, DiagnosticStore, Logger},
@@ -16,6 +19,7 @@ use crate::frontend::{
     types::Lexer,
 };
 use crate::interface::CompileEngineProvider;
+use crate::middle::types::Span;
 use crate::pipeline::{Metadata, Pipeline, provider::PipelineProvider, stage::Stage};
 use crate::test_utils::TestEnv;
 
@@ -27,7 +31,7 @@ use crate::test_utils::TestEnv;
 /// - parsing happens
 /// - early syntax validation happens
 /// - basic diagnostics are generated
-
+#[derive(Debug)]
 pub struct FrontendPipeline {
     pub metadata: Metadata,
     pub context: Arc<Context>,
@@ -90,37 +94,114 @@ impl FrontendPipeline {
 }
 
 impl FrontendPipeline {
-    fn perform_compilation(&self) -> Result<AST, String> {
-        let state = self.state.read().map_err(|e| e.to_string())?;
-        let source = state.source.as_ref().ok_or("No source code loaded")?;
-        // 1. Lexing: Replace borrow_mut with write()
-        let mut lexer_guard = self.lexer.write().map_err(|e| e.to_string())?;
-        let tokens = lexer_guard
-            .lex(source)
-            .map_err(|e| format!("Lexer error: {:?}", e))?;
+    fn perform_compilation(&self) -> Result<AST, DiagnosticStore> {
+        // 1. Read state
+        let state = self.state.read().map_err(|e| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Failed source code loaded: {}", e),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
 
-        // Drop the guard immediately after use so other threads can access the lexer
+            ds.emit(diag);
+            ds
+        })?;
+
+        let source = state.source.as_ref().ok_or_else(|| {
+            let mut ds = DiagnosticStore::default();
+
+            let diag = Diagnostic::new("No source code loaded", Span::default(), Severity::Error)
+                .with_code("E1002")
+                .with_note("Compiler state does not contain source input")
+                .with_suggestion("Load source code before running frontend pipeline");
+
+            ds.emit(diag);
+            ds
+        })?;
+
+        // 2. Lexing
+        let mut lexer_guard = self.lexer.write().map_err(|e| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Failed to acquire lexer lock: {}", e),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+
+            ds.emit(diag);
+            ds
+        })?;
+
+        let tokens = lexer_guard.lex(source).map_err(|e| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Error in lexer: {:?}", e),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+            ds.emit(diag);
+            ds
+        })?;
+
         drop(lexer_guard);
 
-        // 2. Parsing: Keep your diagnostic locking logic
-        let mut diag_guard = self
-            .context
-            .diagnostics
-            .write()
-            .map_err(|e| e.to_string())?;
+        // 3. Diagnostics + parser
+        let mut diag_guard = self.context.diagnostics.write().map_err(|e| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Error in lexer: {:?}", e),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+            ds.emit(diag);
+            ds
+        })?;
 
-        // 3. Parser: Replace borrow_mut with write()
-        let mut parser_guard = self.parser.write().map_err(|e| e.to_string())?;
-        let ast = parser_guard
-            .parse(tokens, &mut *diag_guard)
-            .map_err(|_| "Parser failed unexpectedly".to_string())?;
+        let mut parser_guard = self.parser.write().map_err(|e| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Error in parser: {:?}", e),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK002")
+            .with_note("Parser was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+            ds.emit(diag);
+            ds
+        })?;
 
-        // Drop guards before proceeding to further stages
+        let ast = parser_guard.parse(tokens, &mut *diag_guard).map_err(|_| {
+            let mut ds = DiagnosticStore::default();
+            let diag = Diagnostic::new(
+                format!("Error in parser"),
+                Span::default(), // no real span here
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+            ds.emit(diag);
+            ds
+        })?;
+
         drop(parser_guard);
-        // drop(diag_guard);
 
         if diag_guard.has_errors() {
-            return Err("Frontend failed: Parser encountered errors".to_string());
+            return Err(diag_guard.clone());
         }
 
         Ok(ast)
@@ -132,16 +213,37 @@ impl Stage for FrontendPipeline {
         &self.metadata.name
     }
 
-    fn run(&self) -> Result<(), String> {
-        let ast = self.perform_compilation()?;
+    fn run(&self) -> Result<(), ()> {
+        let result = self.perform_compilation();
 
-        let mut state = self.state.write().map_err(|e| e.to_string())?;
-        state.ast = Some(ast);
-        Ok(())
+        match result {
+            Ok(ast) => {
+                let mut state = self.state.write().map_err(|_| ())?;
+                state.ast = Some(ast);
+                Ok(())
+            }
+
+            Err(diags) => {
+                let mut global = self.context.diagnostics.write().map_err(|_| ())?;
+
+                for diag in diags.diagnostics {
+                    global.emit(diag);
+                }
+
+                // 🔥 DEBUG: try to persist whatever AST exists
+                if let Ok(mut state) = self.state.write() {
+                    if state.ast.is_none() {
+                        // optional debug fallback
+                        state.ast = None;
+                    }
+                }
+
+                Err(())
+            }
+        }
     }
 }
-
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct FrontendFeatures {
     pub enable_macros: bool,
     pub enable_jsx_like_blocks: bool,
