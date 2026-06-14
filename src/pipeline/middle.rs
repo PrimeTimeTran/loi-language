@@ -56,6 +56,15 @@ impl MiddlePipeline {
             features: MiddleFeatures::default(),
         }
     }
+    pub fn with_ir_config(mut self, config: IRConfig) -> Self {
+        self.ir_config = config;
+        self
+    }
+
+    pub fn with_features(mut self, features: MiddleFeatures) -> Self {
+        self.features = features;
+        self
+    }
 }
 
 impl MiddlePipeline {

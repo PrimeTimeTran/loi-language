@@ -15,18 +15,55 @@ use loi::{
     init,
     kernel::Kernel,
     middle::semantic,
-    pipeline::{frontend::FrontendPipeline, stage::Stage},
+    pipeline::{
+        backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
+        frontend::{FrontendFeatures, FrontendPipeline},
+        middle::{IRConfig, MiddleFeatures, MiddlePipeline},
+        stage::Stage,
+    },
     registry::{file_meta::FileMeta, registry::Registry},
     test_utils::TestEnv,
 };
 
 use crate::common::MockEngine;
 
+pub enum PipelineTarget {
+    Frontend,
+    Middle,
+    Backend,
+    Full,
+}
+
 pub struct TestHarness {
     pub kernel: Kernel,
     pub env: TestEnv,
     pub registry: Registry,
     pub engines: HashMap<String, Box<dyn Utter>>,
+}
+
+impl TestHarness {
+    pub fn run(&mut self, target: PipelineTarget) -> Result<(), ()> {
+        match target {
+            PipelineTarget::Frontend => {
+                let p = self.build_frontend();
+                p.run()
+            }
+
+            // PipelineTarget::Middle => {
+            //     let p = self.build_middle();
+            //     p.run()
+            // }
+
+            // PipelineTarget::Backend => {
+            //     let p = self.build_backend();
+            //     p.run()
+            // }
+            PipelineTarget::Full => self.kernel.engine.run_all(),
+            _ => {
+                todo!("Not implemented")
+            }
+        }
+    }
 }
 
 impl TestHarness {
@@ -73,7 +110,10 @@ impl TestHarness {
 
     pub fn get_ast(&self) -> Result<AST, String> {
         let state = self.env.state.read().unwrap();
-        state.ast.clone().ok_or_else(|| "AST missing".to_string())
+        state
+            .ast
+            .clone()
+            .ok_or_else(|| "AST missing from get_AST test harness".to_string())
     }
     pub fn get_diagnostics(&self) -> DiagnosticStore {
         self.env.context.diagnostics.read().unwrap().clone()
@@ -99,14 +139,6 @@ impl TestHarness {
 }
 
 impl TestHarness {
-    pub fn build_frontend(&self) -> FrontendPipeline {
-        FrontendPipeline::new(
-            self.env.context.clone(),
-            self.env.config.clone(),
-            self.env.state.clone(),
-        )
-    }
-
     pub fn bootstrap(source: &str, symbol_data: Vec<(&str, &str, &str)>) -> Self {
         let mut harness = Self::new().with_source(source);
         for (name, val, file) in symbol_data {
@@ -115,17 +147,52 @@ impl TestHarness {
         harness
     }
 
-    pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
-        let pipeline = self.build_frontend();
-        self.run_stage(pipeline)
-            .map_err(|_| "Pipeline failed".to_string())?;
-
-        let sym = self.run_incremental();
-        Ok(sym)
+    pub fn build_frontend(&self) -> FrontendPipeline {
+        FrontendPipeline::new(
+            self.env.context.clone(),
+            self.env.config.clone(),
+            self.env.state.clone(),
+        )
+        .with_features(FrontendFeatures::default())
     }
-    pub fn run_stage<T: Stage>(&self, stage: T) -> Result<(), ()> {
+    pub fn build_middle(&self) -> MiddlePipeline {
+        MiddlePipeline::new(
+            self.env.context.clone(),
+            self.env.config.clone(),
+            self.env.state.clone(),
+        )
+        .with_ir_config(IRConfig::default())
+        .with_features(MiddleFeatures::default())
+    }
+
+    pub fn build_backend(&self) -> BackendPipeline {
+        BackendPipeline::new(
+            self.env.context.clone(),
+            self.env.config.clone(),
+            self.env.state.clone(),
+        )
+        .with_target(BackendTarget::default())
+        .with_opt_level(OptimizationLevel::default())
+        .with_codegen(CodegenConfig::default())
+        .with_debug(false)
+    }
+
+    pub fn run_stage<T: Stage>(&mut self, stage: T) -> Result<(), ()> {
         stage.run()
     }
+
+    // pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
+    //     let pipeline = self.build_frontend();
+    //     self.run_stage(pipeline)
+    //         .map_err(|_| "Pipeline failed".to_string())?;
+
+    //     let sym = self.run_incremental();
+    //     Ok(sym)
+    // }
+    // pub fn run_stage<T: Stage>(&self, stage: T) -> Result<(), ()> {
+    //     stage.run()
+    // }
+
     pub fn run_pipeline(&self) -> SymbolRegistry {
         let mut sym = SymbolRegistry::new();
         sym.build_all(&self.registry, &self.engines);

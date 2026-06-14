@@ -91,6 +91,10 @@ impl FrontendPipeline {
             features: FrontendFeatures::default(),
         }
     }
+    pub fn with_features(mut self, features: FrontendFeatures) -> Self {
+        self.features = features;
+        self
+    }
 }
 
 impl FrontendPipeline {
@@ -122,6 +126,19 @@ impl FrontendPipeline {
             ds.emit(diag);
             ds
         })?;
+
+        let source = state.source.as_ref().ok_or_else(|| {
+            let mut ds = DiagnosticStore::default();
+            ds.emit(Diagnostic::error("No source code loaded", Span::default()));
+            ds
+        })?;
+        // 🔥 DEBUG CHECKPOINT AST (force visibility)
+        // {
+        //     if let Ok(mut state) = self.state.write() {
+        //         state.ast = Some(AST::new(vec![])); // empty AST marker
+        //         println!("🔥 CHECKPOINT AST WRITTEN");
+        //     }
+        // }
 
         // 2. Lexing
         let mut lexer_guard = self.lexer.write().map_err(|e| {
@@ -186,14 +203,11 @@ impl FrontendPipeline {
 
         let ast = parser_guard.parse(tokens, &mut *diag_guard).map_err(|_| {
             let mut ds = DiagnosticStore::default();
-            let diag = Diagnostic::new(
-                format!("Error in parser"),
-                Span::default(), // no real span here
-                Severity::Error,
-            )
-            .with_code("ELOCK001")
-            .with_note("Lexer was locked by another thread or poisoned")
-            .with_suggestion("Retry compilation or ensure single-threaded access");
+            let diag =
+                Diagnostic::new(format!("Error in parser"), Span::default(), Severity::Error)
+                    .with_code("ELOCK001")
+                    .with_note("Lexer was locked by another thread or poisoned")
+                    .with_suggestion("Retry compilation or ensure single-threaded access");
             ds.emit(diag);
             ds
         })?;
@@ -209,21 +223,20 @@ impl FrontendPipeline {
 }
 
 impl Stage for FrontendPipeline {
-    fn name(&self) -> &str {
-        &self.metadata.name
-    }
-
     fn run(&self) -> Result<(), ()> {
         let result = self.perform_compilation();
-
         match result {
             Ok(ast) => {
-                let mut state = self.state.write().map_err(|_| ())?;
+                let mut state = self.state.write().unwrap();
                 state.ast = Some(ast);
+                println!("✅ FINAL AST WRITTEN");
+                println!("${:?}", state.ast);
                 Ok(())
             }
-
             Err(diags) => {
+                let state = self.state.write().unwrap();
+                println!("❌ ERROR PATH AST = {:?}", state.ast);
+                println!("${:?}", state.ast);
                 let mut global = self.context.diagnostics.write().map_err(|_| ())?;
 
                 for diag in diags.diagnostics {
@@ -241,6 +254,9 @@ impl Stage for FrontendPipeline {
                 Err(())
             }
         }
+    }
+    fn name(&self) -> &str {
+        &self.metadata.name
     }
 }
 #[derive(Debug, Default)]

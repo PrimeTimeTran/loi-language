@@ -55,21 +55,41 @@ pub fn parse_to_ast(input: &str) -> Result<AST, String> {
 }
 
 pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), String> {
-    // 1. Initialize and configure
-    let harness = TestHarness::new().with_source(input);
+    let mut harness: TestHarness = TestHarness::new().with_source(input);
     let pipeline = harness.build_frontend();
-
-    // 2. Execute: harness.run_stage consumes the original harness,
-    // so we must capture the returned value to keep using it.
-    let harness = TestHarness::new().with_source(input);
-
-    harness.run_stage(pipeline);
-
+    harness.run_stage(pipeline).map_err(|_| "Pipeline failed")?;
     let ast = harness.get_ast()?;
     let diagnostics = harness.get_diagnostics();
-
     Ok((ast, diagnostics))
 }
+
+// pub fn parses(src: &str) -> String {
+//     parse_to_ast(src).expect("Parsing failed").to_sexpr()
+// }
+
+// pub fn parse_to_ast(input: &str) -> Result<AST, String> {
+//     let (ast, _) = parse_with_diagnostics(input)?;
+//     Ok(ast)
+// }
+
+// pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), String> {
+//     // 1. Initialize and configure
+//     let harness = TestHarness::new().with_source(input);
+//     let pipeline = harness.build_frontend();
+
+//     // 2. Execute: harness.run_stage consumes the original harness,
+//     // so we must capture the returned value to keep using it.
+//     let harness = TestHarness::new().with_source(input);
+
+//     harness.run_stage(pipeline);
+//     println!("Loi Tran");
+
+//     let ast = harness.get_ast()?;
+//     println!("${:?}", ast);
+//     let diagnostics = harness.get_diagnostics();
+
+//     Ok((ast, diagnostics))
+// }
 
 pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
     let (ast, diagnostics) = parse_with_diagnostics(input)?;

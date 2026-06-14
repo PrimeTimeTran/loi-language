@@ -57,6 +57,25 @@ impl BackendPipeline {
             debug: false,
         }
     }
+    pub fn with_target(mut self, target: BackendTarget) -> Self {
+        self.target = target;
+        self
+    }
+
+    pub fn with_opt_level(mut self, level: OptimizationLevel) -> Self {
+        self.opt_level = level;
+        self
+    }
+
+    pub fn with_codegen(mut self, cfg: CodegenConfig) -> Self {
+        self.codegen_config = cfg;
+        self
+    }
+
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
 }
 #[derive(Debug, Default)]
 pub enum BackendTarget {

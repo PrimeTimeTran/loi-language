@@ -13,7 +13,7 @@ use crate::{
 // - Engine: The "Doer." It doesn't need to know *what* the Kernel is doing; it just needs the tools to process the code.
 // - Kernel: The "Orchestrator." It manages the high-level flow and bridges the Environment (`Context`) with the Work (`Engine`).
 
-    pub fn init() -> Kernel {
+pub fn init() -> Kernel {
     // 1. Create the Shared Environment (Dependencies)
     // Wrap them in Arc so multiple pipelines/threads can own them.
     let context = Arc::new(Context::new());

@@ -8,7 +8,7 @@ fn test_kernel_initialization() {
     });
 
     harness.peek_config(|config| {
-        assert_eq!(config.root.to_str().unwrap(), "");
-        assert_eq!(config.name, "");
+        assert_eq!(config.root.to_str().unwrap(), "./targets/fs");
+        assert_eq!(config.name, "project");
     });
 }
