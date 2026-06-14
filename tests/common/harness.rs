@@ -2,6 +2,8 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    ptr::hash,
+    sync::{Arc, RwLock},
 };
 
 use loi::{
@@ -10,10 +12,16 @@ use loi::{
         utter::{registry::UtterRegistry, utter::Utter},
     },
     build::build_system::BuildSystem,
-    compiler::diagnostic::DiagnosticStore,
+    compiler::{
+        config::CompileConfig,
+        diagnostic::DiagnosticStore,
+        engine::CompileEngine,
+        state::{BuildArtifact, CompileState},
+    },
+    context::Context,
     frontend::{ast::AST, lexer, parser},
     init,
-    kernel::Kernel,
+    kernel::{Kernel, KernelBuilder},
     middle::semantic,
     pipeline::{
         backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
@@ -46,21 +54,59 @@ impl TestHarness {
         match target {
             PipelineTarget::Frontend => {
                 let p = self.build_frontend();
-                p.run()
+                p.run()?;
+                Ok(())
             }
 
-            // PipelineTarget::Middle => {
-            //     let p = self.build_middle();
-            //     p.run()
-            // }
+            PipelineTarget::Middle => {
+                let p = self.build_middle();
+                p.run()?;
+                Ok(())
+            }
+            PipelineTarget::Backend => {
+                let ir = {
+                    let state = self.kernel.engine.state.read().map_err(|_| ())?;
+                    state.current_ir()
+                }
+                .ok_or(())?;
 
+                let backend = self.build_backend();
+                let output = backend.run(ir.clone());
+
+                // compute stable hash for caching
+                let hash = {
+                    use std::collections::hash_map::DefaultHasher;
+                    use std::hash::{Hash, Hasher};
+
+                    let mut hasher = DefaultHasher::new();
+                    ir.nodes.hash(&mut hasher); // assumes IR { nodes: Vec<IROp> }
+                    hasher.finish()
+                };
+
+                let mut state = self.kernel.engine.state.write().map_err(|_| ())?;
+
+                state.build_cache.insert_artifact(hash, output.clone());
+
+                state.build_cache.set_current(BuildArtifact::Llvm(output));
+
+                Ok(())
+            }
             // PipelineTarget::Backend => {
-            //     let p = self.build_backend();
-            //     p.run()
+            //     let ir = {
+            //         let state = self.kernel.engine.state.read().map_err(|_| ())?;
+            //         state.current_ir()
+            //     }
+            //     .ok_or(())?;
+            //     let backend = self.build_backend();
+            //     let output = backend.run(ir);
+            //     let config = self.kernel.engine.config.write().map_err(|_| ())?;
+            //     let output = config.output.clone();
+            //     Some(output);
+            //     Ok(())
             // }
-            PipelineTarget::Full => self.kernel.engine.run_all(),
-            _ => {
-                todo!("Not implemented")
+            PipelineTarget::Full => {
+                self.kernel.engine.run_all()?;
+                Ok(())
             }
         }
     }
@@ -68,10 +114,25 @@ impl TestHarness {
 
 impl TestHarness {
     pub fn new() -> Self {
-        let kernel = init::init();
+        let diagnostics = Arc::new(RwLock::new(DiagnosticStore::default()));
+        let context = Arc::new(Context::new());
+        let config = Arc::new(RwLock::new(CompileConfig::default()));
+        let state = Arc::new(RwLock::new(CompileState::default()));
+        let engine = CompileEngine::new(context.clone(), config.clone(), state.clone());
+        let kernel = KernelBuilder::new()
+            .context(context.clone())
+            .engine(engine)
+            .diagnostics(diagnostics)
+            .build();
+        let env = TestEnv {
+            state,
+            config,
+            context: kernel.context.clone(),
+        };
+
         Self {
             kernel,
-            env: TestEnv::new(),
+            env,
             registry: Registry::new(),
             engines: HashMap::new(),
         }
@@ -180,18 +241,6 @@ impl TestHarness {
     pub fn run_stage<T: Stage>(&mut self, stage: T) -> Result<(), ()> {
         stage.run()
     }
-
-    // pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
-    //     let pipeline = self.build_frontend();
-    //     self.run_stage(pipeline)
-    //         .map_err(|_| "Pipeline failed".to_string())?;
-
-    //     let sym = self.run_incremental();
-    //     Ok(sym)
-    // }
-    // pub fn run_stage<T: Stage>(&self, stage: T) -> Result<(), ()> {
-    //     stage.run()
-    // }
 
     pub fn run_pipeline(&self) -> SymbolRegistry {
         let mut sym = SymbolRegistry::new();

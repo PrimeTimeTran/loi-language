@@ -92,6 +92,15 @@ pub struct DiagnosticStore {
     pub diagnostics: VecDeque<Diagnostic>,
 }
 impl DiagnosticStore {
+    pub fn emit(&mut self, diag: Diagnostic) -> bool {
+        if matches!(diag.severity, Severity::Error) {
+            self.error_count += 1;
+        }
+        self.diagnostics.push_back(diag);
+
+        self.halt_on_error && self.has_errors()
+    }
+
     pub fn check_halt(&self) -> Result<(), String> {
         if self.has_errors() {
             return Err("frontend errors".into());
@@ -103,15 +112,6 @@ impl DiagnosticStore {
             halt_on_error,
             ..Default::default()
         }
-    }
-
-    pub fn emit(&mut self, diag: Diagnostic) -> bool {
-        if matches!(diag.severity, Severity::Error) {
-            self.error_count += 1;
-        }
-        self.diagnostics.push_back(diag);
-
-        self.halt_on_error && self.has_errors()
     }
 
     pub fn has_errors(&self) -> bool {

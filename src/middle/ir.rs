@@ -10,14 +10,14 @@ use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct TypedExpr {
     pub expr: Expr,
     pub ty: Type,
     pub span: Span,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Hash, Serialize, Clone)]
 pub enum Op {
     Add,
     Sub,
@@ -27,6 +27,7 @@ pub enum Op {
     Neg,
 }
 
+#[derive(Debug, Clone)]
 pub struct IR {
     pub raw: String,
     pub nodes: Vec<IROp>,
@@ -40,7 +41,7 @@ impl Default for IR {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum LoweredOp {
     Binary {
         target: String,
@@ -61,7 +62,7 @@ pub enum LoweredOp {
     Nop,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum IROp {
     Return {
         value: Option<TypedExpr>,

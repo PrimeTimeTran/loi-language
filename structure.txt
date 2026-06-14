@@ -90,6 +90,7 @@ struct ModuleState
 ## src/kernel.rs
 
     struct Kernel(context:Arc < Context >, engine:CompileEngine, logger:Arc < Logger >, cache:Arc < MemoryCache >, job_queue:Arc < JobQueue >, scheduler:TaskScheduler, diagnostics:Arc < RwLock < DiagnosticStore > >)
+    struct KernelBuilder(context:Option < Arc < Context > >, engine:Option < CompileEngine >, logger:Option < Arc < Logger > >, cache:Option < Arc < MemoryCache > >, job_queue:Option < Arc < JobQueue > >, scheduler:Option < TaskScheduler >, diagnostics:Option < Arc < RwLock < DiagnosticStore > > >)
 
 ## src/lib.rs
 
@@ -100,7 +101,7 @@ struct ModuleState
 
 ## tests/0001-pulse-mod-resolution.rs
 
-    ensure_common_mods_available_in_tests()
+    common_mods_available_in_test_root()
 
 ## tests/0002-pipeline.rs
 
@@ -129,15 +130,15 @@ struct ModuleState
 
 ## tests/003-pulse-pipeline-fe.rs
 
-    test_frontend_pipeline()
+    test_frontend_pipeline_only()
 
 ## tests/004-pulse-pipeline-mid.rs
 
-    test_frontend_pipeline()
+    test_middle_pipeline()
 
 ## tests/005-pulse-pipeline-be.rs
 
-    test_frontend_pipeline()
+    test_backend_pipeline()
 
 ## tests/bundler.rs
 
@@ -496,10 +497,6 @@ struct ModuleState
         struct LoiServer(client:Client)
         main()
 
-#### src/backend/compile.rs
-
-        compile(_system_context:& Context, ir:& [IROp], out_base:& Path, module_name:& str)
-
 #### src/backend/link_with_clang.rs
 
         link_with_clang(input_bc:& Path, output_exe:& Path)
@@ -507,11 +504,8 @@ struct ModuleState
 #### src/backend/llvm.rs
 
         codegen_expr(expr:& Expr, ty:& Type, context:& mut CodeGenContext < 'ctx >)
-        lower_block(context:& mut CodeGenContext < 'ctx >, ops:& [IROp])
+        lower_expr_to_ir(context:& mut CodeGenContext < 'ctx >, op:IROp)
         lower_ir(context:& mut CodeGenContext < 'ctx >, ir:IROp, runtime:& Runtime < 'ctx >, zero:IntValue < 'ctx >)
-        lower_ir_raw(context:& mut CodeGenContext < 'ctx >, op:IROp)
-        lower_stmt_to_ir(context:& mut CodeGenContext < 'ctx >, stmt:Stmt)
-        lower_stmt_to_llvm(context:& mut CodeGenContext < 'ctx >, stmt:Stmt)
         struct CodeGenContext(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, runtime:Runtime < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >, counter:usize)
         struct LLVM(context:CodeGenContext < 'ctx >)
         struct Runtime(main:FunctionValue < 'ctx >, entry_block:BasicBlock < 'ctx >, printf:FunctionValue < 'ctx >, fmt_f64:PointerValue < 'ctx >, fmt_i32:PointerValue < 'ctx >, fmt_str:PointerValue < 'ctx >)
@@ -596,6 +590,15 @@ struct ModuleState
         struct NetworkCache
         struct PersistentCache(disk_path:Option < PathBuf >)
 
+#### src/compiler/compile.rs
+
+        compile(_system_context:& Context, ir:& [IROp], out_base:& Path, module_name:& str)
+
+#### src/compiler/compile_project.rs
+
+        compile_file(kernel:& Kernel, path:& Path, output_dir:& Path)
+        compile_project(kernel:& Kernel, config:& CompileConfig)
+
 #### src/compiler/config.rs
 
         struct CompileConfig(root:PathBuf, name:String, input:PathBuf, output:PathBuf, watch:bool, concurrency:usize)
@@ -623,10 +626,10 @@ struct ModuleState
         enum Mode { Batch, Interactive, Watch }
         enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
         enum TargetOS { Linux, MacOS, Windows, Unknown }
+        struct Env(root_dir:PathBuf, output_dir:PathBuf, mode:Mode, target:TargetConfig, features:FeatureFlags, toolchain:ToolchainPaths, cwd:PathBuf, timestamp:u64)
         struct FeatureFlags(incremental:bool, parallel_frontend:bool, parallel_codegen:bool, aggressive_cache:bool, debug_symbols:bool, hot_reload:bool)
         struct TargetConfig(os:TargetOS, arch:TargetArch, abi:Option < String >)
         struct ToolchainPaths(llvm_bin:Option < PathBuf >, linker:Option < PathBuf >, assembler:Option < PathBuf >, wasm_toolchain:Option < PathBuf >, custom_backend:Option < PathBuf >)
-        struct Env(root_dir:PathBuf, output_dir:PathBuf, mode:Mode, target:TargetConfig, features:FeatureFlags, toolchain:ToolchainPaths, cwd:PathBuf, timestamp:u64)
 
 #### src/compiler/error.rs
 
@@ -634,8 +637,8 @@ struct ModuleState
 
 #### src/compiler/execution.rs
 
-        struct JobQueue(jobs:Arc < Mutex < Vec < String > > >)
         struct TaskScheduler
+        struct JobQueue(jobs:Arc < Mutex < Vec < String > > >)
         struct PluginSystem
         struct PrioritySystem(priority_map:HashMap < String , u8 >)
 
@@ -660,13 +663,15 @@ struct ModuleState
 
 #### src/compiler/state.rs
 
-        struct BuildCache(object_cache:HashMap < u64 , Vec < u8 > >, ir_cache:HashMap < u64 , Vec < IROp > >, symbol_cache:HashMap < u64 , Vec < u8 > >, timestamps:HashMap < PathBuf , u64 >, cache_version:u32)
+        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, compiler_version:String, ir_version:u32)
+        struct BuildCache(object_cache:HashMap < u64 , Vec < u8 > >, ir_cache:HashMap < u64 , Vec < IROp > >, symbol_cache:HashMap < u64 , Vec < u8 > >, timestamps:HashMap < PathBuf , u64 >, cache_version:u32, current:Option < BuildArtifact >)
         struct DependencyGraph(forward:HashMap < SymbolId , HashSet < SymbolId > >, reverse:HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache:HashMap < SymbolId , HashSet < SymbolId > >, cycles:Vec < Vec < SymbolId > >)
         struct FileGraph(imports:HashMap < Uuid , Vec < Uuid > >, dependents:HashMap < Uuid , Vec < Uuid > >, topo_order:Vec < Uuid >, cycles:Vec < Vec < Uuid > >)
-        struct IRCache(per_file:HashMap < Uuid , Vec < IROp > >, per_symbol:HashMap < SymbolId , Vec < IROp > >, dedup_cache:HashMap < u64 , Vec < IROp > >, ir_versions:HashMap < Uuid , u32 >)
-        struct LoweredCache(per_file:HashMap < Uuid , Vec < LoweredOp > >, per_symbol:HashMap < SymbolId , Vec < LoweredOp > >, backend_cache:HashMap < String , Vec < u8 > >, opt_pass_version:u32)
+        struct IRCache(per_file:HashMap < Uuid , Vec < IROp > >, per_symbol:HashMap < SymbolId , Vec < IROp > >, dedup_cache:HashMap < u64 , Vec < IROp > >, ir_versions:HashMap < Uuid , u32 >, current:Option < IR >)
+        struct LoweredCache(per_file:HashMap < Uuid , Vec < LoweredOp > >, per_symbol:HashMap < SymbolId , Vec < LoweredOp > >, backend_cache:HashMap < String , Vec < u8 > >, opt_pass_version:u32, current:Option < LoweredIR >)
         struct SymbolIndex(by_name:HashMap < String , Vec < SymbolId > >, by_file:HashMap < Uuid , Vec < SymbolId > >, fqns:HashMap < String , SymbolId >, scope_stack:Vec < Vec < SymbolId > >)
-        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, diagnostics:DiagnosticStore, compiler_version:String, ir_version:u32)
+        enum BuildArtifact { Llvm(_0), Wasm(_0), Bytecode(_0) }
+        struct LoweredIR(nodes:Vec < IROp >)
 
 #### src/context/compile.rs
 
@@ -719,11 +724,13 @@ struct ModuleState
 
 #### src/frontend/ast.rs
 
+        struct AST(stmts:Vec < Stmt >)
         enum AssignOp { Assign, Immutable, Dynamic }
         enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
         enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
         enum Expr { Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Bool(_0), Number(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
         enum UnOp { Neg, Not, AddrOf }
+        struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
         enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
 
 #### src/frontend/display.rs
@@ -782,10 +789,10 @@ struct ModuleState
 
 #### src/frontend/types.rs
 
-        struct LexerConfig(allow_unicode_identifiers:bool, allow_raw_strings:bool, comment_support:bool)
-        struct LexerState(position:usize, line:usize, column:usize)
         struct Lexer(state:LexerState, config:LexerConfig)
         struct TokenStream(tokens:Vec < Token >, pos:usize)
+        struct LexerConfig(allow_unicode_identifiers:bool, allow_raw_strings:bool, comment_support:bool)
+        struct LexerState(position:usize, line:usize, column:usize)
 
 #### src/interface/engine_provider.rs
 
@@ -801,11 +808,11 @@ struct ModuleState
         struct TypedExpr(expr:Expr, ty:Type, span:Span)
         enum IROp { Return(value), Declare(name, value, mutable, dynamic), Nop, Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Assign(name, value), Load(name), If(condition, then_branch, else_branch, scope_id), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), ExprStmt(expr), ControlFlow, Lowered(_0) }
         enum LoweredOp { Binary(target, left, op, right), Move(target, source), Label(_0), Jump(_0), JumpIf(condition, label), Nop }
+        struct IR(raw:String, nodes:Vec < IROp >, symbols:HashMap < String , Symbol >, metadata:HashMap < String , String >)
         enum Op { Add, Sub, Mul, Div, Cmp, Neg }
         to_typed_expr(expr:Expr)
         enum RegionKind { Native, JavaScript, TypeScript, JSX, SQL, Python, Shader, Unknown(_0) }
         enum RegionMode { Passthrough, CompileAndInject, Dual }
-        struct IR(raw:String, nodes:Vec < IROp >, symbols:HashMap < String , Symbol >, metadata:HashMap < String , String >)
         struct RegionBlock(kind:RegionKind, source:String, output:Option < Vec < u8 > >, mode:RegionMode)
 
 #### src/middle/mod.rs
@@ -838,10 +845,8 @@ struct ModuleState
         struct Import(path:Vec < String >, alias:Option < String >, glob:bool)
         struct Module(name:String, items:Vec < ModuleItem >)
         struct Param(name:String, ty:Option < Type >)
-        struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
         struct Struct(name:String, fields:Vec < Field >)
         struct Variant(name:String, fields:Vec < Type >)
-        struct AST(stmts:Vec < Stmt >, expr:Option < Expr >, program:Program, items:Vec < TopLevelItem >)
 
 #### src/pipeline/backend.rs
 
@@ -849,11 +854,6 @@ struct ModuleState
         enum OptimizationLevel { None, Basic, Aggressive }
         struct CodegenConfig(emit_debug_info:bool, inline_functions:bool, vectorize:bool)
         struct BackendPipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, target:BackendTarget, opt_level:OptimizationLevel, codegen_config:CodegenConfig, debug:bool)
-
-#### src/pipeline/compile_targets.rs
-
-        compile_file(kernel:& Kernel, path:& Path, output_dir:& Path)
-        compile_targets(kernel:Kernel, config:& CompileConfig)
 
 #### src/pipeline/frontend.rs
 
@@ -917,7 +917,8 @@ struct ModuleState
 
 #### tests/common/harness.rs
 
-        struct TestHarness(env:TestEnv, registry:Registry, engines:HashMap < String , Box < dyn Utter > >)
+        enum PipelineTarget { Frontend, Middle, Backend, Full }
+        struct TestHarness(kernel:Kernel, env:TestEnv, registry:Registry, engines:HashMap < String , Box < dyn Utter > >)
 
 #### tests/common/helpers.rs
 
@@ -1278,7 +1279,7 @@ struct ModuleState
 
 #### tests/z.pulse-testing/00-mod-resolution.rs
 
-        ensure_common_mods_available_in_tests_nested()
+        common_mods_available_in_test_subdirs()
 
 #### tests/z.pulse-testing/01-pipeline.rs
 

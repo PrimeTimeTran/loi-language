@@ -1,9 +1,12 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    compiler::{config::CompileConfig, engine::CompileEngine, state::CompileState},
+    compiler::{
+        config::CompileConfig, diagnostic::DiagnosticStore, engine::CompileEngine,
+        state::CompileState,
+    },
     context::Context,
-    kernel::Kernel,
+    kernel::{Kernel, KernelBuilder},
 };
 
 // # 1. Separation of Concerns
@@ -14,33 +17,16 @@ use crate::{
 // - Kernel: The "Orchestrator." It manages the high-level flow and bridges the Environment (`Context`) with the Work (`Engine`).
 
 pub fn init() -> Kernel {
-    // 1. Create the Shared Environment (Dependencies)
-    // Wrap them in Arc so multiple pipelines/threads can own them.
-    let context = Arc::new(Context::new());
-
-    // We use RwLock for state and config so components can
-    // read/write them at runtime (e.g., REPL changing root)
-    let config = Arc::new(RwLock::new(CompileConfig::default()));
-    let state = Arc::new(RwLock::new(CompileState::default()));
-
-    // 2. Build the Engine
-    // The engine receives the shared pointers, not the raw data.
-    let engine = CompileEngine::new(context.clone(), config, state);
-
-    // 3. Build the Kernel
-    // The kernel orchestrates the engine and context.
-    let kernel = Kernel::new(context, engine);
-
-    kernel
-}
-
-pub fn init2() -> Kernel {
+    let diagnostics = Arc::new(RwLock::new(DiagnosticStore::default()));
     let context = Arc::new(Context::new());
     let config = Arc::new(RwLock::new(CompileConfig::default()));
     let state = Arc::new(RwLock::new(CompileState::default()));
     let engine = CompileEngine::new(context.clone(), config, state);
-    let kernel = Kernel::new(context, engine);
-    kernel
+    KernelBuilder::new()
+        .context(context)
+        .engine(engine)
+        .diagnostics(diagnostics)
+        .build()
 }
 
 // ### 1. Trait-based DI (The "Interface" layer)

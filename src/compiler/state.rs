@@ -15,7 +15,7 @@ use crate::build::asset_optimizer::AssetOptimizer;
 use crate::build::output_resolver::OutputResolver;
 use crate::compiler::diagnostic::DiagnosticStore;
 use crate::frontend::ast::AST;
-use crate::middle::ir::{IROp, LoweredOp};
+use crate::middle::ir::{IR, IROp, LoweredOp};
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use crate::registry::registry::{FileStack, Registry};
 
@@ -100,6 +100,7 @@ pub struct SymbolIndex {
 /// Purpose:
 /// Stores intermediate representation per file/module
 #[derive(Default, Debug, Clone)]
+
 pub struct IRCache {
     /// file -> IR tree
     pub per_file: HashMap<Uuid, Vec<IROp>>,
@@ -112,6 +113,12 @@ pub struct IRCache {
 
     /// last validated IR version per file
     pub ir_versions: HashMap<Uuid, u32>,
+    pub current: Option<IR>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoweredIR {
+    pub nodes: Vec<IROp>,
 }
 
 /// =========================
@@ -132,6 +139,8 @@ pub struct LoweredCache {
 
     /// optimization pass versioning
     pub opt_pass_version: u32,
+
+    pub current: Option<LoweredIR>,
 }
 
 /// =========================
@@ -157,6 +166,33 @@ pub struct BuildCache {
 
     /// global cache version (invalidate everything if bumped)
     pub cache_version: u32,
+    pub current: Option<BuildArtifact>,
+}
+
+impl BuildCache {
+    pub fn insert_artifact(&mut self, hash: u64, artifact: Vec<u8>) {
+        self.object_cache.insert(hash, artifact);
+    }
+
+    pub fn insert_ir(&mut self, hash: u64, ir: Vec<IROp>) {
+        self.ir_cache.insert(hash, ir);
+    }
+
+    pub fn insert_symbol(&mut self, hash: u64, output: Vec<u8>) {
+        self.symbol_cache.insert(hash, output);
+    }
+
+    pub fn set_current(&mut self, artifact: BuildArtifact) {
+        self.current = Some(artifact);
+    }
+}
+
+/// Final backend output
+#[derive(Debug, Clone)]
+pub enum BuildArtifact {
+    Llvm(Vec<u8>),
+    Wasm(Vec<u8>),
+    Bytecode(Vec<u8>),
 }
 // CompilerState is the *mutable brain* of the compiler.
 //
@@ -225,7 +261,7 @@ pub struct CompileState {
     // DIAGNOSTICS
     // =========================
     /// Central diagnostic store (errors, warnings, spans, trace info)
-    pub diagnostics: DiagnosticStore,
+    // pub diagnostics: DiagnosticStore,
 
     // =========================
     // VERSIONING (CRITICAL FOR LONG-TERM STABILITY)
@@ -237,6 +273,19 @@ pub struct CompileState {
     pub ir_version: u32,
 }
 
+impl CompileState {
+    pub fn current_ir(&self) -> Option<IR> {
+        self.ir_cache.current.clone()
+    }
+
+    pub fn current_lowered_ir(&self) -> Option<LoweredIR> {
+        self.lowered_cache.current.clone()
+    }
+
+    pub fn current_artifact(&self) -> Option<BuildArtifact> {
+        self.build_cache.current.clone()
+    }
+}
 impl Default for CompileState {
     fn default() -> Self {
         Self {
@@ -253,7 +302,7 @@ impl Default for CompileState {
             dirty_symbols: HashSet::new(),
             content_hashes: HashMap::new(),
             build_cache: BuildCache::default(),
-            diagnostics: DiagnosticStore::default(),
+            // diagnostics: DiagnosticStore::default(),
             compiler_version: env!("CARGO_PKG_VERSION").to_string(),
             ir_version: 1,
         }

@@ -1,5 +1,5 @@
 use core::fmt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::middle::types::{Block, Module, Span};
 
@@ -65,8 +65,33 @@ pub enum Stmt {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+use std::hash::{Hash, Hasher};
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct HashF64(pub f64);
+
+impl PartialEq for HashF64 {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bits() == other.0.to_bits()
+    }
+}
+
+impl Eq for HashF64 {}
+impl Hash for HashF64 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+
+impl fmt::Display for HashF64 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
 pub enum Expr {
+    Number(HashF64),
     Unary {
         op: UnOp,
         expr: Box<Expr>,
@@ -82,7 +107,7 @@ pub enum Expr {
         op: AssignOp,
     },
     Bool(bool),
-    Number(f64),
+
     String(String),
     Var(String),
     Array(Vec<Expr>),
@@ -108,7 +133,7 @@ pub enum DeclKind {
     Dynamic,         // =?
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
 pub enum BinOp {
     Add,
     Sub,
@@ -125,14 +150,14 @@ pub enum BinOp {
     Power,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
 pub enum UnOp {
     Neg,
     Not,
     AddrOf,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Serialize)]
 pub enum AssignOp {
     Assign,    // =
     Immutable, // =!

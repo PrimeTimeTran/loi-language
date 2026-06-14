@@ -4,7 +4,7 @@ use std::iter::Peekable;
 use crate::{
     compiler::diagnostic::{self, Diagnostic, DiagnosticStore},
     frontend::{
-        ast::{AST, AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp},
+        ast::{AST, AssignOp, BinOp, DeclKind, Expr, HashF64, Stmt, UnOp},
         lexer::lex,
         token::Token,
         types::TokenStream,
@@ -78,6 +78,7 @@ pub fn parse(
 
     Ok(AST::new(stmts))
 }
+
 pub fn parse_incremental(
     prev: &AST,
     tokens: &mut TokenStream,
@@ -325,7 +326,7 @@ fn parse_primary(
     match tokens.next() {
         Some(Token::True) => Ok(Expr::Bool(true)),
         Some(Token::False) => Ok(Expr::Bool(false)),
-        Some(Token::Number(n)) => Ok(Expr::Number(n.clone())),
+        Some(Token::Number(n)) => Ok(Expr::Number(HashF64(n))),
         Some(Token::String(s)) => Ok(Expr::String(s.clone())),
         Some(Token::Ident(name)) => {
             if let Some(Token::LParen) = tokens.peek() {
