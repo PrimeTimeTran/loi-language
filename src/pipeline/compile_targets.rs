@@ -1,6 +1,7 @@
 use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
 use crate::compiler::config::{CompileConfig, ConfigResolver};
+use crate::compiler::diagnostic::DiagnosticStore;
 use crate::compiler::error::Error;
 use crate::frontend::lexer::TokenStream;
 use crate::frontend::{
@@ -16,13 +17,6 @@ use std::process::Command;
 use walkdir::WalkDir;
 
 pub fn compile_targets(kernel: Kernel, config: &CompileConfig) -> Result<(), Vec<Error>> {
-    // let files: Vec<PathBuf> = WalkDir::new(&config.input)
-    //     .into_iter()
-    //     .filter_map(|e| e.ok())
-    //     .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("loi"))
-    //     .map(|e| e.path().to_path_buf())
-    //     .collect();
-
     let files: Vec<PathBuf> = WalkDir::new(&config.input)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -78,11 +72,13 @@ pub fn compile_file(kernel: &Kernel, path: &Path, output_dir: &Path) -> Result<(
     // 1. Lexing produces the TokenStream
     let tokens = lexer::lex(&source).map_err(Error::Lexer)?;
     let token_stream = TokenStream::new(tokens);
-    let mut diagnostics = kernel.diagnostics.write().unwrap();
+
+    // let mut local_diagnostics = Vec::new();
+    let mut local_diagnostics = DiagnosticStore::new(false);
 
     let mut parser = Parser::new();
     let ast = parser
-        .parse(token_stream, &mut diagnostics)
+        .parse(token_stream, &mut local_diagnostics) // Pass local buffer
         .map_err(|_| Error::Parser("Parsing failed".to_string()))?;
 
     let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;

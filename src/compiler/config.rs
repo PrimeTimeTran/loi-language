@@ -58,7 +58,7 @@ impl ConfigResolver {
                         root: Arc::new(RwLock::new(PathBuf::from("."))),
                         name: Arc::new(RwLock::new("DefaultProject".to_string())),
                         input: Some(PathBuf::from("./targets/syntax")),
-                        output: Some(PathBuf::from("./dist")),
+                        output: Some(PathBuf::from("./output/syntax")),
                         watch: Some(false),
                         concurrency: Some(4),
                     };

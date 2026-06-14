@@ -578,6 +578,21 @@ pub mod llvm {
                 lower_ir_raw(&mut context, op.clone()).expect("lowering failed");
             }
 
+            let builder = &context.builder;
+
+            // Check if the current insertion block already has a terminator
+            if builder
+                .get_insert_block()
+                .unwrap()
+                .get_terminator()
+                .is_none()
+            {
+                let ret_val = context.context.i32_type().const_int(0, false);
+                builder
+                    .build_return(Some(&ret_val))
+                    .expect("Failed to emit return");
+            }
+
             println!("END OF NEW");
             Self { context }
         }
