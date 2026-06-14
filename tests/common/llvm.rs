@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use inkwell::context::Context;
-use loi::backend::llvm::{LLVM, llvm::CodeGenContext};
+use loi::backend::llvm::{CodeGenContext, LLVM};
 use loi::frontend::ast::Expr;
-use loi::middle::ir::{IROp, IrInstruction, Span, Type, TypedExpr};
+use loi::middle::ir::{IROp, IrInstruction, TypedExpr};
+use loi::middle::types::{Span, Type};
 
 use crate::common::generate_binary_ir;
 
@@ -48,7 +49,8 @@ pub mod ir_factory {
     use super::*;
     use loi::{
         frontend::ast::Expr,
-        middle::ir::{Span, Type, TypedExpr},
+        middle::ir::TypedExpr,
+        middle::types::{Span, Type},
     };
     fn dummy_span() -> Span {
         Span::default()

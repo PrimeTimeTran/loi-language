@@ -46,3 +46,7 @@ Ok:
   expr: ~
   program:
     stmts: []
+    modules: []
+    globals: []
+    entry: ~
+  items: []

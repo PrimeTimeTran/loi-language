@@ -34,7 +34,7 @@ cargo nextest run --filter-expr 'test(lexer::)'
 ```sh
 cargo test --features snapshotting
 cargo watch -x 'nextest run --test parser_05* --test-threads 1 --no-fail-fast --features snapshotting'
-cargo watch -x 'nextest run --test parser_05-3* --test-threads 1 --no-fail-fast --features snapshotting'
+cargo watch -x 'nextest run --test 0001-* --test-threads 1 --no-fail-fast --features snapshotting'
 ```
 
 ```sh

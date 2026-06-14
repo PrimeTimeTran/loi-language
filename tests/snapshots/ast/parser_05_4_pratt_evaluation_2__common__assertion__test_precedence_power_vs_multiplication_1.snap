@@ -31,3 +31,7 @@ Ok:
         Var: c
   program:
     stmts: []
+    modules: []
+    globals: []
+    entry: ~
+  items: []

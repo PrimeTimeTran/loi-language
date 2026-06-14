@@ -4,6 +4,7 @@ mod common {
 }
 
 #[test]
-fn test_nested_common_mod_resolution() {
-    common::common_mod_helper("Nested Pulse");
+fn ensure_common_mods_available_in_tests_nested() {
+    let result = common::common_mod_helper("Nested Pulse");
+    assert_eq!(result, (), "module resolution failed");
 }

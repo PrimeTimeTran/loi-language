@@ -1,0 +1,1405 @@
+# main_1.rs
+
+enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
+enum ArtifactKind { Web, Loi }
+struct Artifact(path:PathBuf, bytes:Vec < u8 >, kind:ArtifactKind)
+struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf)
+struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf)
+struct BundleManifest(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
+struct BundleManifest(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
+struct FileStack(files:Vec < FileMeta >, active_file:FileMeta)
+struct GenericHandler(target:RenderTarget)
+struct GenericUtter(name:String, config:LanguageConfig)
+struct LanguageConfig(name:String, flags:UtterFlags, symbol_patterns:Vec < (& 'static str , SymbolKind) >, to_ir:Option < ToIrFn >)
+struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
+struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
+struct UtterRegistry(utters:HashMap < String , Box < dyn Utter > >, handlers:HashMap < String , Box < dyn Handler > >)
+enum ListFilter { Active, Archived, All }
+enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
+enum SortOrder { Asc, Desc }
+struct GroupKey(namespace:String, name:String, utter:Option < String >, variant:Option < String >, ext:String)
+enum AssignOp { Assign, Immutable, Dynamic }
+enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
+enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
+enum Expr { Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Number(_0), Bool(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
+enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Unknown }
+enum UnOp { Neg, Not, AddrOf }
+struct Span(start:usize, end:usize)
+struct TypedExpr(expr:Expr, ty:Type, span:Span)
+enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
+enum IROp { Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Declare(name, value, mutable, dynamic), Assign(name, value), Load(name), ExprStmt(expr), If(condition, then_branch, else_branch, scope_id), Return(value), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), Lowered(_0) }
+enum LoweredOp { Binary(target, left, op, right), Move(target, source), Label(_0), Jump(_0), JumpIf(condition, label), Nop }
+struct Symbol(name:String, kind:SymbolKind, value:String, file:FileMeta, origin:String, metadata:HashMap < String , String >)
+struct UtterFlags(browser_dom:bool, allow_network:bool, fs_access:bool, db_access:bool)
+struct BuildAllArgs(target:Option < BuildTarget >, flags:BuildFlags)
+struct BuildFlags(force:bool, ext:Option < String >, filter:Option < String >)
+struct ViewArgs(target:Option < BuildTarget >, flags:ViewFlags)
+struct ViewFlags(name:Option < String >, number:Option < i32 >, sort:Option < SortOrder >)
+struct FileMeta(id:Uuid, filename:String, namespace:String, name:String, utter:Option < String >, version:u32, tag:Option < String >, variant:Option < String >, ext:String, path:PathBuf, active:bool, capabilities:Vec < String >)
+enum BuildTarget { ByName(_0), ByIndex(_0) }
+enum Op { Add, Sub, Mul, Div, Cmp, Neg }
+struct AST(stmts:Vec < Stmt >, expr:Option < Expr >)
+enum Command { Mode(_0), List(_0), Tree, History(_0), CapabilityMap, Diff(_0, _1), Build(_0), BuildAll(_0), View(_0), Clear, Help, Exit }
+enum CompilerError { Io(_0), Lexer(_0), Parser(_0), Analysis(_0), Backend(_0) }
+struct SymbolId(name:String, origin:String)
+enum Token { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le, Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power, Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma, LineNote, BlockNote, RawStart, RawEnd, Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Number(_0), String(_0), Ident(_0), Error, EOF }
+enum Identifiers_06 { Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias }
+enum Meta { LineNote, BlockNote, RawStart, RawEnd }
+enum Meta_05 { LineNote, BlockNote, RawStart, RawEnd }
+enum MultiChar_02 { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le }
+enum SingleChar_03 { Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power }
+enum Structural_04 { Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma }
+struct Config(input:PathBuf, output:PathBuf, watch:bool)
+struct FileView(namespace:String, index:usize, filename:String, active:String, name:String, utter:String, version:String, tag:String, ext:String, capabilities:String)
+enum CompileMode { Batch, Interactive, Watch }
+enum IR { Raw(_0), Structured(body, symbols, metadata) }
+enum WebTarget { Html, Css, Js }
+struct AssetOptimizer(minify:bool, remove_comments:bool)
+struct BuildContext(build_id:u64, started_at:Instant, dir_root:PathBuf, dir_out:PathBuf, watch:bool, clean:bool, verbose:bool)
+struct BuildSystem(context:BuildContext, registry:Registry, utters:UtterRegistry, bundle_service:BundleService)
+struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleManifest, resolver:OutputResolver, optimizer:AssetOptimizer)
+struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleManifest, resolver:OutputResolver, optimizer:AssetOptimizer)
+struct CliController(system:BuildSystem, history_path:PathBuf, current_namespace:Vec < String >, verbosity:u8)
+struct CodegenState(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >)
+struct CodegenState(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >)
+struct CommandMeta(label:& 'static str, alias:Option < & 'static str >, description:& 'static str, hidden:bool, weight:u32)
+struct CompiledArtifact(ir:IR, bundle:Vec < Artifact >)
+struct CompilerContext(root_dir:PathBuf, output_dir:PathBuf, mode:CompileMode, registry:Registry, build:BuildSystem)
+struct LLVM(module:Module < 'ctx >)
+struct OutputResolver(manifest:BundleManifest)
+struct ParsedPath(variant:Option < String >, version:u32, is_versioned:bool, is_ui:bool)
+struct RegistryRenderer
+struct Runtime(main:FunctionValue < 'ctx >, printf:FunctionValue < 'ctx >, fmt_f64:PointerValue < 'ctx >, fmt_i32:PointerValue < 'ctx >, fmt_str:PointerValue < 'ctx >)
+struct SemanticAnalyzer(symbols:HashMap < String , Type >, scope_counter:AtomicUsize)
+struct SymbolRegistry(table:HashMap < SymbolId , Symbol >, warnings:Vec < String >)
+struct Theme
+struct ModuleState
+
+## benches/lexer.rs
+
+    bench_lexer(c:& mut Criterion)
+
+## benches/parser.rs
+
+    bench_parser(c:& mut Criterion)
+
+## src/init.rs
+
+    init()
+
+## src/kernel.rs
+
+    struct Kernel(context:Arc < Context >, engine:CompileEngine, logger:Arc < Logger >, cache:Arc < MemoryCache >, job_queue:Arc < JobQueue >, scheduler:TaskScheduler, diagnostics:Arc < RwLock < DiagnosticStore > >)
+
+## src/lib.rs
+
+
+## src/main.rs
+
+    main()
+
+## tests/0001-pulse-mod-resolution.rs
+
+    ensure_common_mods_available_in_tests()
+
+## tests/0002-pipeline.rs
+
+    test_everything_at_once()
+    test_piecemeal()
+
+## tests/0002-pulse-parser.rs
+
+    p01_mul_higher_than_add()
+    parse_simple_expr()
+
+## tests/0003-kernel.rs
+
+    test_kernel_initialization()
+
+## tests/0009-pulse-lexer.rs
+
+    test_single_line_comments_logic()
+
+## tests/002-pulse-llvm.rs
+
+    p01_main_fn_initialized_success()
+    p02_identifies_recognized()
+    p03_str_number()
+    p04_print()
+
+## tests/003-pulse-pipeline-fe.rs
+
+    test_frontend_pipeline()
+
+## tests/004-pulse-pipeline-mid.rs
+
+    test_frontend_pipeline()
+
+## tests/005-pulse-pipeline-be.rs
+
+    test_frontend_pipeline()
+
+## tests/bundler.rs
+
+
+## tests/cli.rs
+
+
+## tests/file_meta.rs
+
+    all_features_together_do_not_conflict()
+    extracts_known_extensions()
+    files_with_different_tags_but_same_identity_group_together_organize()
+    files_with_different_tags_but_same_identity_group_together_scan()
+    multiple_variants()
+    multiple_variants_in_same_version()
+    plain_file()
+    priority_prefix()
+    sequential_versions()
+    tag_is_independent_of_version_and_extension()
+    tags_are_parsed_independently_of_grouping()
+    test_file_extension_parsing()
+    test_file_meta_contract()
+    test_phase_2_routing()
+    test_phase_3_versioning()
+    test_phase_4_complex_stress_test()
+    variant_parsing()
+    version_does_not_affect_name()
+    meta(input:& str)
+    root()
+
+## tests/ir.rs
+
+
+## tests/lexer_00_single_line.rs
+
+    test_delimiters_snap()
+    test_single_line_comments_logic()
+
+## tests/lexer_01_block_comment.rs
+
+    comment_with_code_symbols()
+    nested_raw_blocks_within_comment()
+    skips_content()
+
+## tests/lexer_02_literals.rs
+
+    test_delimiters_snap()
+    test_literal_logic()
+
+## tests/lexer_04_delimiters.rs
+
+    test_delimiter_logic()
+    test_delimiters_snap()
+
+## tests/lexer_05_operators.rs
+
+    test_operator_logic()
+    test_operators_snap()
+
+## tests/lexer_06_keywords.rs
+
+    test_keyword_tokenization()
+    test_keyword_tokenization_snap()
+
+## tests/lexer_07_holistic.rs
+
+    basic_math()
+    complex_expression()
+    empty_input()
+    float_number()
+    invalid_character()
+    multiple_digits()
+    negative_number()
+    nested_parentheses()
+    number()
+    parentheses()
+    subtraction_multiplication_division()
+    whitespace_heavy_input()
+
+## tests/llvm_0.rs
+
+    test_binary_operations()
+    test_complex_expression_flow()
+    test_full_bitcode_generation()
+    test_print_output()
+    test_variable_lifecycle()
+
+## tests/llvm_01_literals.rs
+
+    test_01_literals()
+
+## tests/llvm_02_arithmetic.rs
+
+    test_02_arithmetic()
+
+## tests/llvm_03_comparison.rs
+
+    test_03_comparison()
+
+## tests/llvm_04_assignment.rs
+
+    test_04_assignment()
+
+## tests/llvm_05_if_else.rs
+
+    test_05_if_else()
+
+## tests/llvm_06_while_loops.rs
+
+    test_06_while_loops()
+
+## tests/llvm_07_for_loops.rs
+
+    test_07_for_loops()
+
+## tests/llvm_08_functions.rs
+
+    test_08_functions()
+
+## tests/llvm_09_calls.rs
+
+    test_09_calls()
+
+## tests/llvm_10_recursion.rs
+
+    test_10_recursion()
+
+## tests/llvm_11_arrays.rs
+
+    test_11_arrays()
+
+## tests/llvm_12_structs.rs
+
+    test_12_structs()
+
+## tests/llvm_13_pointers.rs
+
+    test_13_pointers()
+
+## tests/llvm_14_globals.rs
+
+    test_14_globals()
+
+## tests/llvm_15_casting.rs
+
+    test_15_casting()
+
+## tests/llvm_16_printf.rs
+
+    test_16_printf()
+
+## tests/llvm_17_short_circuit.rs
+
+    test_17_short_circuit()
+
+## tests/llvm_18_break_continue.rs
+
+    test_18_break_continue()
+
+## tests/llvm_19_returns.rs
+
+    test_19_returns()
+
+## tests/llvm_20_modules.rs
+
+    test_20_modules()
+
+## tests/mod.rs
+
+
+## tests/parser_01_literals.rs
+
+    p01_parses_integer()
+    p02_parses_float()
+    p03_parses_string()
+    p04_parses_true()
+    p05_parses_false()
+    p06_parses_identifier()
+
+## tests/parser_02_grouping.rs
+
+    p01_parses_grouping()
+    p02_parses_nested_grouping()
+    p03_parses_grouping()
+    p04_parses_nested_grouping()
+
+## tests/parser_03_unary.rs
+
+    p01_parses_negation()
+    p02_parses_logical_not()
+    p03_parses_nested_unary()
+
+## tests/parser_04_binary.rs
+
+    p01_parses_integer()
+    p02_parenthesis_override_precedence()
+    p03_comparison_lower_than_addition()
+    p04_equality_lower_than_comparison()
+    p05_logical_and_lower_than_equality()
+    p06_logical_or_lower_than_and()
+
+## tests/parser_05-1_assignment_expression.rs
+
+    p01_parses_simple_assignment()
+    p02_parses_assignment_rhs_expression()
+    p03_assignment_is_right_associative()
+    p04_rejects_literal_assignment()
+    p05_rejects_binary_expr_assignment()
+
+## tests/parser_05-2_declaration_statements.rs
+
+    p01_mixed_decl_and_expr_assignment()
+    p02_decl_does_not_break_expression_assignment()
+    p03_nested_assignment_expression()
+    p04_member_assignment_with_expression_assignment()
+    p05_index_assignment_chain()
+    p06_parses_identifier()
+    p07_declaration_still_creates_let()
+    p08_test_variable_declarations()
+
+## tests/parser_05-3_pratt_evaluation.rs
+
+    p01_mul_higher_than_add()
+    p02_add_left_associative()
+    p03_mul_left_associative()
+    p04_mixed_precedence()
+    p05_comparison_lower_than_add()
+    p06_logical_precedence()
+    p07_equality_lower_than_and()
+    p08_unary_binding()
+    p09_multiple_unary()
+    p10_postfix_vs_unary()
+    p11_postfix_chain()
+    p12_deep_postfix_chain()
+    p13_assignment_lowest_precedence()
+    p14_chained_assignment()
+    p15_modulo_precedence()
+    p16_exponentiation_right_associative()
+    p17_parentheses_override()
+    p18_complex_logical_grouping()
+
+## tests/parser_05-4_pratt_evaluation-2.rs
+
+    test_precedence_complex_expression_integration()
+    test_precedence_power_vs_multiplication()
+    test_precedence_unary_vs_power()
+
+## tests/parser_06_arrays.rs
+
+    p01_parses_empty_array()
+    p02_parses_single_element_array()
+    p03_parses_multiple_element_array()
+    p04_parses_nested_arrays()
+
+## tests/parser_07_indexing.rs
+
+    p01_parses_array_index()
+    p02_parses_nested_index()
+    p03_parses_index_expression()
+    p04_parses_assignment_to_index()
+
+## tests/parser_08_members.rs
+
+    p01_parses_member_access()
+    p02_parses_member_chain()
+    p03_parses_member_assignment()
+
+## tests/parser_09_calls.rs
+
+    p01_parses_empty_call()
+    p02_parses_single_arg_call()
+    p03_parses_multiple_args_call()
+    p04_parses_nested_calls()
+
+## tests/parser_10_postfix_chaining.rs
+
+    p01_call_after_member()
+    p02_member_after_call()
+    p03_index_after_call()
+    p04_deeply_chained_expression()
+    p05_chained_method_calls()
+    p06_complex_index_expression()
+    p07_member_after_index()
+
+## tests/parser_11_blocks.rs
+
+    p01_parses_empty_block()
+    p02_parses_single_statement_block()
+    p03_parses_nested_blocks()
+
+## tests/parser_12_conditionals.rs
+
+    p01_parses_if()
+    p02_parses_if_else()
+    p03_parses_else_if()
+    p04_parses_nested_if()
+
+## tests/parser_13_declarations.rs
+
+    p01_parses_variable_declaration()
+    p02_parses_initialized_variable()
+    p03_parses_multiple_declarations()
+
+## tests/parser_14_functions.rs
+
+    p01_parses_empty_function()
+    p02_parses_function_with_params()
+    p03_parses_function_with_return()
+    p04_parses_nested_function_calls()
+
+## tests/parser_15_recovery.rs
+
+    p01_reports_unclosed_paren()
+    p02_reports_unclosed_block()
+    p03_reports_invalid_assignment_target()
+    p04_reports_unexpected_token()
+
+## tests/pipeline.rs
+
+
+## tests/registry.rs
+
+    all_version_formats_map_to_same_group()
+    different_tags_are_different_groups()
+    groups_base_and_versions()
+    groups_different_versions_together()
+    groups_numbered_namespaces()
+    groups_tagged_files()
+    groups_versioned_files_into_single_stack()
+    isolates_different_files()
+    latest_version_becomes_active()
+    multiple_versions_group_together()
+    normalization_examples()
+    parse_standard_filename_format_succeeds()
+    parse_version_with_suffix_extracts_base_integer()
+    preserves_namespace_when_grouping()
+    preserves_tag_when_grouping()
+    scan_distinct_utters_maintains_separate_entries()
+    scan_duplicate_filenames_deduplicates_entry()
+    scan_files_orders_lexicographically_by_name()
+    scan_multiple_versions_keeps_only_highest_version()
+    strips_version()
+    strips_version_and_tag()
+    strips_version_before_extension()
+    strips_version_before_tag()
+    test_lexicographical_and_numeric_sorting()
+
+## tests/semantic.rs
+
+
+## tests/snapshot_tests.rs
+
+
+#### crates/lsp/main.rs
+
+        struct LoiServer(client:Client)
+        main()
+
+#### src/backend/compile.rs
+
+        compile(_system_context:& Context, ir:& [IROp], out_base:& Path, module_name:& str)
+
+#### src/backend/link_with_clang.rs
+
+        link_with_clang(input_bc:& Path, output_exe:& Path)
+
+#### src/backend/llvm.rs
+
+        codegen_expr(expr:& Expr, ty:& Type, context:& mut CodeGenContext < 'ctx >)
+        lower_block(context:& mut CodeGenContext < 'ctx >, ops:& [IROp])
+        lower_ir(context:& mut CodeGenContext < 'ctx >, ir:IROp, runtime:& Runtime < 'ctx >, zero:IntValue < 'ctx >)
+        lower_ir_raw(context:& mut CodeGenContext < 'ctx >, op:IROp)
+        lower_stmt_to_ir(context:& mut CodeGenContext < 'ctx >, stmt:Stmt)
+        lower_stmt_to_llvm(context:& mut CodeGenContext < 'ctx >, stmt:Stmt)
+        struct CodeGenContext(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, runtime:Runtime < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >, counter:usize)
+        struct LLVM(context:CodeGenContext < 'ctx >)
+        struct Runtime(main:FunctionValue < 'ctx >, entry_block:BasicBlock < 'ctx >, printf:FunctionValue < 'ctx >, fmt_f64:PointerValue < 'ctx >, fmt_i32:PointerValue < 'ctx >, fmt_str:PointerValue < 'ctx >)
+
+#### src/backend/mod.rs
+
+
+#### src/build/args.rs
+
+        enum BuildTarget { ByName(_0), ByIndex(_0) }
+
+#### src/build/artifact.rs
+
+        enum ArtifactKind { Web, Loi }
+        struct Artifact(path:PathBuf, bytes:Vec < u8 >, kind:ArtifactKind)
+        struct CompiledArtifact(ir:IR, bundle:Vec < Artifact >)
+
+#### src/build/asset_optimizer.rs
+
+        struct AssetOptimizer(minify:bool, remove_comments:bool)
+
+#### src/build/build_system.rs
+
+        struct BuildContext(build_id:u64, started_at:Instant, dir_root:PathBuf, dir_out:PathBuf, watch:bool, clean:bool, verbose:bool)
+        struct BuildSystem(context:BuildContext, registry:Registry, utters:UtterRegistry, bundle_service:BundleService)
+
+#### src/build/mod.rs
+
+
+#### src/build/output_resolver.rs
+
+        struct OutputResolver(manifest:BundleConfig)
+
+#### src/build/service.rs
+
+        struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
+        struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleConfig, resolver:OutputResolver, optimizer:AssetOptimizer)
+
+#### src/cli/args.rs
+
+        struct CliArgs(watch:bool, input:Option < PathBuf >, output:Option < PathBuf >, concurrency:Option < usize >)
+
+#### src/cli/command.rs
+
+        enum SortOrder { Asc, Desc }
+        struct BuildAllArgs(target:Option < BuildTarget >, flags:BuildFlags)
+        struct BuildFlags(force:bool, ext:Option < String >, filter:Option < String >)
+        struct ViewArgs(target:Option < BuildTarget >, flags:ViewFlags)
+        struct ViewFlags(name:Option < String >, number:Option < i32 >, sort:Option < SortOrder >)
+        enum Command { Mode(_0), List(_0), Tree, History(_0), CapabilityMap, Diff(_0, _1), Build(_0), BuildAll(_0), View(_0), Clear, Help, Exit }
+        struct CommandMeta(label:& 'static str, alias:Option < & 'static str >, description:& 'static str, hidden:bool, weight:u32)
+
+#### src/cli/controller.rs
+
+        struct CliController(system:BuildSystem, history_path:PathBuf, current_namespace:Vec < String >, verbosity:u8)
+
+#### src/cli/display.rs
+
+        enum ListFilter { Active, Archived, All }
+        struct FileView(namespace:String, index:usize, filename:String, active:String, name:String, utter:String, version:String, tag:String, ext:String, capabilities:String)
+        struct RegistryRenderer
+        struct Theme
+
+#### src/cli/mod.rs
+
+
+#### src/compiler/addon.rs
+
+        struct BackendRegistry
+        struct PassRegistry
+        struct PipelineExtensions
+
+#### src/compiler/bundler.rs
+
+        struct OutputEmitter
+
+#### src/compiler/cache.rs
+
+        struct MemoryCache(map:HashMap < String , String >)
+        struct CachePolicy
+        struct CompilationCache(cache:HashMap < String , Vec < u8 > >)
+        struct NetworkCache
+        struct PersistentCache(disk_path:Option < PathBuf >)
+
+#### src/compiler/config.rs
+
+        struct CompileConfig(root:PathBuf, name:String, input:PathBuf, output:PathBuf, watch:bool, concurrency:usize)
+        struct Config(root:Arc < RwLock < PathBuf > >, name:Arc < RwLock < String > >, input:Option < PathBuf >, output:Option < PathBuf >, watch:Option < bool >, concurrency:Option < usize >)
+        enum ConfigSource { Defaults, File(_0), Cli(_0), ReplOverrides }
+        struct ConfigResolver
+
+#### src/compiler/diagnostic.rs
+
+        struct Diagnostic(message:String, code:Option < String >, span:Span, severity:Severity, notes:Vec < String >, suggestions:Vec < String >)
+        struct DiagnosticStore(halt_on_error:bool, error_count:usize, diagnostics:VecDeque < Diagnostic >)
+        struct Logger
+        struct CompilerEventBus
+        struct Inspector
+        struct Profiler
+        struct TraceSystem
+        enum Severity { Info, Warning, Error, Hint }
+
+#### src/compiler/engine.rs
+
+        struct CompileEngine(state:Arc < RwLock < CompileState > >, config:Arc < RwLock < CompileConfig > >, stages:Vec < Box < dyn Stage > >)
+
+#### src/compiler/env.rs
+
+        enum Mode { Batch, Interactive, Watch }
+        enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
+        enum TargetOS { Linux, MacOS, Windows, Unknown }
+        struct FeatureFlags(incremental:bool, parallel_frontend:bool, parallel_codegen:bool, aggressive_cache:bool, debug_symbols:bool, hot_reload:bool)
+        struct TargetConfig(os:TargetOS, arch:TargetArch, abi:Option < String >)
+        struct ToolchainPaths(llvm_bin:Option < PathBuf >, linker:Option < PathBuf >, assembler:Option < PathBuf >, wasm_toolchain:Option < PathBuf >, custom_backend:Option < PathBuf >)
+        struct Env(root_dir:PathBuf, output_dir:PathBuf, mode:Mode, target:TargetConfig, features:FeatureFlags, toolchain:ToolchainPaths, cwd:PathBuf, timestamp:u64)
+
+#### src/compiler/error.rs
+
+        enum Error { Io(_0), Lexer(_0), Parser(_0), Analysis(_0), Backend(_0) }
+
+#### src/compiler/execution.rs
+
+        struct JobQueue(jobs:Arc < Mutex < Vec < String > > >)
+        struct TaskScheduler
+        struct PluginSystem
+        struct PrioritySystem(priority_map:HashMap < String , u8 >)
+
+#### src/compiler/mod.rs
+
+
+#### src/compiler/runtime.rs
+
+        struct IRRuntime
+        struct LoweringRuntime
+        struct SymbolRuntime
+
+#### src/compiler/safety.rs
+
+        struct FallbackPipeline
+        struct RecoverySystem
+
+#### src/compiler/scale.rs
+
+        struct BuildFarm
+        struct DistributedCompiler
+
+#### src/compiler/state.rs
+
+        struct BuildCache(object_cache:HashMap < u64 , Vec < u8 > >, ir_cache:HashMap < u64 , Vec < IROp > >, symbol_cache:HashMap < u64 , Vec < u8 > >, timestamps:HashMap < PathBuf , u64 >, cache_version:u32)
+        struct DependencyGraph(forward:HashMap < SymbolId , HashSet < SymbolId > >, reverse:HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache:HashMap < SymbolId , HashSet < SymbolId > >, cycles:Vec < Vec < SymbolId > >)
+        struct FileGraph(imports:HashMap < Uuid , Vec < Uuid > >, dependents:HashMap < Uuid , Vec < Uuid > >, topo_order:Vec < Uuid >, cycles:Vec < Vec < Uuid > >)
+        struct IRCache(per_file:HashMap < Uuid , Vec < IROp > >, per_symbol:HashMap < SymbolId , Vec < IROp > >, dedup_cache:HashMap < u64 , Vec < IROp > >, ir_versions:HashMap < Uuid , u32 >)
+        struct LoweredCache(per_file:HashMap < Uuid , Vec < LoweredOp > >, per_symbol:HashMap < SymbolId , Vec < LoweredOp > >, backend_cache:HashMap < String , Vec < u8 > >, opt_pass_version:u32)
+        struct SymbolIndex(by_name:HashMap < String , Vec < SymbolId > >, by_file:HashMap < Uuid , Vec < SymbolId > >, fqns:HashMap < String , SymbolId >, scope_stack:Vec < Vec < SymbolId > >)
+        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, diagnostics:DiagnosticStore, compiler_version:String, ir_version:u32)
+
+#### src/context/compile.rs
+
+        struct CompileContext(env:Env, config:Config, state:CompileState, diagnostics:DiagnosticStore, cache:MemoryCache)
+
+#### src/context/context.rs
+
+        struct Context(env:Env, config:Config, diagnostics:Arc < RwLock < DiagnosticStore > >, cache:MemoryCache)
+
+#### src/context/fs.rs
+
+        struct FS(root:PathBuf, cwd:PathBuf, cache_dir:PathBuf, build_dir:PathBuf)
+
+#### src/context/mod.rs
+
+
+#### src/context/test.rs
+
+        struct TestContext(logger:Logger, cache:MemoryCache, diagnostics:DiagnosticStore)
+
+#### src/development/mod.rs
+
+
+#### src/development/server.rs
+
+        enum Command { Build(_0), Rebuild(_0), Clean(_0), Inspect(_0), Exit }
+        struct CompileServer(engine:CompileEngine, state:CompileState, watcher:Option < FileWatcher >, repl:Option < Repl >, events:CompilerEventBus)
+        enum Event { FileChanged(_0), Command(_0) }
+        enum FileChangeKind { Created, Modified, Deleted }
+        start(kernel:Kernel)
+        start_server(kernel:Kernel, config:CompileConfig)
+        struct BuildCommand
+        struct CleanCommand
+        struct CommandEvent(command:Command)
+        struct FileChangedEvent(path:PathBuf, kind:FileChangeKind)
+        struct InspectCommand
+        struct RebuildCommand
+        struct Repl
+
+#### src/development/watcher.rs
+
+        struct ChangeDetector
+        struct FileWatcher
+        struct HotReloadManager
+        struct IncrementalCompiler
+
+#### src/diagnostics/mod.rs
+
+        diagnostics()
+
+#### src/frontend/ast.rs
+
+        enum AssignOp { Assign, Immutable, Dynamic }
+        enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
+        enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
+        enum Expr { Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Bool(_0), Number(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
+        enum UnOp { Neg, Not, AddrOf }
+        enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
+
+#### src/frontend/display.rs
+
+
+#### src/frontend/lexer.rs
+
+        find_comment_end(input:& str)
+        lex_number(chars:& mut std :: iter :: Peekable < std :: str :: Chars >)
+        lex(input:& str)
+
+#### src/frontend/mod.rs
+
+
+#### src/frontend/parser.rs
+
+        struct Parser
+        is_assignable(expr:& Expr)
+        is_expr_start(tok:Option < & Token >)
+        kind_from_token(tok:& Token)
+        looks_like_declaration(tokens:& mut Peekable < I >)
+        parse_add_sub(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_and(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_array(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_assignment(tokens:& mut TokenStream, lhs:Option < Expr >, diagnostics:& mut DiagnosticStore)
+        parse_comparison(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_equality(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_expr(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_member_and_index_chain(expr:Expr, tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_mul_div(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_or(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_postfix(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_power(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_primary(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_stmt(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_unary(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_incremental(prev:& AST, tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_source(input:& str)
+
+#### src/frontend/token.rs
+
+        enum Token { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le, Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power, Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma, LineNote, BlockNote, RawStart, RawEnd, Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Ident(_0), Number(_0), String(_0), Error, EOF }
+        lex_block_note(lex:& mut Lexer < Token >)
+        lex_line_note(lex:& mut Lexer < Token >)
+        lex_raw_block(lex:& mut Lexer < Token >)
+
+#### src/frontend/token_seeds.rs
+
+        enum Identifiers_06 { Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias }
+        enum Meta { LineNote, BlockNote, RawStart, RawEnd }
+        enum Meta_05 { LineNote, BlockNote, RawStart, RawEnd }
+        enum MultiChar_02 { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le }
+        enum SingleChar_03 { Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power }
+        enum Structural_04 { Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma }
+
+#### src/frontend/types.rs
+
+        struct LexerConfig(allow_unicode_identifiers:bool, allow_raw_strings:bool, comment_support:bool)
+        struct LexerState(position:usize, line:usize, column:usize)
+        struct Lexer(state:LexerState, config:LexerConfig)
+        struct TokenStream(tokens:Vec < Token >, pos:usize)
+
+#### src/interface/engine_provider.rs
+
+
+#### src/interface/fs.rs
+
+
+#### src/interface/mod.rs
+
+
+#### src/middle/ir.rs
+
+        struct TypedExpr(expr:Expr, ty:Type, span:Span)
+        enum IROp { Return(value), Declare(name, value, mutable, dynamic), Nop, Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Assign(name, value), Load(name), If(condition, then_branch, else_branch, scope_id), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), ExprStmt(expr), ControlFlow, Lowered(_0) }
+        enum LoweredOp { Binary(target, left, op, right), Move(target, source), Label(_0), Jump(_0), JumpIf(condition, label), Nop }
+        enum Op { Add, Sub, Mul, Div, Cmp, Neg }
+        to_typed_expr(expr:Expr)
+        enum RegionKind { Native, JavaScript, TypeScript, JSX, SQL, Python, Shader, Unknown(_0) }
+        enum RegionMode { Passthrough, CompileAndInject, Dual }
+        struct IR(raw:String, nodes:Vec < IROp >, symbols:HashMap < String , Symbol >, metadata:HashMap < String , String >)
+        struct RegionBlock(kind:RegionKind, source:String, output:Option < Vec < u8 > >, mode:RegionMode)
+
+#### src/middle/mod.rs
+
+
+#### src/middle/optimize.rs
+
+
+#### src/middle/semantic.rs
+
+        analyze_block(block:Vec < Stmt >, symbols:& mut HashMap < String , Type >)
+        analyze_stmt(stmt:Stmt, symbols:& mut HashMap < String , Type >)
+        annotate_types(expr:& mut Expr, symbol_table:& HashMap < String , Type >)
+        infer_type(expr:& Expr, symbols:& HashMap < String , Type >)
+        one(op:IROp)
+        wrap_typed(expr:Expr, symbols:& HashMap < String , Type >, span:Span)
+        analyze(ast:AST)
+        struct SemanticAnalyzer(symbols:HashMap < String , Type >, scope_counter:AtomicUsize)
+
+#### src/middle/types.rs
+
+        struct Span(file:PathBuf, start:usize, end:usize)
+        enum ModuleItem { Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0) }
+        enum TopLevelItem { Module(_0), Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0), Stmt(_0) }
+        enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Return, Unknown }
+        struct Block(stmts:Vec < Stmt >)
+        struct Enum(name:String, variants:Vec < Variant >)
+        struct Field(name:String, ty:Type)
+        struct Function(name:String, params:Vec < Param >, body:Block)
+        struct Import(path:Vec < String >, alias:Option < String >, glob:bool)
+        struct Module(name:String, items:Vec < ModuleItem >)
+        struct Param(name:String, ty:Option < Type >)
+        struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
+        struct Struct(name:String, fields:Vec < Field >)
+        struct Variant(name:String, fields:Vec < Type >)
+        struct AST(stmts:Vec < Stmt >, expr:Option < Expr >, program:Program, items:Vec < TopLevelItem >)
+
+#### src/pipeline/backend.rs
+
+        enum BackendTarget { Bytecode, LLVM, WASM }
+        enum OptimizationLevel { None, Basic, Aggressive }
+        struct CodegenConfig(emit_debug_info:bool, inline_functions:bool, vectorize:bool)
+        struct BackendPipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, target:BackendTarget, opt_level:OptimizationLevel, codegen_config:CodegenConfig, debug:bool)
+
+#### src/pipeline/compile_targets.rs
+
+        compile_file(kernel:& Kernel, path:& Path, output_dir:& Path)
+        compile_targets(kernel:Kernel, config:& CompileConfig)
+
+#### src/pipeline/frontend.rs
+
+        struct FrontendFeatures(enable_macros:bool, enable_jsx_like_blocks:bool, strict_mode:bool)
+        struct FrontendPipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, lexer:Arc < RwLock < Lexer > >, parser:Arc < RwLock < Parser > >, features:FrontendFeatures)
+
+#### src/pipeline/middle.rs
+
+        struct IRConfig(preserve_raw_blocks:bool, optimize_early:bool)
+        struct MiddleFeatures(enable_type_checking:bool, enable_macro_expansion:bool, enable_dead_code_analysis:bool)
+        struct MiddlePipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, ir_config:IRConfig, features:MiddleFeatures)
+
+#### src/pipeline/mod.rs
+
+        struct Metadata(name:String, version:String)
+
+#### src/pipeline/provider.rs
+
+
+#### src/pipeline/stage.rs
+
+
+#### src/registry/display.rs
+
+
+#### src/registry/extended.rs
+
+        enum WebTarget { Html, Css, Js }
+        extract_web_target(name:& str)
+        web_target(ext:& str)
+
+#### src/registry/file_meta.rs
+
+        struct GroupKey(namespace:String, name:String, utter:Option < String >, variant:Option < String >, ext:String)
+        struct FileMeta(id:Uuid, filename:String, namespace:String, name:String, utter:Option < String >, version:u32, tag:Option < String >, variant:Option < String >, ext:String, path:PathBuf, active:bool, capabilities:Vec < String >)
+        struct ParsedPath(variant:Option < String >, version:u32, is_versioned:bool, is_ui:bool)
+
+#### src/registry/mod.rs
+
+
+#### src/registry/registry.rs
+
+        struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
+        struct FileStack(files:Vec < FileMeta >, active_file:FileMeta)
+
+#### src/registry/test_utils.rs
+
+
+#### src/ui/mod.rs
+
+
+#### tests/common/00-pulse-helper.rs
+
+        common_helper_helper(name:& str)
+
+#### tests/common/assertion.rs
+
+        assert_expr(input:& str, expected:& str)
+        assert_expr_with_ops(opts:impl Into < AssertOpts >, input:& str, expected:& str)
+        struct AssertOpts(snapshot:bool, verbose:bool)
+
+#### tests/common/harness.rs
+
+        struct TestHarness(env:TestEnv, registry:Registry, engines:HashMap < String , Box < dyn Utter > >)
+
+#### tests/common/helpers.rs
+
+        finalize_ir(ir:Vec < IROp >)
+        assert_snapshot_value(label:& str, value:impl std :: fmt :: Display)
+        assert_symbol_exists(sym:& SymbolRegistry, name:& str, file:& str)
+        assert_symbol_missing(sym:& SymbolRegistry, name:& str, file:& str)
+        ast_to_ir(ast:AST)
+        clean(s:& str)
+        compile_and_lower(context:& 'ctx Context, input:& str)
+        fails(input:& str)
+        file(name:& str)
+        generate_binary_ir(target:& str, left:TypedExpr, right:TypedExpr)
+        get_test_root()
+        make_engine_with_symbols(symbols:Vec < (& str , Symbol) >)
+        make_registry(files:& [& str])
+        parse_to_ast(input:& str)
+        parse_with_diagnostics(input:& str)
+        parses(src:& str)
+        run_incremental_symbol_pipeline(registry:& Registry, engines:& HashMap < String , Box < dyn Utter > >)
+        run_symbol_pipeline(registry:& Registry, engines:& HashMap < String , Box < dyn Utter > >)
+        setup_test_context()
+        sym(name:& str, value:& str, file:& str)
+        struct ParseResult(ast:AST, diagnostics:DiagnosticStore)
+
+#### tests/common/kernel.rs
+
+        struct KernelTestHarness(kernel:Kernel)
+
+#### tests/common/lexer.rs
+
+        struct LexerTestHarness(tokens:Vec < Token >)
+
+#### tests/common/llvm.rs
+
+        add_var(target:& str, left:& str, right:& str)
+        get_ir_string(ops:& [IROp])
+        struct IrTestHarness(ir:String)
+
+#### tests/common/mock_engine.rs
+
+        struct MockEngine(name:String, registry:HashMap < String , Vec < Symbol > >)
+
+#### tests/common/mod.rs
+
+        ensure_lib_mods_available_in_tests()
+        common_mod_helper(name:& str)
+
+#### tests/common/pipeline.rs
+
+        create_test_harness()
+        test_middle_pipeline_optimization()
+
+#### tests/common/pipeline2.rs
+
+        assert_snapshot_value(label:& str, value:impl std :: fmt :: Display)
+        assert_symbol_exists(sym:& SymbolRegistry, name:& str, file:& str)
+        assert_symbol_missing(sym:& SymbolRegistry, name:& str, file:& str)
+        file(name:& str)
+        get_test_root()
+        make_engine_with_symbols(symbols:Vec < (& str , Symbol) >)
+        make_registry(files:& [& str])
+        run_incremental_symbol_pipeline(registry:& Registry, engines:& HashMap < String , Box < dyn Utter > >)
+        run_symbol_pipeline(registry:& Registry, engines:& HashMap < String , Box < dyn Utter > >)
+        setup_test_context()
+        sym(name:& str, value:& str, file:& str)
+
+#### tests/common/snapshot.rs
+
+        struct SnapshotTester(sub_dir:& 'static str)
+
+#### tests/dir_tests/00-1.foo.rs
+
+
+#### tests/dir_tests/00-2.foo.rs
+
+
+#### tests/dir_tests/00-foo.rs
+
+
+#### tests/dir_tests/00.foo.rs
+
+
+#### tests/dir_tests/00.pulse_parser.rs
+
+        parse_simple_expr()
+
+#### tests/dir_tests/000.rs
+
+
+#### tests/dir_tests/00a.rs
+
+
+#### tests/dir_tests/01-01.foo.rs
+
+
+#### tests/dir_tests/01-02.foo.rs
+
+
+#### tests/dir_tests/01.foo.rs
+
+
+#### tests/dir_tests/02-01.foo.rs
+
+
+#### tests/dir_tests/02-02.foo.rs
+
+
+#### tests/dir_tests/02-1.foo.rs
+
+
+#### tests/dir_tests/02-2.foo.rs
+
+
+#### tests/dir_tests/02.foo.rs
+
+
+#### tests/dir_tests/2-01.foo.rs
+
+
+#### tests/dir_tests/2-02.foo.rs
+
+
+#### tests/dir_tests/2.foo.rs
+
+
+#### tests/e2e/simple_project.rs
+
+
+#### tests/e2e/versioned_packages.rs
+
+
+#### tests/e2e/workspace.rs
+
+
+#### tests/integration/phase_1_indexing.rs
+
+
+#### tests/integration/phase_1_symbol_collection.rs
+
+
+#### tests/integration/phase_2_resolution.rs
+
+
+#### tests/integration/phase_3_semantic.rs
+
+
+#### tests/integration/phase_4_ir.rs
+
+
+#### tests/integration/phase_5_codegen.rs
+
+
+#### tests/integration/phase_6_bundler.rs
+
+
+#### tests/lexer/00_single_line.rs
+
+        test_delimiters_snap()
+        test_single_line_comments_logic()
+
+#### tests/lexer/01_block_comment.rs
+
+        comment_with_code_symbols()
+        nested_raw_blocks_within_comment()
+        skips_content()
+
+#### tests/lexer/02_literals.rs
+
+        test_delimiters_snap()
+        test_literal_logic()
+
+#### tests/lexer/04_delimiters.rs
+
+        test_delimiter_logic()
+        test_delimiters_snap()
+
+#### tests/lexer/05_operators.rs
+
+        test_operator_logic()
+        test_operators_snap()
+
+#### tests/lexer/06_keywords.rs
+
+        test_keyword_tokenization()
+        test_keyword_tokenization_snap()
+
+#### tests/lexer/07_holistic.rs
+
+        basic_math()
+        complex_expression()
+        empty_input()
+        float_number()
+        invalid_character()
+        multiple_digits()
+        negative_number()
+        nested_parentheses()
+        number()
+        parentheses()
+        subtraction_multiplication_division()
+        whitespace_heavy_input()
+
+#### tests/lexer/mod.rs
+
+
+#### tests/llvm_tests/mod.rs
+
+
+#### tests/parser/01_literals.rs
+
+        p01_parses_integer()
+        p02_parses_float()
+        p03_parses_string()
+        p04_parses_true()
+        p05_parses_false()
+        p06_parses_identifier()
+
+#### tests/parser/02_grouping.rs
+
+        p01_parses_grouping()
+        p02_parses_nested_grouping()
+        p03_parses_grouping()
+        p04_parses_nested_grouping()
+
+#### tests/parser/03_unary.rs
+
+        p01_parses_negation()
+        p02_parses_logical_not()
+        p03_parses_nested_unary()
+
+#### tests/parser/04_binary.rs
+
+        p01_parses_integer()
+        p02_parenthesis_override_precedence()
+        p03_comparison_lower_than_addition()
+        p04_equality_lower_than_comparison()
+        p05_logical_and_lower_than_equality()
+        p06_logical_or_lower_than_and()
+
+#### tests/parser/05-1_assignment_expression.rs
+
+        p01_parses_simple_assignment()
+        p02_parses_assignment_rhs_expression()
+        p03_assignment_is_right_associative()
+        p04_rejects_literal_assignment()
+        p05_rejects_binary_expr_assignment()
+
+#### tests/parser/05-2_declaration_statements.rs
+
+        p01_mixed_decl_and_expr_assignment()
+        p02_decl_does_not_break_expression_assignment()
+        p03_nested_assignment_expression()
+        p04_member_assignment_with_expression_assignment()
+        p05_index_assignment_chain()
+        p06_parses_identifier()
+        p07_declaration_still_creates_let()
+        p08_test_variable_declarations()
+
+#### tests/parser/05-3_pratt_evaluation.rs
+
+        p01_mul_higher_than_add()
+        p02_add_left_associative()
+        p03_mul_left_associative()
+        p04_mixed_precedence()
+        p05_comparison_lower_than_add()
+        p06_logical_precedence()
+        p07_equality_lower_than_and()
+        p08_unary_binding()
+        p09_multiple_unary()
+        p10_postfix_vs_unary()
+        p11_postfix_chain()
+        p12_deep_postfix_chain()
+        p13_assignment_lowest_precedence()
+        p14_chained_assignment()
+        p15_modulo_precedence()
+        p16_exponentiation_right_associative()
+        p17_parentheses_override()
+        p18_complex_logical_grouping()
+
+#### tests/parser/05-4_pratt_evaluation-2.rs
+
+        test_precedence_complex_expression_integration()
+        test_precedence_power_vs_multiplication()
+        test_precedence_unary_vs_power()
+
+#### tests/parser/06_arrays.rs
+
+        p01_parses_empty_array()
+        p02_parses_single_element_array()
+        p03_parses_multiple_element_array()
+        p04_parses_nested_arrays()
+
+#### tests/parser/07_indexing.rs
+
+        p01_parses_array_index()
+        p02_parses_nested_index()
+        p03_parses_index_expression()
+        p04_parses_assignment_to_index()
+
+#### tests/parser/08_members.rs
+
+        p01_parses_member_access()
+        p02_parses_member_chain()
+        p03_parses_member_assignment()
+
+#### tests/parser/09_calls.rs
+
+        p01_parses_empty_call()
+        p02_parses_single_arg_call()
+        p03_parses_multiple_args_call()
+        p04_parses_nested_calls()
+
+#### tests/parser/10_postfix_chaining.rs
+
+        p01_call_after_member()
+        p02_member_after_call()
+        p03_index_after_call()
+        p04_deeply_chained_expression()
+        p05_chained_method_calls()
+        p06_complex_index_expression()
+        p07_member_after_index()
+
+#### tests/parser/11_blocks.rs
+
+        p01_parses_empty_block()
+        p02_parses_single_statement_block()
+        p03_parses_nested_blocks()
+
+#### tests/parser/12_conditionals.rs
+
+        p01_parses_if()
+        p02_parses_if_else()
+        p03_parses_else_if()
+        p04_parses_nested_if()
+
+#### tests/parser/13_declarations.rs
+
+        p01_parses_variable_declaration()
+        p02_parses_initialized_variable()
+        p03_parses_multiple_declarations()
+
+#### tests/parser/14_functions.rs
+
+        p01_parses_empty_function()
+        p02_parses_function_with_params()
+        p03_parses_function_with_return()
+        p04_parses_nested_function_calls()
+
+#### tests/parser/15_recovery.rs
+
+        p01_reports_unclosed_paren()
+        p02_reports_unclosed_block()
+        p03_reports_invalid_assignment_target()
+        p04_reports_unexpected_token()
+
+#### tests/parser/mod.rs
+
+
+#### tests/z.pulse-testing/00-mod-resolution.rs
+
+        ensure_common_mods_available_in_tests_nested()
+
+#### tests/z.pulse-testing/01-pipeline.rs
+
+        test_everything_at_once()
+        test_piecemeal()
+
+#### tests/z.pulse-testing/mod.rs
+
+
+###### src/backend/symbol/mod.rs
+
+
+###### src/backend/symbol/registry.rs
+
+            enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
+            struct Symbol(name:String, kind:SymbolKind, value:String, file:FileMeta, origin:String, metadata:HashMap < String , String >)
+            struct SymbolRegistry(table:HashMap < SymbolId , Symbol >, warnings:Vec < String >)
+            struct SymbolId(name:String, origin:String)
+
+###### src/backend/utter/handler.rs
+
+            enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
+            struct GenericHandler(target:RenderTarget)
+
+###### src/backend/utter/mod.rs
+
+
+###### src/backend/utter/registry.rs
+
+            struct UtterRegistry(utters:HashMap < String , Box < dyn Utter > >, handlers:HashMap < String , Box < dyn Handler > >)
+
+###### src/backend/utter/utter.rs
+
+            struct GenericUtter(name:String, config:LanguageConfig)
+            struct LanguageConfig(name:String, flags:UtterFlags, symbol_patterns:Vec < (& 'static str , SymbolKind) >, to_ir:Option < ToIrFn >)
+            struct UtterFlags(browser_dom:bool, allow_network:bool, fs_access:bool, db_access:bool)
+            get_language_definitions()
+
+###### tools/code_gen/src/main.rs
+
+            find_enum(ast:& File, name:& str)
+            main()
+
+###### tools/evaluator/src/lib.rs
+
+
+###### tools/evaluator/src/main copy.rs
+
+            struct ExtractConfig(include_structs:bool, include_enums:bool)
+            main()
+            process_file(path:& Path, config:& ExtractConfig, output:& mut String)
+            quote_item(item:& Item)
+
+###### tools/evaluator/src/main.rs
+
+            collect_files(root:& Path)
+            depth(path:& Path, root:& Path)
+            format_output(output:& str, config:& OutputConfig)
+            format_path(path:& Path, root:& Path, mode:& PathMode)
+            indent(level:usize)
+            main()
+            match_symbol(item:& syn :: Item, matcher:& SymbolMatcher, indent:String)
+            passes_structural_filter(_item:& syn :: Item, filter:& StructuralFilter)
+            process_file(path:& Path, config:& ExtractConfig, output:& mut String)
+            render_enum(e:& syn :: ItemEnum, config:& DenseConfig, indent:String)
+            render_function(f:& syn :: ItemFn, config:& DenseConfig, indent:String)
+            render_header(rel:& Path, file_depth:usize, config:& ExtractConfig)
+            render_item(item:& syn :: Item, config:& DenseConfig, indent:String)
+            render_struct(s:& syn :: ItemStruct, config:& DenseConfig, indent:String)
+            tree_cmp(a:& Path, b:& Path)
+            vis_to_str(vis:& syn :: Visibility)
+
+###### tools/evaluator/src/types.rs
+
+            enum ExtractMode { SymbolsOnly, FullBody }
+            enum PathMode { FileName, Relative, ModulePath }
+            enum FunctionKind { Free, Method, Associated, Lambda }
+            enum Language { Rust, JavaScript, TypeScript, JSX, TSX, Python, Go, Java, CSharp, Unknown }
+            enum SymbolKind { Function(_0), Variable(_0), Type(_0) }
+            enum TypeKind { Struct, Enum, Class, Trait, Interface, TypeAlias }
+            enum VariableKind { Let, Const, Var, Field }
+            enum DepthConstraint { Any, Exact(_0), Range(from, to) }
+            enum EnumFormat { NameOnly, NameWithTypes }
+            enum HeaderFormat { None, Flat, DepthHash }
+            enum HeaderMode { Flat, DepthHash }
+            enum IncludePolicy { Only, IncludeDerived, IncludeNested }
+            enum Matcher { Symbol(_0), File(_0) }
+            enum ParamFormat { NameOnly, NameList, NameType }
+            enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
+            enum PathFormat { FileName, Relative, ModulePath, Absolute }
+            enum ScopeRoot { File, Module, Symbol(_0) }
+            struct CodeBlockConfig(enabled:bool, language_override:Option < String >, preserve_indentation:bool)
+            struct DenseConfig(functions:FunctionDenseConfig, structs:StructDenseConfig, enums:EnumDenseConfig)
+            struct EnumDenseConfig(variants:ParamFormat)
+            struct ExtractConfig(input_dir:PathBuf, output_file:PathBuf, rules:Vec < Rule >, output:OutputConfig)
+            struct FileMatcher(extensions:HashSet < String >, path_contains:Option < String >, ignore_tests:bool)
+            struct FunctionDenseConfig(params:ParamFormat)
+            struct OutputConfig(path_format:PathFormat, header:HeaderFormat, codeblock:Option < CodeBlockConfig >, dense:DenseConfig)
+            struct Rule(languages:HashSet < Language >, matchers:Vec < Matcher >)
+            struct StructDenseConfig(fields:ParamFormat)
+            struct StructuralFilter(depth:DepthConstraint, parent:Option < ParentConstraint >)
+            struct SymbolMatcher(kinds:HashSet < SymbolKind >, structural:Option < StructuralFilter >)
+
+########## target/debug/build/serde-5f75ab21720aa2d3/out/private.rs
+
+
+########## target/debug/build/serde-a14f62ddc35dcf27/out/private.rs
+
+
+########## target/debug/build/serde_core-18442a059e4286db/out/private.rs
+
+
+########## target/debug/build/serde_core-bf5432e6f1d08008/out/private.rs
+
+
+########## target/debug/build/terminfo-3b5428aaf7a5e812/out/names.rs
+
+
+########## target/debug/build/terminfo-e79a6d262494c29d/out/names.rs
+
+
+########## target/debug/build/thiserror-469c9a37537a974d/out/private.rs
+
+

@@ -1,4 +1,5 @@
 use loi::pipeline::middle::MiddlePipeline;
+use loi::pipeline::stage::Stage;
 use loi::{
     compiler::{config::CompileConfig, state::CompileState},
     context::Context,
@@ -26,5 +27,6 @@ pub fn create_test_harness() -> (
 #[test]
 fn test_middle_pipeline_optimization() {
     let (ctx, cfg, state) = create_test_harness();
-    let pipeline = MiddlePipeline::new(ctx, cfg, state);
+    let result = MiddlePipeline::new(ctx, cfg, state);
+    assert_eq!(result.name(), "MiddlePipeline", "module resolution failed");
 }

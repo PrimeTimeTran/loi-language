@@ -5,29 +5,10 @@ use std::path::PathBuf;
 
 use crate::frontend::ast::{BinOp, Expr, Stmt};
 
+use crate::middle::types::{Span, Type};
 use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Span {
-    pub file: PathBuf,
-    pub start: usize,
-    pub end: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Type {
-    I32,
-    F64,
-    Bool,
-    Str,
-    Void,
-    Ptr(Box<Type>),
-    Array(Box<Type>),
-    Return,
-    Unknown,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypedExpr {

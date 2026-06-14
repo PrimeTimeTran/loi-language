@@ -1,7 +1,8 @@
 use crate::frontend::ast::{AST, DeclKind, Expr, Stmt};
 use crate::frontend::lexer;
 use crate::frontend::parser::parse;
-use crate::middle::ir::{IROp, Span, Type, TypedExpr};
+use crate::middle::ir::{IROp, TypedExpr};
+use crate::middle::types::{Span, Type};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -37,7 +38,6 @@ impl SemanticAnalyzer {
     ) -> Result<Vec<IROp>, String> {
         let mut ir = Vec::new();
         for stmt in block {
-            // Pass the mutable reference to symbols to each statement
             let lowered = analyze_stmt(stmt, symbols)?;
             ir.extend(lowered);
         }

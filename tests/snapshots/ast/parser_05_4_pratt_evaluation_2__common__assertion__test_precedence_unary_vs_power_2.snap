@@ -27,3 +27,7 @@ Ok:
             Var: b
   program:
     stmts: []
+    modules: []
+    globals: []
+    entry: ~
+  items: []

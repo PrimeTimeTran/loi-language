@@ -140,10 +140,9 @@ pub struct Inspector;
 
 #[derive(Default)]
 pub struct CompilerEventBus;
-
+use crate::middle;
+use middle::types::Span;
 use std::path::PathBuf;
-
-use crate::middle::ir::Span;
 
 /// Severity of a diagnostic
 #[derive(Default, Debug, Clone, Copy)]

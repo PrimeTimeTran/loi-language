@@ -1,6 +1,7 @@
 pub mod addon;
 pub mod bundler;
 pub mod cache;
+pub mod compile;
 pub mod config;
 pub mod diagnostic;
 pub mod engine;

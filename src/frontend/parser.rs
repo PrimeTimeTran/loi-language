@@ -5,10 +5,11 @@ use crate::{
     compiler::diagnostic::{self, Diagnostic, DiagnosticStore},
     frontend::{
         ast::{AST, AssignOp, BinOp, DeclKind, Expr, Stmt, UnOp},
-        lexer::{TokenStream, lex},
+        lexer::lex,
         token::Token,
+        types::TokenStream,
     },
-    middle::ir::Span,
+    middle::types::Span,
 };
 
 #[derive(Default)]
@@ -18,8 +19,6 @@ impl Parser {
     pub fn new() -> Self {
         Self
     }
-}
-impl Parser {
     pub fn parse(
         &mut self,
         mut tokens: TokenStream,
@@ -75,11 +74,7 @@ pub fn parse(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Res
         }
     });
 
-    let mut ast = AST::new();
-    ast.stmts = stmts;
-    ast.expr = last_expr;
-
-    Ok(ast)
+    Ok(AST::new(stmts))
 }
 pub fn parse_incremental(
     prev: &AST,
@@ -127,11 +122,7 @@ pub fn parse_incremental(
         }
     });
 
-    let mut ast = AST::new();
-    ast.stmts = stmts;
-    ast.expr = last_expr;
-
-    Ok(ast)
+    Ok(AST::new(stmts))
 }
 
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
@@ -625,7 +616,6 @@ fn parse_array(
     Ok(Expr::Array(items))
 }
 
-// 2. Power is the next layer down.
 fn parse_power(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
@@ -653,36 +643,17 @@ fn parse_power(
 
     Ok(left)
 }
-// fn parse_exponentiation<I>(tokens: &mut Peekable<I>) -> Result<Expr, String>
-// where
-//     I: Iterator<Item = Token>,
-// {
-//     let mut left = parse_postfix(tokens)?; // Move down to postfix/primary
 
-//     if let Some(Token::Power) = tokens.peek() {
-//         tokens.next(); // Consume '^' or '**'
-//         // Recursively call parse_exponentiation for right-associativity
-//         let right = parse_exponentiation(tokens)?;
-
-//         left = Expr::Binary {
-//             left: Box::new(left),
-//             op: BinOp::Power,
-//             right: Box::new(right),
-//         };
-//     }
-
-//     Ok(left)
-// }
 mod control {
     use crate::{
         compiler::diagnostic::{Diagnostic, DiagnosticStore},
         frontend::{
             ast::Stmt,
-            lexer::TokenStream,
             parser::{parse_expr, parse_stmt},
             token::Token,
+            types::TokenStream,
         },
-        middle::ir::Span,
+        middle::types::Span,
     };
     use std::iter::Peekable;
     pub fn parse_block(

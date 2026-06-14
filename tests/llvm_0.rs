@@ -1,10 +1,12 @@
-//
 mod common;
 use common::llvm::{IrTestHarness, add_var, ir_factory};
 
-use loi::backend::compile;
-use loi::frontend::ast::Expr;
-use loi::middle::ir::{IROp, Type, TypedExpr};
+use loi::init::init;
+use loi::{
+    backend::compile,
+    frontend::ast::Expr,
+    middle::ir::{IROp, TypedExpr},
+};
 
 // --- GROUP 1: Variable & Memory Management ---
 #[test]
@@ -70,11 +72,14 @@ fn test_print_output() {
 // --- GROUP 4: Integration ---
 #[test]
 fn test_full_bitcode_generation() {
+    let kernel = init();
+    let context = &kernel.context;
     let ir = vec![ir_factory::print_val(42.0)];
 
     let dir = tempfile::tempdir().unwrap();
     let out_path = dir.path().join("test");
-    let result = compile(&ir, &out_path, "test");
+
+    let result = compile(context, &ir, &out_path, "test");
     assert!(
         result.is_ok(),
         "Compiler failed to generate valid bitcode: {:?}",

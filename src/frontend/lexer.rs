@@ -4,28 +4,30 @@ use logos::Logos;
 
 use crate::{
     compiler::diagnostic::{Diagnostic, DiagnosticStore},
-    frontend::token::Token,
-    middle::ir::Span,
+    frontend::{
+        token::Token,
+        types::{Lexer, LexerConfig, LexerState, TokenStream},
+    },
 };
 
-#[derive(Default, Debug, Clone)]
-pub struct LexerState {
-    pub position: usize,
-    pub line: usize,
-    pub column: usize,
-}
+// #[derive(Default, Debug, Clone)]
+// pub struct LexerState {
+//     pub position: usize,
+//     pub line: usize,
+//     pub column: usize,
+// }
 
-#[derive(Default, Debug, Clone)]
-pub struct LexerConfig {
-    pub allow_unicode_identifiers: bool,
-    pub allow_raw_strings: bool,
-    pub comment_support: bool,
-}
+// #[derive(Default, Debug, Clone)]
+// pub struct LexerConfig {
+//     pub allow_unicode_identifiers: bool,
+//     pub allow_raw_strings: bool,
+//     pub comment_support: bool,
+// }
 
-pub struct Lexer {
-    pub state: LexerState,
-    pub config: LexerConfig,
-}
+// pub struct Lexer {
+//     pub state: LexerState,
+//     pub config: LexerConfig,
+// }
 
 impl Default for Lexer {
     fn default() -> Self {
@@ -118,7 +120,6 @@ pub fn lex(input: &str) -> Result<Vec<Token>, String> {
     Ok(tokens)
 }
 
-// Helper to find your specific end-of-comment marker
 fn find_comment_end(input: &str) -> Option<usize> {
     // Look for "\n`" where ` is followed by newline or EOF
     let marker = "\n`";
@@ -129,11 +130,6 @@ fn find_comment_end(input: &str) -> Option<usize> {
         }
     }
     None
-}
-
-pub struct TokenStream {
-    tokens: Vec<Token>,
-    pos: usize,
 }
 
 impl TokenStream {

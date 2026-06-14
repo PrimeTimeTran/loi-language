@@ -22,8 +22,6 @@ use crate::context::{CompileContext, Context};
 use crate::development::watcher::{
     ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
 };
-use crate::frontend::ast::AST;
-use crate::frontend::lexer::Lexer;
 use crate::frontend::parser::Parser;
 use crate::interface::CompileEngineProvider;
 use crate::middle::ir::IR;

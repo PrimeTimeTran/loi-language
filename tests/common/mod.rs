@@ -23,9 +23,10 @@ pub use snapshot::*;
 use loi::test_utils;
 
 #[test]
-fn test_something() {
+fn ensure_lib_mods_available_in_tests() {
     let env = test_utils::lib_helper();
-    // ...
+
+    assert_eq!(env, "Loi", "Loading a ./src/* mod failed");
 }
 
 pub fn common_mod_helper(name: &str) {

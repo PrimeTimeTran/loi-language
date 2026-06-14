@@ -41,21 +41,10 @@ impl TestHarness {
         }
         self
     }
-
-    // 5. Inspection / Result Extraction
-    pub fn get_ast(&self) -> Result<AST, String> {
-        let state = self.env.state.read().unwrap();
-        state.ast.clone().ok_or_else(|| "AST missing".to_string())
-    }
-
-    pub fn get_diagnostics(&self) -> DiagnosticStore {
-        self.env.context.diagnostics.read().unwrap().clone()
-    }
     pub fn with_file(mut self, path: &str) -> Self {
         self.registry.add_file(FileMeta::mock(path));
         self
     }
-
     pub fn with_symbol(mut self, name: &str, value: &str, file: &str) -> Self {
         let sym = Symbol {
             name: name.to_string(),
@@ -66,18 +55,23 @@ impl TestHarness {
             metadata: HashMap::new(),
         };
 
-        // Ensure engine exists or create default
         let engine = self
             .engines
             .entry("default".to_string())
             .or_insert_with(|| Box::new(MockEngine::new("default")));
 
-        // This assumes MockEngine has a downcastable or mutable interface
-        // You might need to adjust this depending on your actual MockEngine API
         if let Some(mock) = engine.as_any_mut().downcast_mut::<MockEngine>() {
             mock.add_symbol(file, sym);
         }
         self
+    }
+
+    pub fn get_ast(&self) -> Result<AST, String> {
+        let state = self.env.state.read().unwrap();
+        state.ast.clone().ok_or_else(|| "AST missing".to_string())
+    }
+    pub fn get_diagnostics(&self) -> DiagnosticStore {
+        self.env.context.diagnostics.read().unwrap().clone()
     }
 
     pub fn assert_symbol_exists(&self, sym: &SymbolRegistry, name: &str, file: &str) {
@@ -107,6 +101,7 @@ impl TestHarness {
             self.env.state.clone(),
         )
     }
+
     pub fn bootstrap(source: &str, symbol_data: Vec<(&str, &str, &str)>) -> Self {
         let mut harness = Self::new().with_source(source);
         for (name, val, file) in symbol_data {
@@ -114,6 +109,7 @@ impl TestHarness {
         }
         harness
     }
+
     pub fn run_full_suite(self) -> Result<SymbolRegistry, String> {
         let pipeline = self.build_frontend();
         let harness = self.run_stage(pipeline)?;
@@ -130,7 +126,6 @@ impl TestHarness {
         sym.build_all(&self.registry, &self.engines);
         sym
     }
-
     pub fn run_incremental(&self) -> SymbolRegistry {
         let mut sym = SymbolRegistry::new();
         for stack in &self.registry.stacks {

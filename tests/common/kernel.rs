@@ -11,7 +11,6 @@ impl KernelTestHarness {
         Self { kernel: init() }
     }
 
-    /// Peeks into the current CompileState
     pub fn peek_state<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&loi::compiler::state::CompileState) -> T,
@@ -25,7 +24,6 @@ impl KernelTestHarness {
         f(&state)
     }
 
-    /// Peeks into the current Config
     pub fn peek_config<F, T>(&self, f: F) -> T
     where
         F: FnOnce(&loi::compiler::config::CompileConfig) -> T,

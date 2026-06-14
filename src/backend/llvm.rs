@@ -1,4 +1,5 @@
 use inkwell::AddressSpace;
+use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -6,13 +7,72 @@ use inkwell::types::FloatType;
 use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue};
 use std::collections::HashMap;
 
-use crate::backend::compile;
-use crate::backend::llvm::llvm::CodeGenContext;
-use crate::frontend::ast::UnOp;
-use crate::frontend::ast::{BinOp, Expr};
-use crate::middle::ir::{IR, IROp, LoweredOp, Op, Type, TypedExpr};
+use crate::{
+    frontend::ast::{BinOp, Expr, Stmt, UnOp},
+    middle::{
+        ir::{IR, IROp, LoweredOp, Op, TypedExpr},
+        types::Type,
+    },
+};
 
-pub use llvm::{LLVM, Runtime};
+// What we are doing here:
+// Expr / Stmt
+//    ↓
+// IROp / IRBlock
+
+// 1. AST → IR (pure, no LLVM)
+// 2. IR → IR lowering passes (optional transforms)
+// 3. IR → LLVM (backend only)
+
+pub struct Runtime<'ctx> {
+    pub main: FunctionValue<'ctx>,
+    pub entry_block: BasicBlock<'ctx>,
+    pub printf: FunctionValue<'ctx>,
+    pub fmt_f64: PointerValue<'ctx>,
+    pub fmt_i32: PointerValue<'ctx>,
+    pub fmt_str: PointerValue<'ctx>,
+}
+
+pub struct CodeGenContext<'ctx> {
+    pub context: &'ctx Context,
+    pub module: Module<'ctx>,
+    pub builder: Builder<'ctx>,
+    pub runtime: Runtime<'ctx>,
+    pub env: HashMap<String, PointerValue<'ctx>>,
+    pub counter: usize,
+}
+
+pub struct LLVM<'ctx> {
+    pub context: CodeGenContext<'ctx>,
+}
+
+// 1.
+// pub fn lower_expr_to_ir(
+//     expr: &Expr,
+// ) -> Result<Vec<IROp>, CompileError>
+
+// 2.
+// pub fn lower_stmt_to_ir(
+//     stmt: &Stmt,
+// ) -> Result<Vec<IROp>, CompileError>
+
+// 3.
+// pub fn lower_block<'ctx>(
+//     context: &mut CodeGenContext<'ctx>,
+//     ops: &[IROp],
+// ) -> Result<(), CompileError>
+
+// 4.
+// pub fn lower_ir<'ctx>(
+//     context: &mut CodeGenContext<'ctx>,
+//     ir: &IROp,
+// ) -> Result<(), CompileError>
+
+// 5.
+// pub fn lower_ir_raw<'ctx>(
+//     context: &mut CodeGenContext<'ctx>,
+//     op: &IROp,
+// ) -> Result<(), CompileError>
 
 fn codegen_expr<'ctx>(
     expr: &Expr,
@@ -178,6 +238,156 @@ fn codegen_expr<'ctx>(
             .const_int(if *val { 1 } else { 0 }, false)
             .into(),
         _ => todo!("Implement member access or others"),
+    }
+}
+
+pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Result<(), String> {
+    match op {
+        IROp::Binary {
+            target,
+            left,
+            op,
+            right,
+        } => {
+            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
+            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
+
+            let result = match op {
+                BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
+                BinOp::Sub => context.builder.build_float_sub(lhs, rhs, "subtmp"),
+                BinOp::Mul => context.builder.build_float_mul(lhs, rhs, "multmp"),
+                BinOp::Div => context.builder.build_float_div(lhs, rhs, "divtmp"),
+                _ => return Err(format!("unsupported binop: {:?}", op)),
+            }
+            .unwrap();
+
+            // allocate variable slot
+            let ptr = context
+                .builder
+                .build_alloca(context.context.f64_type(), &target)
+                .unwrap();
+
+            // store result
+            context.builder.build_store(ptr, result).unwrap();
+
+            // update env
+            context.env.insert(target.clone(), ptr);
+
+            Ok(())
+        }
+        IROp::Print { value } => {
+            let TypedExpr { expr, ty, .. } = value;
+
+            let val = { codegen_expr(&expr, &ty, context) };
+
+            let fmt = context.runtime.get_fmt_for_type(&ty);
+
+            context
+                .builder
+                .build_call(
+                    context.runtime.printf,
+                    &[fmt.into(), val.into()],
+                    "printf_call",
+                )
+                .unwrap();
+
+            Ok(())
+        }
+        IROp::Assign { name, value } => {
+            let ptr = {
+                context
+                    .env
+                    .get(&name)
+                    .ok_or_else(|| format!("Assign to undeclared variable: {}", name))?
+                    .clone()
+            };
+
+            let TypedExpr { expr, ty, .. } = value;
+            let val = codegen_expr(&expr, &ty, context);
+            context.builder.build_store(ptr, val).unwrap();
+            Ok(())
+        }
+        IROp::ExprStmt { expr } => {
+            let TypedExpr { expr, ty, .. } = expr;
+            let val = codegen_expr(&expr, &ty, context);
+            Ok(())
+        }
+        IROp::Declare {
+            name,
+            value,
+            mutable,
+            dynamic,
+        } => {
+            let TypedExpr { expr, ty, .. } = value;
+            let val = codegen_expr(&expr, &ty, context);
+
+            // 1. Get the current function
+            let builder = &context.builder;
+            let current_block = builder.get_insert_block().unwrap();
+            let function = current_block.get_parent().unwrap();
+
+            // 2. Get the entry block (usually the first block in the function)
+            let entry_block = function.get_first_basic_block().unwrap();
+
+            // 3. Save current builder position
+            let saved_block = builder.get_insert_block().unwrap();
+
+            // 4. Position builder at the start of the entry block
+            // We use get_first_instruction() to insert BEFORE any other allocas
+            if let Some(first_instr) = entry_block.get_first_instruction() {
+                builder.position_before(&first_instr);
+            } else {
+                builder.position_at_end(entry_block);
+            }
+
+            // 5. Create the alloca
+            let llvm_type = ty.to_llvm_type(context.context);
+            let alloca = context
+                .builder
+                .build_alloca(llvm_type, &name)
+                .map_err(|e| format!("LLVM Builder error: {:?}", e))?;
+
+            // Do the same for build_store:
+            context
+                .builder
+                .build_store(alloca, val)
+                .map_err(|e| format!("LLVM Store error: {:?}", e))?;
+
+            // 6. Restore builder position
+            builder.position_at_end(saved_block);
+
+            // 7. Store the initial value
+            builder.build_store(alloca, val);
+
+            // 8. Register in your symbol table
+            context.env.insert(name.clone(), alloca);
+
+            Ok(())
+        }
+        IROp::Return { value } => {
+            match value {
+                Some(val) => {
+                    let val = codegen_expr(&val.expr, &val.ty, context);
+                    context
+                        .builder
+                        .build_return(Some(&val))
+                        .map_err(|e| e.to_string())?;
+                }
+                None => {
+                    let zero = context.context.i32_type().const_int(0, false);
+                    context
+                        .builder
+                        .build_return(Some(&zero))
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            Ok(())
+        }
+
+        _ => {
+            eprintln!("LOWER_IR_RAW UNHANDLED IROP: {:?}", op);
+            Err(format!("not yet implemented: {:?}", op))
+        }
     }
 }
 
@@ -348,163 +558,10 @@ pub fn lower_ir<'ctx>(
     }
 }
 
-pub fn lower_ir_raw<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Result<(), String> {
-    println!("CURRENT BLOCK: {:?}", context.builder.get_insert_block());
-    match op {
-        IROp::Binary {
-            target,
-            left,
-            op,
-            right,
-        } => {
-            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
-            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
-
-            let result = match op {
-                BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
-                BinOp::Sub => context.builder.build_float_sub(lhs, rhs, "subtmp"),
-                BinOp::Mul => context.builder.build_float_mul(lhs, rhs, "multmp"),
-                BinOp::Div => context.builder.build_float_div(lhs, rhs, "divtmp"),
-                _ => return Err(format!("unsupported binop: {:?}", op)),
-            }
-            .unwrap();
-
-            // allocate variable slot
-            let ptr = context
-                .builder
-                .build_alloca(context.context.f64_type(), &target)
-                .unwrap();
-
-            // store result
-            context.builder.build_store(ptr, result).unwrap();
-
-            // update env
-            context.env.insert(target.clone(), ptr);
-
-            Ok(())
-        }
-        IROp::Print { value } => {
-            let TypedExpr { expr, ty, .. } = value;
-
-            let val = { codegen_expr(&expr, &ty, context) };
-
-            let fmt = context.runtime.get_fmt_for_type(&ty);
-
-            context
-                .builder
-                .build_call(
-                    context.runtime.printf,
-                    &[fmt.into(), val.into()],
-                    "printf_call",
-                )
-                .unwrap();
-
-            Ok(())
-        }
-        IROp::Assign { name, value } => {
-            let ptr = {
-                context
-                    .env
-                    .get(&name)
-                    .ok_or_else(|| format!("Assign to undeclared variable: {}", name))?
-                    .clone()
-            };
-
-            let TypedExpr { expr, ty, .. } = value;
-            let val = codegen_expr(&expr, &ty, context);
-            context.builder.build_store(ptr, val).unwrap();
-            Ok(())
-        }
-        IROp::ExprStmt { expr } => {
-            let TypedExpr { expr, ty, .. } = expr;
-            let val = codegen_expr(&expr, &ty, context);
-            Ok(())
-        }
-        IROp::Declare {
-            name,
-            value,
-            mutable,
-            dynamic,
-        } => {
-            let TypedExpr { expr, ty, .. } = value;
-            let val = codegen_expr(&expr, &ty, context);
-
-            // 1. Get the current function
-            let builder = &context.builder;
-            let current_block = builder.get_insert_block().unwrap();
-            let function = current_block.get_parent().unwrap();
-
-            // 2. Get the entry block (usually the first block in the function)
-            let entry_block = function.get_first_basic_block().unwrap();
-
-            // 3. Save current builder position
-            let saved_block = builder.get_insert_block().unwrap();
-
-            // 4. Position builder at the start of the entry block
-            // We use get_first_instruction() to insert BEFORE any other allocas
-            if let Some(first_instr) = entry_block.get_first_instruction() {
-                builder.position_before(&first_instr);
-            } else {
-                builder.position_at_end(entry_block);
-            }
-
-            // 5. Create the alloca
-            let llvm_type = ty.to_llvm_type(context.context);
-            let alloca = context
-                .builder
-                .build_alloca(llvm_type, &name)
-                .map_err(|e| format!("LLVM Builder error: {:?}", e))?;
-
-            // Do the same for build_store:
-            context
-                .builder
-                .build_store(alloca, val)
-                .map_err(|e| format!("LLVM Store error: {:?}", e))?;
-
-            // 6. Restore builder position
-            builder.position_at_end(saved_block);
-
-            // 7. Store the initial value
-            builder.build_store(alloca, val);
-
-            // 8. Register in your symbol table
-            context.env.insert(name.clone(), alloca);
-
-            Ok(())
-        }
-        IROp::Return { value } => {
-            match value {
-                Some(val) => {
-                    let val = codegen_expr(&val.expr, &val.ty, context);
-                    context
-                        .builder
-                        .build_return(Some(&val))
-                        .map_err(|e| e.to_string())?;
-                }
-                None => {
-                    // but for main, it's usually return 0.
-                    // but for main, it's usually return 0.
-                    let zero = context.context.i32_type().const_int(0, false);
-                    context
-                        .builder
-                        .build_return(Some(&zero))
-                        .map_err(|e| e.to_string())?;
-                }
-            }
-            Ok(())
-        }
-
-        _ => {
-            eprintln!("LOWER_IR_RAW UNHANDLED IROP: {:?}", op);
-            Err(format!("not yet implemented: {:?}", op))
-        }
-    }
-}
-
 pub mod llvm {
     use crate::{
-        backend::llvm::lower_ir_raw,
-        middle::ir::{IROp, Type},
+        backend::llvm::{CodeGenContext, LLVM, Runtime, lower_expr_to_ir},
+        middle::{ir::IROp, types::Type},
     };
     use inkwell::{
         AddressSpace,
@@ -515,24 +572,6 @@ pub mod llvm {
         values::{FloatValue, FunctionValue, PointerValue},
     };
     use std::collections::HashMap;
-
-    pub struct Runtime<'ctx> {
-        pub main: FunctionValue<'ctx>,
-        pub entry_block: BasicBlock<'ctx>,
-        pub printf: FunctionValue<'ctx>,
-        pub fmt_f64: PointerValue<'ctx>,
-        pub fmt_i32: PointerValue<'ctx>,
-        pub fmt_str: PointerValue<'ctx>,
-    }
-
-    pub struct CodeGenContext<'ctx> {
-        pub context: &'ctx Context,
-        pub module: Module<'ctx>,
-        pub builder: Builder<'ctx>,
-        pub runtime: Runtime<'ctx>,
-        pub env: HashMap<String, PointerValue<'ctx>>,
-        pub counter: usize,
-    }
 
     impl<'ctx> CodeGenContext<'ctx> {
         pub fn new(context: &'ctx Context) -> Self {
@@ -565,22 +604,17 @@ pub mod llvm {
         }
     }
 
-    pub struct LLVM<'ctx> {
-        pub context: CodeGenContext<'ctx>,
-    }
-
     impl<'ctx> LLVM<'ctx> {
         pub fn new(ctx: &'ctx Context, ops: &[IROp]) -> Self {
             let mut context = CodeGenContext::new(ctx);
 
             for op in ops {
                 println!("LOWERING IR: {:?}", op);
-                lower_ir_raw(&mut context, op.clone()).expect("lowering failed");
+                lower_expr_to_ir(&mut context, op.clone()).expect("lowering failed");
             }
 
             let builder = &context.builder;
 
-            // Check if the current insertion block already has a terminator
             if builder
                 .get_insert_block()
                 .unwrap()
@@ -592,8 +626,6 @@ pub mod llvm {
                     .build_return(Some(&ret_val))
                     .expect("Failed to emit return");
             }
-
-            println!("END OF NEW");
             Self { context }
         }
 
@@ -664,8 +696,8 @@ pub mod llvm {
     }
 }
 
-mod bin {
-    use crate::{backend::llvm::llvm::CodeGenContext, frontend::ast::BinOp, middle::ir::Op};
+pub mod bin {
+    use crate::{backend::llvm::CodeGenContext, frontend::ast::BinOp, middle::ir::Op};
     use inkwell::values::FloatValue;
 
     pub fn emit_binary_op(

@@ -1,20 +1,22 @@
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
-use crate::compiler::config::CompileConfig;
-use crate::compiler::diagnostic::{Diagnostic, DiagnosticStore, Logger};
-use crate::compiler::engine::CompileEngine;
-use crate::compiler::state::CompileState;
+use crate::compiler::{
+    config::CompileConfig,
+    diagnostic::{Diagnostic, DiagnosticStore, Logger},
+    engine::CompileEngine,
+    state::CompileState,
+};
 use crate::context::Context;
 use crate::context::test::TestContext;
-use crate::frontend::ast::{AST, Stmt};
-use crate::frontend::lexer::Lexer;
-use crate::frontend::parser::Parser;
-use crate::frontend::token::Token;
+use crate::frontend::{
+    ast::{AST, Stmt},
+    parser::Parser,
+    token::Token,
+    types::Lexer,
+};
 use crate::interface::CompileEngineProvider;
-use crate::pipeline::provider::PipelineProvider;
-use crate::pipeline::stage::Stage;
-use crate::pipeline::{Metadata, Pipeline};
+use crate::pipeline::{Metadata, Pipeline, provider::PipelineProvider, stage::Stage};
 use crate::test_utils::TestEnv;
 
 /// FRONTEND PIPELINE
@@ -71,7 +73,6 @@ impl FrontendPipeline {
         config: Arc<RwLock<CompileConfig>>,
         state: Arc<RwLock<CompileState>>,
     ) -> Self {
-        // pub lexer: std::sync::RwLock<lexer::Lexer>,
         Self {
             metadata: Metadata {
                 name: name.to_string(),

@@ -16,13 +16,13 @@ use loi::{
     compiler::diagnostic::DiagnosticStore,
     frontend::{
         ast::{AST, BinOp, DeclKind, Expr, Stmt},
-        lexer::{Lexer, TokenStream, lex},
-        parser::{parse, parse_source},
-        {lexer, parser},
+        lexer::{self, lex},
+        parser::{self, parse, parse_source},
     },
     middle::{
-        ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr},
+        ir::{IROp, IrInstruction, LoweredOp, Op, TypedExpr},
         semantic::{self, SemanticAnalyzer},
+        types::{Span, Type},
     },
     pipeline::frontend::FrontendPipeline,
     registry::{file_meta::FileMeta, registry::Registry},
@@ -72,11 +72,23 @@ pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), Str
 
 pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
     let (ast, diagnostics) = parse_with_diagnostics(input)?;
+
     diagnostics.check_halt()?;
+
     let mut ir = ast_to_ir(ast)?;
+
     ir = finalize_ir(ir);
+
     Ok(LLVM::new(context, &ir))
 }
+
+// pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
+//     let (ast, diagnostics) = parse_with_diagnostics(input)?;
+//     diagnostics.check_halt()?;
+//     let mut ir = ast_to_ir(ast)?;
+//     ir = finalize_ir(ir);
+//     Ok(LLVM::new(context, &ir))
+// }
 
 pub fn fails(input: &str) {
     // If it fails to parse, it counts as having errors
@@ -307,12 +319,12 @@ pub fn assert_snapshot_value(label: &str, value: impl std::fmt::Display) {
 //     CompileResult { symbols, ir, llvm }
 // }
 
-#[test]
-#[cfg(feature = "snapshotting")]
-fn debug_parser() {
-    let output = parses("x = 5");
-    panic!("DEBUG OUTPUT: {}", output);
-}
+// #[test]
+// #[cfg(feature = "snapshotting")]
+// fn debug_parser() {
+//     let output = parses("x = 5");
+//     panic!("DEBUG OUTPUT: {}", output);
+// }
 
 // #[test]
 // fn test_binary_operations() {
