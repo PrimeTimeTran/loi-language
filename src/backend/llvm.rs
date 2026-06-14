@@ -415,7 +415,63 @@ pub fn lower_ir_raw<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Resul
             context.builder.build_store(ptr, val).unwrap();
             Ok(())
         }
+        IROp::ExprStmt { expr } => {
+            let TypedExpr { expr, ty, .. } = expr;
+            let val = codegen_expr(&expr, &ty, context);
+            Ok(())
+        }
+        IROp::Declare {
+            name,
+            value,
+            mutable,
+            dynamic,
+        } => {
+            let TypedExpr { expr, ty, .. } = value;
+            let val = codegen_expr(&expr, &ty, context);
 
+            // 1. Get the current function
+            let builder = &context.builder;
+            let current_block = builder.get_insert_block().unwrap();
+            let function = current_block.get_parent().unwrap();
+
+            // 2. Get the entry block (usually the first block in the function)
+            let entry_block = function.get_first_basic_block().unwrap();
+
+            // 3. Save current builder position
+            let saved_block = builder.get_insert_block().unwrap();
+
+            // 4. Position builder at the start of the entry block
+            // We use get_first_instruction() to insert BEFORE any other allocas
+            if let Some(first_instr) = entry_block.get_first_instruction() {
+                builder.position_before(&first_instr);
+            } else {
+                builder.position_at_end(entry_block);
+            }
+
+            // 5. Create the alloca
+            let llvm_type = ty.to_llvm_type(context.context);
+            let alloca = context
+                .builder
+                .build_alloca(llvm_type, &name)
+                .map_err(|e| format!("LLVM Builder error: {:?}", e))?;
+
+            // Do the same for build_store:
+            context
+                .builder
+                .build_store(alloca, val)
+                .map_err(|e| format!("LLVM Store error: {:?}", e))?;
+
+            // 6. Restore builder position
+            builder.position_at_end(saved_block);
+
+            // 7. Store the initial value
+            builder.build_store(alloca, val);
+
+            // 8. Register in your symbol table
+            context.env.insert(name.clone(), alloca);
+
+            Ok(())
+        }
         IROp::Return { value } => {
             match value {
                 Some(val) => {
@@ -538,7 +594,9 @@ pub mod llvm {
         pub fn ir(&self) -> String {
             self.context.module.print_to_string().to_string()
         }
-
+        pub fn get_module(&self) -> &inkwell::module::Module<'ctx> {
+            &self.context.module
+        }
         pub fn verify(&self) -> Result<(), String> {
             self.context.module.verify().map_err(|e| e.to_string())
         }
@@ -562,26 +620,6 @@ pub mod llvm {
         module: &Module<'ctx>,
         builder: &Builder<'ctx>,
     ) -> Runtime<'ctx> {
-        // 1. Void?
-        // let void_type = context.void_type();
-        // let fn_type = void_type.fn_type(&[], false);
-        // let entry_block = main.get_first_basic_block();
-        // let main = module.add_function("do_nothing", fn_type, None);
-        // let entry_block = context.append_basic_block(main, "entry");
-        // Doesn't work....
-
-        // 2. Create in module
-        // * Fixes Error: "Segment"
-        // * Current Error
-        // - LOWERING IR: Print { value: TypedExpr { expr: String("Hello"), ty: Str, span: Span { file: "", start: 0, end: 0 } } }
-        // - CURRENT BLOCK: None
-        // let module = context.create_module("my_module");
-        // let builder = context.create_builder();
-        // let void_type = context.void_type();
-        // let fn_type = void_type.fn_type(&[], false);
-        // let main = module.add_function("main", fn_type, None);
-        // let entry_block = context.append_basic_block(main, "entry");
-
         let i32_type = context.i32_type();
         let main_fn = module.add_function("main", i32_type.fn_type(&[], false), None);
         let entry_block = context.append_basic_block(main_fn, "entry");
@@ -600,20 +638,6 @@ pub mod llvm {
         let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
         let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
         let printf = module.add_function("printf", printf_type, None);
-        // let main = module.add_function("main", i32_type.fn_type(&[], false), None);
-        // let entry_block = main.get_basic_block_iter();
-        // let entry_block = main.get_first_basic_block();
-        // let entry_block = context.append_basic_block(main, "entry");
-        // builder.position_at_end(entry_block);
-        // Position builder immediately
-
-        // let module = context.create_module("my_module");
-        // let void_type = context.void_type();
-        // let fn_type = void_type.fn_type(&[], false);
-        // let function = module.add_function("do_nothing", fn_type, None);
-        // let basic_block = context.append_basic_block(function, "entry");
-        // builder.position_at_end(basic_block);
-
         Runtime {
             main: main_fn,
             printf,

@@ -7,31 +7,32 @@ use crate::compiler::diagnostic::CompilerEventBus;
 use crate::compiler::engine::CompileEngine;
 use crate::compiler::state::CompileState;
 use crate::development::watcher::FileWatcher;
-use crate::pipeline::original::compile_targets;
+use crate::kernel::Kernel;
+use crate::pipeline::compile_targets::compile_targets;
 
-pub fn start() {
+pub fn start(kernel: Kernel) {
     let cli = CliArgs::parse();
     let sources = vec![ConfigSource::Defaults, ConfigSource::Cli(cli)];
     let partial = ConfigResolver::resolve(sources);
     let config = CompileConfig::from(partial);
-    start_server(config);
+    start_server(kernel, config);
 }
 
-pub fn start_server(config: CompileConfig) {
+pub fn start_server(kernel: Kernel, config: CompileConfig) {
     if config.watch {
         return FileWatcher::watch(config).unwrap();
     }
 
-    // match compile_targets(&config) {
-    //     Ok(_) => println!("🎉 All files compiled successfully"),
-    //     Err(errors) => {
-    //         eprintln!("💥 Compilation failed:");
-    //         for e in errors {
-    //             eprintln!("  ❌ {}", e);
-    //         }
-    //         std::process::exit(1);
-    //     }
-    // }
+    match compile_targets(kernel, &config) {
+        Ok(_) => println!("🎉 All files compiled successfully"),
+        Err(errors) => {
+            eprintln!("💥 Compilation failed:");
+            for e in errors {
+                eprintln!("  ❌ {}", e);
+            }
+            std::process::exit(1);
+        }
+    }
 }
 
 pub enum Event {

@@ -2,7 +2,12 @@ use crate::backend::compile::compile;
 use crate::backend::link_with_clang::link_with_clang;
 use crate::compiler::config::{CompileConfig, ConfigResolver};
 use crate::compiler::error::Error;
-use crate::frontend::{lexer, parser};
+use crate::frontend::lexer::TokenStream;
+use crate::frontend::{
+    lexer,
+    parser::{Parser, parse},
+};
+use crate::kernel::Kernel;
 use crate::middle::semantic::{SemanticAnalyzer, analyze};
 use rayon::prelude::*;
 use std::fs;
@@ -10,23 +15,35 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use walkdir::WalkDir;
 
-pub trait CompilerPass<Input, Output> {
-    fn run(&self, input: Input) -> Result<Output, Error>;
-}
+pub fn compile_targets(kernel: Kernel, config: &CompileConfig) -> Result<(), Vec<Error>> {
+    // let files: Vec<PathBuf> = WalkDir::new(&config.input)
+    //     .into_iter()
+    //     .filter_map(|e| e.ok())
+    //     .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("loi"))
+    //     .map(|e| e.path().to_path_buf())
+    //     .collect();
 
-pub fn compile_targets(config: &CompileConfig) -> Result<(), Vec<Error>> {
     let files: Vec<PathBuf> = WalkDir::new(&config.input)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("loi"))
+        // --- ADDED FILTER FOR EMPTY FILES ---
+        .filter(|e| {
+            std::fs::metadata(e.path())
+                .map(|m| m.len() > 0)
+                .unwrap_or(false)
+        })
+        // ------------------------------------
         .map(|e| e.path().to_path_buf())
         .collect();
+
+    println!("files {:?}", files);
 
     let errors: Vec<Error> = files
         .par_iter()
         .filter_map(|path| {
             println!("📦 Compiling: {}", path.display());
-            match compile_file(path, &config.output) {
+            match compile_file(&kernel, path, &config.output) {
                 Ok(_) => {
                     println!("✅ OK: {}", path.display());
                     None
@@ -46,22 +63,32 @@ pub fn compile_targets(config: &CompileConfig) -> Result<(), Vec<Error>> {
     }
 }
 
-pub fn compile_file(path: &Path, output_dir: &Path) -> Result<(), Error> {
+pub fn compile_file(kernel: &Kernel, path: &Path, output_dir: &Path) -> Result<(), Error> {
     if !output_dir.exists() {
         std::fs::create_dir_all(output_dir).map_err(Error::Io)?;
     }
+
     let source = std::fs::read_to_string(path)?;
     let file_name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("output");
     let out_base = output_dir.join(file_name);
-    println!("DEBUG: Writing output to: {:?}", out_base);
+
+    // 1. Lexing produces the TokenStream
     let tokens = lexer::lex(&source).map_err(Error::Lexer)?;
-    // let ast = parser::parse(tokens).map_err(Error::Parser)?;
-    // let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;
-    // let bc_path = compile(&ir, &out_base, file_name).map_err(Error::Backend)?;
-    // link_with_clang(Path::new(&bc_path), &out_base).map_err(Error::Backend)?;
+    let token_stream = TokenStream::new(tokens);
+    let mut diagnostics = kernel.diagnostics.write().unwrap();
+
+    let mut parser = Parser::new();
+    let ast = parser
+        .parse(token_stream, &mut diagnostics)
+        .map_err(|_| Error::Parser("Parsing failed".to_string()))?;
+
+    let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;
+    let context = &kernel.context;
+    let bc_path = compile(context, &ir, &out_base, file_name).map_err(Error::Backend)?;
+    link_with_clang(Path::new(&bc_path), &out_base).map_err(Error::Backend)?;
 
     Ok(())
 }

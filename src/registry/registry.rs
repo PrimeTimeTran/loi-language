@@ -3,7 +3,7 @@ use uuid::Uuid;
 use crate::backend::utter::registry::UtterRegistry;
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Default)]
 pub struct Registry {
@@ -80,8 +80,10 @@ impl Registry {
         stacks
     }
 
-    pub fn scan(root: &Path) -> Self {
-        let all_files = Self::build_source(root);
+    pub fn scan(root: impl Into<PathBuf>) -> Self {
+        let root_path = root.into();
+
+        let all_files = Self::build_source(&root_path);
         let mut stacks = Self::organize(all_files);
 
         stacks.sort_by(|a, b| Self::compare_stacks(&a.active_file, &b.active_file));

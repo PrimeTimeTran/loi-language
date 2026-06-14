@@ -31,8 +31,8 @@ pub struct FrontendPipeline {
     pub context: Arc<Context>,
     pub config: Arc<RwLock<CompileConfig>>,
     pub state: Arc<RwLock<CompileState>>,
-    pub lexer: RefCell<Lexer>,
-    pub parser: RefCell<Parser>,
+    pub lexer: Arc<RwLock<Lexer>>,
+    pub parser: Arc<RwLock<Parser>>,
     pub features: FrontendFeatures,
 }
 
@@ -71,6 +71,7 @@ impl FrontendPipeline {
         config: Arc<RwLock<CompileConfig>>,
         state: Arc<RwLock<CompileState>>,
     ) -> Self {
+        // pub lexer: std::sync::RwLock<lexer::Lexer>,
         Self {
             metadata: Metadata {
                 name: name.to_string(),
@@ -80,8 +81,8 @@ impl FrontendPipeline {
             config,
             state,
             // Explicitly initialize the sub-components
-            lexer: RefCell::new(Lexer::default()),
-            parser: RefCell::new(Parser::default()),
+            lexer: Arc::new(RwLock::new(Lexer::default())),
+            parser: Arc::new(RwLock::new(Parser::default())),
             features: FrontendFeatures::default(),
         }
     }
@@ -91,24 +92,31 @@ impl FrontendPipeline {
     fn perform_compilation(&self) -> Result<AST, String> {
         let state = self.state.read().map_err(|e| e.to_string())?;
         let source = state.source.as_ref().ok_or("No source code loaded")?;
-        let tokens = self
-            .lexer
-            .borrow_mut()
+        // 1. Lexing: Replace borrow_mut with write()
+        let mut lexer_guard = self.lexer.write().map_err(|e| e.to_string())?;
+        let tokens = lexer_guard
             .lex(source)
             .map_err(|e| format!("Lexer error: {:?}", e))?;
 
-        drop(state);
+        // Drop the guard immediately after use so other threads can access the lexer
+        drop(lexer_guard);
 
+        // 2. Parsing: Keep your diagnostic locking logic
         let mut diag_guard = self
             .context
             .diagnostics
             .write()
             .map_err(|e| e.to_string())?;
-        let ast = self
-            .parser
-            .borrow_mut()
+
+        // 3. Parser: Replace borrow_mut with write()
+        let mut parser_guard = self.parser.write().map_err(|e| e.to_string())?;
+        let ast = parser_guard
             .parse(tokens, &mut *diag_guard)
             .map_err(|_| "Parser failed unexpectedly".to_string())?;
+
+        // Drop guards before proceeding to further stages
+        drop(parser_guard);
+        // drop(diag_guard);
 
         if diag_guard.has_errors() {
             return Err("Frontend failed: Parser encountered errors".to_string());

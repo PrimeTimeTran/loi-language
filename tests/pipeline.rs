@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use loi::pipeline::original::compile_targets;
+use loi::pipeline::compile_targets::compile_targets;
 
 // #[test]
 // fn compile_math_program() {

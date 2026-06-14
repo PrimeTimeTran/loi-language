@@ -1,5 +1,5 @@
 use crate::compiler::config::CompileConfig;
-use crate::pipeline::original::compile_targets;
+use crate::pipeline::compile_targets::compile_targets;
 use notify::{RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::channel;

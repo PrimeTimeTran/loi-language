@@ -5,7 +5,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 use crate::pipeline::{backend::BackendPipeline, middle::MiddlePipeline};
 
-pub trait Stage {
+pub trait Stage: Send + Sync {
     fn run(&self) -> Result<(), String>;
     fn name(&self) -> &str;
 }

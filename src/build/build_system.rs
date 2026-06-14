@@ -3,6 +3,8 @@ use std::{path::PathBuf, time::Instant};
 use crate::{
     backend::utter::registry::UtterRegistry,
     build::service::{BundleConfig, BundleService},
+    init::init,
+    kernel::Kernel,
     registry::registry::Registry,
 };
 
@@ -24,11 +26,17 @@ pub struct BuildSystem {
 }
 
 impl BuildSystem {
-    pub fn new(dir_root: PathBuf, dir_out: PathBuf) -> Self {
-        let registry = Registry::scan(&dir_root);
+    pub fn new(kernel: Kernel) -> Self {
+        let config_guard = kernel.engine.config.read().unwrap();
+
+        // 2. Access the data inside
+        let dir_root = config_guard.root.clone();
+        let dir_out = config_guard.output.clone();
+
+        let registry = Registry::scan(dir_root.clone());
         let utters = UtterRegistry::new();
 
-        let manifest = BundleConfig {
+        let manifest: BundleConfig = BundleConfig {
             dir_root: dir_root.clone(),
             dir_out: dir_out.clone(),
             strip_namespace: false,
@@ -59,8 +67,7 @@ impl BuildSystem {
     }
 
     pub fn test() -> Self {
-        let cwd = std::env::current_dir().unwrap();
-
-        Self::new(cwd.join("targets/fs"), cwd.join("targets/fs_out_test"))
+        let kernel = init();
+        Self::new(kernel)
     }
 }

@@ -9,22 +9,16 @@ use loi::{
     compiler::config::{CompileConfig, ConfigResolver, ConfigSource},
     development::server::start,
     init::init,
-    kernel::Kernel,
 };
 
 pub fn main() {
     let kernel = init();
-
-    if false {
+    if true {
         println!("🚀 Running in Batch Mode...");
-        start()
+        start(kernel)
     } else {
         println!("✨ Starting .loi interactive shell...");
-        let mut dir_root = env::current_dir().unwrap();
-        dir_root.push("targets/fs");
-        let mut dir_out = env::current_dir().unwrap();
-        dir_out.push("output/fs");
-        let system = BuildSystem::new(dir_root, dir_out);
+        let system = BuildSystem::new(kernel);
         let mut controller = CliController::new(system);
 
         controller.run();
