@@ -18,7 +18,7 @@ use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
 use crate::compiler::safety::{FallbackPipeline, RecoverySystem};
 use crate::compiler::scale::{BuildFarm, DistributedCompiler};
 use crate::compiler::state::CompileState;
-use crate::context::{CompileContext, Context, Kernel};
+use crate::context::{CompileContext, Context};
 use crate::development::watcher::{
     ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
 };
@@ -59,6 +59,8 @@ use crate::registry::registry::FileStack;
 /// DESIGN GOAL:
 /// This should behave like a "compiler runtime kernel".
 pub struct CompileEngine {
+    pub state: Arc<RwLock<CompileState>>,
+    pub config: Arc<RwLock<CompileConfig>>,
     // =========================================================
     // PIPELINE STAGES
     /// Frontend: lexing, parsing, AST building, early diagnostics
@@ -214,6 +216,8 @@ impl CompileEngine {
         state: Arc<RwLock<CompileState>>,
     ) -> Self {
         Self {
+            state: state.clone(),
+            config: config.clone(),
             stages: vec![
                 Box::new(FrontendPipeline::new(
                     context.clone(),

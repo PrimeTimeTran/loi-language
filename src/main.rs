@@ -1,14 +1,16 @@
 use clap::Parser;
-use loi::context::Kernel;
-use loi::development::server::start;
-use loi::init::init;
 use owo_colors::OwoColorize;
 use std::env;
 use std::path::PathBuf;
 
-use loi::build::build_system::BuildSystem;
-use loi::cli::controller::CliController;
-use loi::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
+use loi::{
+    build::build_system::BuildSystem,
+    cli::controller::CliController,
+    compiler::config::{CompileConfig, ConfigResolver, ConfigSource},
+    development::server::start,
+    init::init,
+    kernel::Kernel,
+};
 
 pub fn main() {
     let kernel = init();

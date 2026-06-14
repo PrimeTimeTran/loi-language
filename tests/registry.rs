@@ -1,5 +1,6 @@
 
-use harness::{file, get_test_root, setup_test_context};
+mod common;
+use common::helpers::{file, get_test_root, setup_test_context};
 
 use loi::backend::utter::registry::UtterRegistry;
 use loi::registry::file_meta::FileMeta;

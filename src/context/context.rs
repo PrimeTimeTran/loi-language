@@ -6,7 +6,7 @@ use crate::{
         diagnostic::{DiagnosticStore, Logger},
         engine::CompileEngine,
     },
-    context::{CompileContext, Kernel},
+    context::CompileContext,
 };
 
 use crate::compiler::{config::Config, env::Env, state::CompileState};

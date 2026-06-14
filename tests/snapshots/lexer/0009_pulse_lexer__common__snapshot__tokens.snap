@@ -1,0 +1,8 @@
+---
+source: tests/common/snapshot.rs
+expression: "(a, b)"
+---
+(
+    "# ",
+    " HELLO WORLD",
+)

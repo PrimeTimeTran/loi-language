@@ -1,3 +1,6 @@
+mod common;
+use common::llvm::{IrTestHarness};
+
 #[test]
 fn test_01_literals() {
     let ir = vec![/* Define IROp logic here */];

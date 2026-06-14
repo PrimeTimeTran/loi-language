@@ -2,6 +2,9 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
+mod common;
+use common::lexer::LexerTestHarness;
+
 #[test]
 fn test_keyword_tokenization_snap() {
     LexerTestHarness::from_file("tests/fixtures/lexical/keywords.loi")

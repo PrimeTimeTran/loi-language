@@ -14,6 +14,7 @@ pub mod diagnostics;
 pub mod frontend;
 pub mod init;
 pub mod interface;
+pub mod kernel;
 pub mod middle;
 pub mod pipeline;
 pub mod registry;

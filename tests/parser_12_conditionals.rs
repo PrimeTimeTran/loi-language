@@ -1,8 +1,6 @@
-
-
-
 // 2. Now you can use it
-use crate::harness::helpers::parses;
+mod common;
+use common::helpers::parses;
 
 #[test]
 fn p01_parses_if() {

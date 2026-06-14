@@ -1,7 +1,5 @@
-
-
-
-use crate::harness::helpers::assert_expr_with_ops;
+mod common;
+use common::{assert_expr, assert_expr_with_ops, fails, parses};
 
 #[test]
 fn test_precedence_power_vs_multiplication() {

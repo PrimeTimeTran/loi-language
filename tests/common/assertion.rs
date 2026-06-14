@@ -27,12 +27,12 @@ impl From<bool> for AssertOpts {
     }
 }
 
-#[macro_export]
-macro_rules! assert_expr {
-    ($input:expr, $expected:expr) => {
-        $crate::common::assertion::run_assert_with_snapshot(stringify!($input), $input, $expected);
-    };
-}
+// #[macro_export]
+// macro_rules! assert_expr {
+//     ($input:expr, $expected:expr) => {
+//         $crate::common::assertion::run_assert_with_snapshot(stringify!($input), $input, $expected);
+//     };
+// }
 
 #[track_caller]
 pub fn assert_expr(input: &str, expected: &str) {

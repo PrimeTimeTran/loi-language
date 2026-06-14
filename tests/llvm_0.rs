@@ -1,6 +1,7 @@
-// 
+//
+mod common;
+use common::llvm::{IrTestHarness, add_var, ir_factory};
 
-use crate::harness::{IrTestHarness, helpers, ir_factory};
 use loi::backend::compile;
 use loi::frontend::ast::Expr;
 use loi::middle::ir::{IROp, Type, TypedExpr};
@@ -23,7 +24,7 @@ fn test_binary_operations() {
         ir_factory::declare_f64("a", 10.0),
         ir_factory::declare_f64("b", 5.0),
         // 2. Now perform the operation
-        helpers::add_var("res", "a", "b"),
+        add_var("res", "a", "b"),
     ];
 
     let harness = IrTestHarness::new(&ir);
@@ -35,7 +36,7 @@ fn test_binary_operations() {
 // --- GROUP 2: Arithmetic & Expressions ---
 // #[test]
 // fn test_binary_operations() {
-//     let ir = vec![helpers::add_var("res", "a", "b")];
+//     let ir = vec![add_var("res", "a", "b")];
 //     println!("{:#?}", ir);
 //     let harness = IrTestHarness::new(&ir);
 
@@ -48,7 +49,7 @@ fn test_complex_expression_flow() {
     let ir = vec![
         ir_factory::declare_f64("x", 1.0),
         ir_factory::declare_f64("y", 2.0),
-        helpers::add_var("res", "x", "y"),
+        add_var("res", "x", "y"),
     ];
     let harness = IrTestHarness::new(&ir);
 

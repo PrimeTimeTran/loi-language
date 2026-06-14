@@ -1,0 +1,15 @@
+---
+source: tests/common/lexer.rs
+expression: self.tokens
+---
+[
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
+    Comma,
+    Semicolon,
+    EOF,
+]

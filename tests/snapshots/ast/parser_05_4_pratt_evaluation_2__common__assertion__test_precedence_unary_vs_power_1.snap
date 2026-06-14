@@ -1,0 +1,29 @@
+---
+source: tests/common/assertion.rs
+expression: parse_to_ast(input)
+---
+Ok:
+  stmts:
+    - ExprStmt:
+        expr:
+          Binary:
+            left:
+              Unary:
+                op: Neg
+                expr:
+                  Var: a
+            op: Power
+            right:
+              Var: b
+  expr:
+    Binary:
+      left:
+        Unary:
+          op: Neg
+          expr:
+            Var: a
+      op: Power
+      right:
+        Var: b
+  program:
+    stmts: []

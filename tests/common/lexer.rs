@@ -1,8 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use loi::frontend::lexer::lex;
-use loi::frontend::token::Token;
+use loi::frontend::{lexer::lex, token::Token};
 
 pub struct LexerTestHarness {
     pub tokens: Vec<Token>,

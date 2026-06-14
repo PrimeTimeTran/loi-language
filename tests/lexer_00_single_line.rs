@@ -2,8 +2,8 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
-// 
-use harness::lexer::LexerTestHarness;
+mod common;
+use common::lexer::LexerTestHarness;
 
 #[test]
 fn test_delimiters_snap() {

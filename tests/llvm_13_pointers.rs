@@ -1,3 +1,5 @@
+mod common;
+use common::llvm::IrTestHarness;
 #[test]
 fn test_13_pointers() {
     let ir = vec![/* Define IROp logic here */];

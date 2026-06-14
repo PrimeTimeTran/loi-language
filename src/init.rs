@@ -2,7 +2,8 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     compiler::{config::CompileConfig, engine::CompileEngine, state::CompileState},
-    context::{Context, Kernel},
+    context::Context,
+    kernel::Kernel,
 };
 
 // # 1. Separation of Concerns

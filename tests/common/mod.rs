@@ -1,6 +1,7 @@
 pub mod assertion;
 pub mod harness;
 pub mod helpers;
+pub mod kernel;
 pub mod lexer;
 pub mod llvm;
 pub mod mock_engine;
@@ -12,6 +13,7 @@ pub mod snapshot;
 pub use assertion::*;
 pub use harness::*;
 pub use helpers::*;
+pub use kernel::*;
 pub use lexer::*;
 pub use llvm::*;
 pub use mock_engine::*;

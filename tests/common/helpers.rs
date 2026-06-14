@@ -1,12 +1,4 @@
-use loi::compiler::diagnostic::DiagnosticStore;
-use loi::compiler::state::CompileState;
-use loi::diagnostics;
-use loi::frontend::ast::{AST, BinOp, DeclKind, Expr, Stmt};
-use loi::frontend::lexer::{Lexer, TokenStream, lex};
-use loi::frontend::parser::{parse, parse_source};
-use loi::middle::ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr};
-use loi::{backend::llvm::LLVM, pipeline::frontend::FrontendPipeline};
-
+use crate::common::{AssertOpts, MockEngine, TestHarness};
 use inkwell::{
     AddressSpace,
     builder::Builder,
@@ -14,11 +6,35 @@ use inkwell::{
     module::Module,
     values::{FunctionValue, PointerValue},
 };
+use loi::{
+    backend::{
+        llvm::LLVM,
+        symbol::registry::{Symbol, SymbolKind, SymbolRegistry},
+        utter::{registry::UtterRegistry, utter::Utter},
+    },
+    build::build_system::BuildSystem,
+    compiler::diagnostic::DiagnosticStore,
+    frontend::{
+        ast::{AST, BinOp, DeclKind, Expr, Stmt},
+        lexer::{Lexer, TokenStream, lex},
+        parser::{parse, parse_source},
+        {lexer, parser},
+    },
+    middle::{
+        ir::{IROp, IrInstruction, LoweredOp, Op, Span, Type, TypedExpr},
+        semantic::{self, SemanticAnalyzer},
+    },
+    pipeline::frontend::FrontendPipeline,
+    registry::{file_meta::FileMeta, registry::Registry},
+};
 use owo_colors::OwoColorize;
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
-
-use crate::common::{AssertOpts, TestHarness};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub fn clean(s: &str) -> String {
     s.replace(|c: char| c.is_whitespace(), "")
@@ -184,24 +200,112 @@ pub fn generate_binary_ir(target: &str, left: TypedExpr, right: TypedExpr) -> IR
     }
 }
 
-pub fn add_var(target: &str, left: &str, right: &str) -> IrInstruction {
-    let e1 = Expr::Var(left.to_string());
-    let e2 = Expr::Var(right.to_string());
-    let default_span = Span::default();
-    // Note: ty is now a concrete Type, not an Option
-    let te1 = TypedExpr {
-        expr: e1,
-        ty: Type::F64,
-        span: default_span.clone(),
-    };
-
-    let te2 = TypedExpr {
-        expr: e2,
-        ty: Type::F64,
-        span: default_span,
-    };
-    generate_binary_ir(target, te1, te2)
+pub fn get_test_root() -> PathBuf {
+    PathBuf::from("/virtual/root")
 }
+
+pub fn file(name: &str) -> FileMeta {
+    FileMeta {
+        path: PathBuf::from(name),
+        ..Default::default()
+    }
+}
+
+pub fn setup_test_context() -> BuildSystem {
+    let registry = Registry::from_files(vec![]);
+    let utters = UtterRegistry::new();
+    BuildSystem::test()
+}
+
+pub fn make_registry(files: &[&str]) -> Registry {
+    let mut registry = Registry::new();
+
+    for f in files {
+        registry.add_file(FileMeta::mock(f));
+    }
+
+    registry
+}
+
+pub fn make_engine_with_symbols(symbols: Vec<(&str, Symbol)>) -> HashMap<String, Box<dyn Utter>> {
+    let mut mock = MockEngine::new("default");
+
+    for (file, symbol) in symbols {
+        mock.add_symbol(file, symbol);
+    }
+
+    let mut map: HashMap<String, Box<dyn Utter>> = HashMap::new();
+    map.insert("default".to_string(), Box::new(mock));
+
+    map
+}
+
+pub fn sym(name: &str, value: &str, file: &str) -> Symbol {
+    Symbol {
+        name: name.to_string(),
+        kind: SymbolKind::Constant,
+        value: value.to_string(),
+        file: FileMeta::mock(file),
+        origin: file.to_string(),
+        metadata: HashMap::new(),
+    }
+}
+
+pub fn run_symbol_pipeline(
+    registry: &Registry,
+    engines: &HashMap<String, Box<dyn Utter>>,
+) -> SymbolRegistry {
+    let mut sym = SymbolRegistry::new();
+    sym.build_all(registry, engines);
+    sym
+}
+
+pub fn run_incremental_symbol_pipeline(
+    registry: &Registry,
+    engines: &HashMap<String, Box<dyn Utter>>,
+) -> SymbolRegistry {
+    let mut sym = SymbolRegistry::new();
+
+    for stack in &registry.stacks {
+        let engine = engines.get("default").unwrap();
+        sym.build_incremental(stack, engine.as_ref());
+    }
+
+    sym
+}
+
+pub fn assert_symbol_exists(sym: &SymbolRegistry, name: &str, file: &str) {
+    assert!(
+        sym.lookup(name, file).is_some(),
+        "expected symbol `{}` in `{}`",
+        name,
+        file
+    );
+}
+
+pub fn assert_symbol_missing(sym: &SymbolRegistry, name: &str, file: &str) {
+    assert!(
+        sym.lookup(name, file).is_none(),
+        "expected symbol `{}` NOT in `{}`",
+        name,
+        file
+    );
+}
+
+pub fn assert_snapshot_value(label: &str, value: impl std::fmt::Display) {
+    insta::assert_snapshot!(label, value.to_string());
+}
+
+// pub fn compile_project(
+//     registry: Registry,
+//     engines: HashMap<String, Box<dyn Utter>>,
+// ) -> CompileResult {
+//     let symbols = run_symbol_pipeline(&registry, &engines);
+//     let ir = lower_to_ir(&registry, &symbols);
+//     let llvm = generate_llvm(&ir);
+
+//     CompileResult { symbols, ir, llvm }
+// }
 
 #[test]
 #[cfg(feature = "snapshotting")]

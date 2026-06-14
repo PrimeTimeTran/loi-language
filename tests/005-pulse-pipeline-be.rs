@@ -1,20 +1,18 @@
-use loi::{compiler::state::CompileState, context::Context, pipeline::frontend::FrontendPipeline};
-use std::sync::{Arc, RwLock};
-
+use loi::pipeline::frontend::FrontendPipeline;
+mod common;
 use common::harness::TestHarness;
 
 #[test]
 fn test_frontend_pipeline() {
-    let harness = TestHarness::new();
-    harness.load_source("your code here".to_string());
+    // 1. Initialize, Configure, and Build in one fluent chain
+    let harness = TestHarness::new().with_source("your code here");
 
-    // Construct the specific pipeline
-    let pipeline = FrontendPipeline::new(
-        harness.env.context.clone(),
-        harness.env.config.clone(),
-        harness.env.state.clone(),
-    );
+    // 2. Build the pipeline using the harness's helper
+    // This is cleaner than manual cloning of context/config/state
+    let pipeline = harness.build_frontend();
 
-    // Run it using the generic harness method
+    // 3. Run it
+    // Note: run_stage consumes harness, so we ignore the return
+    // unless we need to inspect the harness afterwards.
     harness.run_stage(pipeline).expect("Frontend failed");
 }

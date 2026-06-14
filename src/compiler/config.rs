@@ -7,11 +7,8 @@ use std::{
 
 #[derive(Clone, Debug, Default)]
 pub struct Config {
-    // Wrap the RwLock in an Arc to make it shareable and Clone-able
     pub root: Arc<RwLock<PathBuf>>,
     pub name: Arc<RwLock<String>>,
-
-    // Simple types that implement Clone can stay as they are
     pub input: Option<PathBuf>,
     pub output: Option<PathBuf>,
     pub watch: Option<bool>,

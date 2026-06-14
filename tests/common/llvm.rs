@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use inkwell::context::Context;
 use loi::backend::llvm::{LLVM, llvm::CodeGenContext};
-use loi::middle::ir::IROp;
+use loi::frontend::ast::Expr;
+use loi::middle::ir::{IROp, IrInstruction, Span, Type, TypedExpr};
+
+use crate::common::generate_binary_ir;
 
 pub fn get_ir_string(ops: &[IROp]) -> String {
     let context = Context::create();
-
     let llvm = LLVM::default(&context, "test_module");
-
     // llvm.lower(&context, ops).expect("Failed to generate IR");
-
     llvm.ir()
 }
 
@@ -76,4 +76,23 @@ pub mod ir_factory {
             },
         }
     }
+}
+
+pub fn add_var(target: &str, left: &str, right: &str) -> IrInstruction {
+    let e1 = Expr::Var(left.to_string());
+    let e2 = Expr::Var(right.to_string());
+    let default_span = Span::default();
+    // Note: ty is now a concrete Type, not an Option
+    let te1 = TypedExpr {
+        expr: e1,
+        ty: Type::F64,
+        span: default_span.clone(),
+    };
+
+    let te2 = TypedExpr {
+        expr: e2,
+        ty: Type::F64,
+        span: default_span,
+    };
+    generate_binary_ir(target, te1, te2)
 }

@@ -1,7 +1,5 @@
-
-
-
-use crate::harness::helpers::assert_expr;
+mod common;
+use common::{assert_expr, fails, parses};
 
 #[test]
 fn p01_mul_higher_than_add() {
