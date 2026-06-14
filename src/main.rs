@@ -13,7 +13,7 @@ use loi::{
 
 pub fn main() {
     let kernel = init();
-    if true {
+    if false {
         println!("🚀 Running in Batch Mode...");
         start(kernel)
     } else {

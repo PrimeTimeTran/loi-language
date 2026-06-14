@@ -42,7 +42,7 @@ pub struct Symbol {
     pub metadata: HashMap<String, String>,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub struct SymbolId {
     pub name: String,
     pub origin: String,
@@ -52,7 +52,7 @@ pub trait SymbolProvider {
     fn extract(&self, file: &FileMeta) -> Vec<Symbol>;
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SymbolRegistry {
     pub table: HashMap<SymbolId, Symbol>,
     pub warnings: Vec<String>,

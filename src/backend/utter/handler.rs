@@ -6,7 +6,7 @@ use crate::{
     registry::file_meta::FileMeta,
 };
 
-pub trait Handler: DynClone {
+pub trait Handler: std::fmt::Debug + DynClone {
     fn handle(
         &self,
         file: &FileMeta,
@@ -19,7 +19,7 @@ pub trait Handler: DynClone {
 
 dyn_clone::clone_trait_object!(Handler);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum RenderTarget {
     Html,
     Css,
@@ -30,7 +30,7 @@ pub enum RenderTarget {
     Loi,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenericHandler {
     pub target: RenderTarget,
 }
@@ -81,6 +81,7 @@ impl GenericHandler {
         out
     }
 }
+
 impl Handler for GenericHandler {
     fn handle(
         &self,

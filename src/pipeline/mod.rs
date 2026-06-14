@@ -11,7 +11,6 @@ use crate::pipeline::{
 pub mod backend;
 pub mod frontend;
 pub mod middle;
-pub mod compile_targets;
 pub mod provider;
 pub mod stage;
 

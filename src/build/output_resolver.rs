@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{build::service::BundleConfig, registry::file_meta::FileMeta};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct OutputResolver {
     manifest: BundleConfig,
 }

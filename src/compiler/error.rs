@@ -17,6 +17,3 @@ pub enum Error {
     #[error("Backend Error: {0}")]
     Backend(String),
 }
-
-// DELETE the manual 'impl From<std::io::Error>' block below.
-// It is no longer needed because of the #[from] attribute above.

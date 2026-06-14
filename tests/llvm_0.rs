@@ -1,9 +1,9 @@
 mod common;
 use common::llvm::{IrTestHarness, add_var, ir_factory};
 
+use loi::compiler::compile::compile;
 use loi::init::init;
 use loi::{
-    backend::compile,
     frontend::ast::Expr,
     middle::ir::{IROp, TypedExpr},
 };

@@ -17,7 +17,8 @@ pub struct UtterFlags {
     pub fs_access: bool,
     pub db_access: bool,
 }
-pub trait Utter: DynClone + Send + Sync {
+
+pub trait Utter: DynClone + Send + Sync + std::fmt::Debug {
     fn name(&self) -> &str;
     fn flags(&self) -> UtterFlags;
     fn to_ir(&self, metadata: &FileMeta, symbols: &SymbolRegistry) -> Result<IR, String>;
@@ -75,6 +76,16 @@ impl GenericUtter {
     pub fn new(config: LanguageConfig) -> Self {
         let name = config.name.clone();
         Self { name, config }
+    }
+}
+
+impl std::fmt::Debug for GenericUtter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GenericUtter")
+            .field("name", &self.name())
+            .field("flags", &self.flags())
+            .field("to_ir", &"<function>")
+            .finish()
     }
 }
 

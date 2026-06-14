@@ -14,7 +14,7 @@ use crate::{
     registry::{file_meta::FileMeta, registry::Registry},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BundleConfig {
     pub dir_root: PathBuf,
     pub dir_out: PathBuf,
@@ -43,7 +43,7 @@ impl Default for BundleConfig {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BundleService {
     pub registry: Registry,
     pub utter_registry: UtterRegistry,

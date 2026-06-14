@@ -2,13 +2,13 @@ use clap::Parser;
 use std::path::PathBuf;
 
 use crate::cli::args::CliArgs;
+use crate::compiler::compile_project::compile_project;
 use crate::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
 use crate::compiler::diagnostic::CompilerEventBus;
 use crate::compiler::engine::CompileEngine;
 use crate::compiler::state::CompileState;
 use crate::development::watcher::FileWatcher;
 use crate::kernel::Kernel;
-use crate::pipeline::compile_targets::compile_targets;
 
 pub fn start(kernel: Kernel) {
     let cli = CliArgs::parse();
@@ -20,10 +20,10 @@ pub fn start(kernel: Kernel) {
 
 pub fn start_server(kernel: Kernel, config: CompileConfig) {
     if config.watch {
-        return FileWatcher::watch(config).unwrap();
+        return FileWatcher::watch(kernel, config).unwrap();
     }
 
-    match compile_targets(kernel, &config) {
+    match compile_project(&kernel, &config) {
         Ok(_) => println!("🎉 All files compiled successfully"),
         Err(errors) => {
             eprintln!("💥 Compilation failed:");

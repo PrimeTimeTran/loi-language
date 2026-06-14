@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use loi::pipeline::compile_targets::compile_targets;
-
 // #[test]
 // fn compile_math_program() {
 //     let config = Config {

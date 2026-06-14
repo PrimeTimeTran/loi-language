@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub root: Arc<RwLock<PathBuf>>,
     pub name: Arc<RwLock<String>>,
@@ -13,6 +13,21 @@ pub struct Config {
     pub output: Option<PathBuf>,
     pub watch: Option<bool>,
     pub concurrency: Option<usize>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            root: Arc::new(RwLock::new(PathBuf::from("./targets/syntax"))),
+            name: Arc::new(RwLock::new("project".to_string())),
+
+            input: Some(PathBuf::from("./targets/syntax")),
+            output: Some(PathBuf::from("./build")),
+
+            watch: Some(false),
+            concurrency: Some(1),
+        }
+    }
 }
 
 impl From<Config> for CompileConfig {
@@ -28,7 +43,7 @@ impl From<Config> for CompileConfig {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CompileConfig {
     pub root: PathBuf,
     pub name: String,
@@ -36,6 +51,19 @@ pub struct CompileConfig {
     pub output: PathBuf,
     pub watch: bool,
     pub concurrency: usize,
+}
+
+impl Default for CompileConfig {
+    fn default() -> Self {
+        Self {
+            root: PathBuf::from("./targets/fs"),
+            name: "project".to_string(),
+            input: PathBuf::from("./targets/fs"),
+            output: PathBuf::from("./output/fs"),
+            watch: false,
+            concurrency: 1,
+        }
+    }
 }
 
 pub enum ConfigSource {
@@ -55,7 +83,7 @@ impl ConfigResolver {
             match source {
                 ConfigSource::Defaults => {
                     config = Config {
-                        root: Arc::new(RwLock::new(PathBuf::from("."))),
+                        root: Arc::new(RwLock::new(PathBuf::from("./targets/syntax"))),
                         name: Arc::new(RwLock::new("DefaultProject".to_string())),
                         input: Some(PathBuf::from("./targets/syntax")),
                         output: Some(PathBuf::from("./output/syntax")),
@@ -71,7 +99,6 @@ impl ConfigResolver {
 
                 ConfigSource::Cli(cli) => {
                     let cli_cfg = Config {
-                        // For CLI, we might create a new lock or inherit the previous
                         root: config.root.clone(),
                         name: config.name.clone(),
                         input: cli.input,

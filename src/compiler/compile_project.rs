@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use walkdir::WalkDir;
 
-pub fn compile_targets(kernel: Kernel, config: &CompileConfig) -> Result<(), Vec<Error>> {
+pub fn compile_project(kernel: &Kernel, config: &CompileConfig) -> Result<(), Vec<Error>> {
     let files: Vec<PathBuf> = WalkDir::new(&config.input)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -26,26 +26,15 @@ pub fn compile_targets(kernel: Kernel, config: &CompileConfig) -> Result<(), Vec
                 .map(|m| m.len() > 0)
                 .unwrap_or(false)
         })
-        // ------------------------------------
         .map(|e| e.path().to_path_buf())
         .collect();
 
-    println!("files {:?}", files);
-
     let errors: Vec<Error> = files
         .par_iter()
-        .filter_map(|path| {
-            println!("📦 Compiling: {}", path.display());
-            match compile_file(&kernel, path, &config.output) {
-                Ok(_) => {
-                    println!("✅ OK: {}", path.display());
-                    None
-                }
-                Err(e) => {
-                    eprintln!("❌ ERROR in {}: {}", path.display(), e);
-                    Some(e)
-                }
-            }
+        .filter_map(|path| match compile_file(kernel, path, &config.output) {
+            Ok(_) => None,
+
+            Err(e) => Some(e),
         })
         .collect();
 

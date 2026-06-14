@@ -1,5 +1,6 @@
+use crate::compiler::compile_project::compile_project;
 use crate::compiler::config::CompileConfig;
-use crate::pipeline::compile_targets::compile_targets;
+use crate::kernel::Kernel;
 use notify::{RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
@@ -8,7 +9,7 @@ use std::sync::mpsc::channel;
 pub struct FileWatcher;
 
 impl FileWatcher {
-    pub fn watch(config: CompileConfig) -> Result<(), String> {
+    pub fn watch(kernel: Kernel, config: CompileConfig) -> Result<(), String> {
         let (tx, rx) = channel();
 
         println!("👀 REAL WATCH PATH: {}", config.input.display());
@@ -21,21 +22,20 @@ impl FileWatcher {
 
         // println!("👀 Watching: {}", &config.input.display());
         println!("👀 Watching: {}", "./src");
-
         loop {
             match rx.recv() {
                 Ok(event) => {
                     println!("🔁 Change detected: {:?}", event);
                     std::thread::sleep(std::time::Duration::from_millis(100));
-                    // match compile_targets(&config) {
-                    //     Ok(_) => println!("✅ Recompiled successfully"),
-                    //     Err(errors) => {
-                    //         eprintln!("❌ Compile error:");
-                    //         for e in errors {
-                    //             eprintln!("  - {}", e);
-                    //         }
-                    //     }
-                    // }
+                    match compile_project(&kernel, &config) {
+                        Ok(_) => println!("✅ Recompiled successfully"),
+                        Err(errors) => {
+                            eprintln!("❌ Compile error:");
+                            for e in errors {
+                                eprintln!("  - {}", e);
+                            }
+                        }
+                    }
                 }
                 Err(e) => return Err(e.to_string()),
             }

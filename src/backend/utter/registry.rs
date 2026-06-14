@@ -6,7 +6,7 @@ use crate::backend::utter::{
 };
 use crate::registry::file_meta::FileMeta;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UtterRegistry {
     pub utters: HashMap<String, Box<dyn Utter>>,
     pub handlers: HashMap<String, Box<dyn Handler>>,

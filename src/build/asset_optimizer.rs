@@ -1,6 +1,6 @@
 use crate::middle::ir::IR;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AssetOptimizer {
     pub minify: bool,
     pub remove_comments: bool,
