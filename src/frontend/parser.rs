@@ -67,14 +67,14 @@ pub fn parse(
             }
         }
     }
-
-    let last_expr = stmts.iter().rev().find_map(|stmt| {
-        if let Stmt::ExprStmt { expr } = stmt {
-            Some(expr.clone())
-        } else {
-            None
-        }
-    });
+    // LEAVE FOR CLI/REPL
+    // let last_expr = stmts.iter().rev().find_map(|stmt| {
+    //     if let Stmt::ExprStmt { expr } = stmt {
+    //         Some(expr.clone())
+    //     } else {
+    //         None
+    //     }
+    // });
 
     Ok(AST::new(stmts))
 }
@@ -115,20 +115,21 @@ pub fn parse_incremental(
     }
 
     stmts.extend(updated);
-
-    let last_expr = stmts.iter().rev().find_map(|stmt| {
-        if let Stmt::ExprStmt { expr } = stmt {
-            Some(expr.clone())
-        } else {
-            None
-        }
-    });
+    // LEAVE FOR CLI/REPL
+    // let last_expr = stmts.iter().rev().find_map(|stmt| {
+    //     if let Stmt::ExprStmt { expr } = stmt {
+    //         Some(expr.clone())
+    //     } else {
+    //         None
+    //     }
+    // });
 
     Ok(AST::new(stmts))
 }
 
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
     println!("parse_stmt at: {:?}", tokens.peek());
+
     match tokens.peek() {
         Some(Token::Print) => {
             println!("matched print");
@@ -138,6 +139,7 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
                 expr: parse_expr(tokens, diagnostics)?,
             })
         }
+
         Some(Token::If) => control::parse_if(tokens, diagnostics),
         Some(Token::While) => control::parse_while(tokens, diagnostics),
         Some(Token::Do) => control::parse_do_while(tokens, diagnostics),
@@ -150,9 +152,15 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
             let body = control::parse_block(tokens, diagnostics)?;
             Ok(Stmt::Block { body })
         }
+
         _ => {
             println!("parse last arm of statement");
-            let expr = parse_expr(tokens, diagnostics)?;
+
+            let expr = parse_assignment(tokens, None, diagnostics)?;
+
+            if matches!(tokens.peek(), Some(Token::Semicolon)) {
+                tokens.bump();
+            }
 
             match expr {
                 Expr::Assign { left, right, op } => {
@@ -192,6 +200,9 @@ fn parse_assignment(
         Some(expr) => expr,
         None => parse_or(tokens, diagnostics)?,
     };
+    // if matches!(tokens.peek(), Some(Token::Semicolon)) {
+    //     return Ok(left);
+    // }
     if let Some(Token::Assign | Token::Immutable | Token::Dynamic) = tokens.peek() {
         let op = tokens.next().unwrap(); // or tokens.bump()
 

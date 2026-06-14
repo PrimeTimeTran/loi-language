@@ -1,7 +1,8 @@
+use crate::middle::types::{Block, Module, Span};
+
 use core::fmt;
 use serde::{Deserialize, Serialize};
-
-use crate::middle::types::{Block, Module, Span};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Program {
@@ -13,6 +14,7 @@ pub struct Program {
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct AST {
+    pub program: Program,
     pub stmts: Vec<Stmt>,
 }
 
@@ -64,8 +66,6 @@ pub enum Stmt {
         body: Vec<Stmt>,
     },
 }
-
-use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct HashF64(pub f64);
@@ -164,10 +164,21 @@ pub enum AssignOp {
     Dynamic,   // =?
 }
 
+impl Program {
+    pub fn new(stmts: Vec<Stmt>) -> Self {
+        Self {
+            stmts,
+            modules: Vec::new(),
+            globals: Vec::new(),
+            entry: None,
+        }
+    }
+}
+
 impl AST {
     pub fn new(stmts: Vec<Stmt>) -> Self {
-        let program = Program::default();
-        Self { stmts: stmts }
+        let program = Program::new(stmts.clone());
+        Self { stmts, program }
     }
     pub fn to_sexpr(&self) -> String {
         self.stmts

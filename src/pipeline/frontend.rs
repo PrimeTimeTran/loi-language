@@ -91,93 +91,69 @@ impl FrontendPipeline {
 
 impl FrontendPipeline {
     fn perform_compilation(&self) -> Result<AST, DiagnosticStore> {
+        println!("▶ FRONTEND: start compilation");
+
         // 1. Read state
+        println!("▶ FRONTEND: acquiring state lock");
         let state = self.state.read().map_err(|e| {
-            let mut ds = DiagnosticStore::default();
-            let diag = Diagnostic::new(
-                format!("Failed source code loaded: {}", e),
-                Span::default(), // no real span here
-                Severity::Error,
-            )
-            .with_code("ELOCK001")
-            .with_note("Lexer was locked by another thread or poisoned")
-            .with_suggestion("Retry compilation or ensure single-threaded access");
+            println!("❌ FRONTEND: state lock failed: {:?}", e);
 
-            ds.emit(diag);
+            let mut ds = DiagnosticStore::default();
+            ds.emit(Diagnostic::error("state lock failed", Span::default()));
             ds
         })?;
 
-        let source = state.source.as_ref().ok_or_else(|| {
-            let mut ds = DiagnosticStore::default();
-
-            let diag = Diagnostic::new("No source code loaded", Span::default(), Severity::Error)
-                .with_code("E1002")
-                .with_note("Compiler state does not contain source input")
-                .with_suggestion("Load source code before running frontend pipeline");
-
-            ds.emit(diag);
-            ds
-        })?;
+        println!("✔ FRONTEND: state lock acquired");
 
         let source = state.source.as_ref().ok_or_else(|| {
+            println!("❌ FRONTEND: no source in state");
+
             let mut ds = DiagnosticStore::default();
             ds.emit(Diagnostic::error("No source code loaded", Span::default()));
             ds
         })?;
-        // 🔥 DEBUG CHECKPOINT AST (force visibility)
-        // {
-        //     if let Ok(mut state) = self.state.write() {
-        //         state.ast = Some(AST::new(vec![])); // empty AST marker
-        //         println!("🔥 CHECKPOINT AST WRITTEN");
-        //     }
-        // }
 
-        // 2. Lexing
+        println!("✔ FRONTEND: source loaded ({} chars)", source.len());
+
+        // 2. Lexer
+        println!("▶ FRONTEND: acquiring lexer lock");
         let mut lexer_guard = self.lexer.write().map_err(|e| {
-            let mut ds = DiagnosticStore::default();
-            let diag = Diagnostic::new(
-                format!("Failed to acquire lexer lock: {}", e),
-                Span::default(), // no real span here
-                Severity::Error,
-            )
-            .with_code("ELOCK001")
-            .with_note("Lexer was locked by another thread or poisoned")
-            .with_suggestion("Retry compilation or ensure single-threaded access");
+            println!("❌ FRONTEND: lexer lock failed: {:?}", e);
 
-            ds.emit(diag);
+            let mut ds = DiagnosticStore::default();
+            ds.emit(Diagnostic::error("lexer lock failed", Span::default()));
             ds
         })?;
+
+        println!("✔ FRONTEND: lexer lock acquired");
 
         let tokens = lexer_guard.lex(source).map_err(|e| {
+            println!("❌ FRONTEND: lexing failed: {:?}", e);
+
             let mut ds = DiagnosticStore::default();
-            let diag = Diagnostic::new(
-                format!("Error in lexer: {:?}", e),
-                Span::default(), // no real span here
-                Severity::Error,
-            )
-            .with_code("ELOCK001")
-            .with_note("Lexer was locked by another thread or poisoned")
-            .with_suggestion("Retry compilation or ensure single-threaded access");
-            ds.emit(diag);
+            ds.emit(Diagnostic::error("lexer error", Span::default()));
             ds
         })?;
+
+        println!("✔ FRONTEND: lexed {:?} tokens", tokens);
 
         drop(lexer_guard);
+        println!("✔ FRONTEND: lexer released");
 
-        // 3. Diagnostics + parser
+        // 3. Diagnostics
+        println!("▶ FRONTEND: acquiring diagnostics lock");
         let mut diag_guard = self.context.diagnostics.write().map_err(|e| {
+            println!("❌ FRONTEND: diagnostics lock failed: {:?}", e);
+
             let mut ds = DiagnosticStore::default();
-            let diag = Diagnostic::new(
-                format!("Error in lexer: {:?}", e),
-                Span::default(), // no real span here
-                Severity::Error,
-            )
-            .with_code("ELOCK001")
-            .with_note("Lexer was locked by another thread or poisoned")
-            .with_suggestion("Retry compilation or ensure single-threaded access");
-            ds.emit(diag);
+            ds.emit(Diagnostic::error(
+                "diagnostics lock failed",
+                Span::default(),
+            ));
             ds
         })?;
+
+        println!("✔ FRONTEND: diagnostics lock acquired");
 
         let mut parser_guard = self.parser.write().map_err(|e| {
             let mut ds = DiagnosticStore::default();

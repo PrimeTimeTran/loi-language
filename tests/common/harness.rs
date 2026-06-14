@@ -22,7 +22,11 @@ use loi::{
     kernel::{Kernel, KernelBuilder},
     middle::semantic,
     pipeline::{
-        backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel}, frontend::{FrontendFeatures, FrontendPipeline}, middle::{IRConfig, MiddleFeatures, MiddlePipeline}, runner::PipelineRunner, stage::Stage
+        backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
+        frontend::{FrontendFeatures, FrontendPipeline},
+        middle::{IRConfig, MiddleFeatures, MiddlePipeline},
+        runner::PipelineRunner,
+        stage::Stage,
     },
     registry::{file_meta::FileMeta, registry::Registry},
     test_utils::TestEnv,
@@ -131,6 +135,7 @@ impl TestHarness {
         }
     }
     pub fn with_source(self, source: &str) -> Self {
+        println!("WITH_SOURCE");
         {
             let mut state = self.env.state.write().unwrap();
             state.source = Some(source.to_string());
@@ -194,6 +199,7 @@ impl TestHarness {
 
 impl TestHarness {
     pub fn bootstrap(source: &str, symbol_data: Vec<(&str, &str, &str)>) -> Self {
+        println!("BOOTSTRAP");
         let mut harness = Self::new().with_source(source);
         for (name, val, file) in symbol_data {
             harness = harness.with_symbol(name, val, file);
@@ -202,6 +208,7 @@ impl TestHarness {
     }
 
     pub fn build_frontend(&self) -> FrontendPipeline {
+        println!("FRONTEND DONE");
         FrontendPipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
@@ -210,6 +217,8 @@ impl TestHarness {
         .with_features(FrontendFeatures::default())
     }
     pub fn build_middle(&self) -> MiddlePipeline {
+        println!("MIDDLE START");
+
         MiddlePipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
@@ -220,6 +229,8 @@ impl TestHarness {
     }
 
     pub fn build_backend(&self) -> BackendPipeline {
+        println!("BACKEND START");
+
         BackendPipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),

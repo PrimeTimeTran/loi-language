@@ -644,6 +644,7 @@ struct ModuleState
 
 #### src/compiler/mod.rs
 
+        struct Compiler(pipelines:Vec < Box < dyn Pipeline > >)
 
 #### src/compiler/runtime.rs
 
@@ -663,15 +664,18 @@ struct ModuleState
 
 #### src/compiler/state.rs
 
-        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, compiler_version:String, ir_version:u32)
+        struct LoweredIR(nodes:Vec < IROp >)
         struct BuildCache(object_cache:HashMap < u64 , Vec < u8 > >, ir_cache:HashMap < u64 , Vec < IROp > >, symbol_cache:HashMap < u64 , Vec < u8 > >, timestamps:HashMap < PathBuf , u64 >, cache_version:u32, current:Option < BuildArtifact >)
         struct DependencyGraph(forward:HashMap < SymbolId , HashSet < SymbolId > >, reverse:HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache:HashMap < SymbolId , HashSet < SymbolId > >, cycles:Vec < Vec < SymbolId > >)
         struct FileGraph(imports:HashMap < Uuid , Vec < Uuid > >, dependents:HashMap < Uuid , Vec < Uuid > >, topo_order:Vec < Uuid >, cycles:Vec < Vec < Uuid > >)
         struct IRCache(per_file:HashMap < Uuid , Vec < IROp > >, per_symbol:HashMap < SymbolId , Vec < IROp > >, dedup_cache:HashMap < u64 , Vec < IROp > >, ir_versions:HashMap < Uuid , u32 >, current:Option < IR >)
         struct LoweredCache(per_file:HashMap < Uuid , Vec < LoweredOp > >, per_symbol:HashMap < SymbolId , Vec < LoweredOp > >, backend_cache:HashMap < String , Vec < u8 > >, opt_pass_version:u32, current:Option < LoweredIR >)
         struct SymbolIndex(by_name:HashMap < String , Vec < SymbolId > >, by_file:HashMap < Uuid , Vec < SymbolId > >, fqns:HashMap < String , SymbolId >, scope_stack:Vec < Vec < SymbolId > >)
-        enum BuildArtifact { Llvm(_0), Wasm(_0), Bytecode(_0) }
-        struct LoweredIR(nodes:Vec < IROp >)
+        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, compiler_version:String, ir_version:u32)
+
+#### src/compiler/types.rs
+
+        enum BuildArtifact { Object(_0), Llvm(_0), Wasm(_0), Bytecode(_0) }
 
 #### src/context/compile.rs
 
@@ -724,14 +728,15 @@ struct ModuleState
 
 #### src/frontend/ast.rs
 
-        struct AST(stmts:Vec < Stmt >)
+        struct HashF64(_0:f64)
         enum AssignOp { Assign, Immutable, Dynamic }
-        enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
+        struct AST(stmts:Vec < Stmt >)
         enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
-        enum Expr { Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Bool(_0), Number(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
-        enum UnOp { Neg, Not, AddrOf }
         struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
         enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
+        enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
+        enum Expr { Number(_0), Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Bool(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
+        enum UnOp { Neg, Not, AddrOf }
 
 #### src/frontend/display.rs
 
@@ -834,10 +839,9 @@ struct ModuleState
 
 #### src/middle/types.rs
 
-        struct Span(file:PathBuf, start:usize, end:usize)
+        enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Return, Unknown }
         enum ModuleItem { Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0) }
         enum TopLevelItem { Module(_0), Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0), Stmt(_0) }
-        enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Return, Unknown }
         struct Block(stmts:Vec < Stmt >)
         struct Enum(name:String, variants:Vec < Variant >)
         struct Field(name:String, ty:Type)
@@ -847,13 +851,14 @@ struct ModuleState
         struct Param(name:String, ty:Option < Type >)
         struct Struct(name:String, fields:Vec < Field >)
         struct Variant(name:String, fields:Vec < Type >)
+        struct Span(file:PathBuf, start:usize, end:usize)
 
 #### src/pipeline/backend.rs
 
         enum BackendTarget { Bytecode, LLVM, WASM }
         enum OptimizationLevel { None, Basic, Aggressive }
         struct CodegenConfig(emit_debug_info:bool, inline_functions:bool, vectorize:bool)
-        struct BackendPipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, target:BackendTarget, opt_level:OptimizationLevel, codegen_config:CodegenConfig, debug:bool)
+        struct BackendPipeline(llvm_context:Mutex < inkwell :: context :: Context >, metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, target:BackendTarget, opt_level:OptimizationLevel, codegen_config:CodegenConfig, debug:bool)
 
 #### src/pipeline/frontend.rs
 
@@ -869,9 +874,14 @@ struct ModuleState
 #### src/pipeline/mod.rs
 
         struct Metadata(name:String, version:String)
+        enum CompileError { Frontend(_0), Middle(_0), Backend(_0) }
 
 #### src/pipeline/provider.rs
 
+
+#### src/pipeline/runner.rs
+
+        struct PipelineRunner(stages:Vec < Box < dyn Pipeline > >)
 
 #### src/pipeline/stage.rs
 
@@ -1283,8 +1293,6 @@ struct ModuleState
 
 #### tests/z.pulse-testing/01-pipeline.rs
 
-        test_everything_at_once()
-        test_piecemeal()
 
 #### tests/z.pulse-testing/mod.rs
 

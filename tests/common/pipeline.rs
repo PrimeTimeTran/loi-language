@@ -5,19 +5,13 @@ use loi::{
     context::Context,
 };
 
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-#[cfg(test)]
-use std::sync::RwLock;
-
-#[cfg(test)]
 pub fn create_test_harness() -> (
     Arc<Context>,
     Arc<RwLock<CompileConfig>>,
     Arc<RwLock<CompileState>>,
 ) {
-    use std::sync::RwLock;
-
     let context = Arc::new(Context::new());
     let config = Arc::new(RwLock::new(CompileConfig::default()));
     let state = Arc::new(RwLock::new(CompileState::default()));
@@ -25,6 +19,7 @@ pub fn create_test_harness() -> (
 }
 
 #[test]
+#[cfg(test)]
 fn test_middle_pipeline_optimization() {
     let (ctx, cfg, state) = create_test_harness();
     let result = MiddlePipeline::new(ctx, cfg, state);

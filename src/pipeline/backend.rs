@@ -1,6 +1,7 @@
 use bincode::de;
-use inkwell::targets::FileType::Object;
-use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine};
+use inkwell::targets::{
+    CodeModel, FileType::Object, InitializationConfig, RelocMode, Target, TargetMachine,
+};
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
@@ -40,12 +41,15 @@ impl Pipeline for BackendPipeline {
 
     fn compile(&self) -> Result<(), CompileError> {
         println!(">>> BACKEND RUNNING");
-        let ir = self
-            .state
-            .read()
-            .unwrap()
-            .current_ir()
-            .ok_or(CompileError::Backend("missing IR".into()))?;
+        let state = self.state.read().unwrap();
+        println!("IR = {:?}", state.current_ir());
+        let state = self.state.read().unwrap();
+
+        let ir = state.current_ir().ok_or_else(|| {
+            CompileError::Backend(
+                "Backend requires IR but none was produced by Middle stage".into(),
+            )
+        })?;
 
         let object = match self.target {
             BackendTarget::LLVM => self.codegen_llvm(ir)?,
@@ -73,7 +77,6 @@ impl BackendPipeline {
     ) -> Self {
         Self::with_name("BackendPipeline", context, config, state)
     }
-
     pub fn with_name(
         name: &str,
         context: Arc<Context>,
@@ -85,34 +88,40 @@ impl BackendPipeline {
                 name: name.to_string(),
                 version: "1.0.0".to_string(),
             },
-            llvm_context: Mutex::new(inkwell::context::Context::create()),
             context,
             config,
             state,
+            debug: false,
             target: BackendTarget::default(),
             opt_level: OptimizationLevel::default(),
             codegen_config: CodegenConfig::default(),
-            debug: false,
+            llvm_context: Mutex::new(inkwell::context::Context::create()),
         }
     }
     pub fn with_target(mut self, target: BackendTarget) -> Self {
         self.target = target;
         self
     }
-
     pub fn with_opt_level(mut self, level: OptimizationLevel) -> Self {
         self.opt_level = level;
         self
     }
-
     pub fn with_codegen_config(mut self, cfg: CodegenConfig) -> Self {
         self.codegen_config = cfg;
         self
     }
-
     pub fn with_debug(mut self, debug: bool) -> Self {
         self.debug = debug;
         self
+    }
+}
+impl BackendPipeline {
+    pub fn run(&self, ir: IR) -> Vec<u8> {
+        match self.target {
+            BackendTarget::Bytecode => self.emit_bytecode(ir),
+            BackendTarget::LLVM => self.emit_llvm(ir),
+            BackendTarget::WASM => self.emit_wasm(ir),
+        }
     }
 
     fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
@@ -168,7 +177,6 @@ impl BackendPipeline {
 
         Ok(buf.as_slice().to_vec())
     }
-
     fn codegen_llvm(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
         let context = inkwell::context::Context::create();
         let module = context.create_module("main");
@@ -182,7 +190,6 @@ impl BackendPipeline {
 
         Ok(buf.as_slice().to_vec())
     }
-
     fn codegen_wasm(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
         // later: wasm backend
         Ok(vec![])
@@ -206,9 +213,33 @@ impl BackendPipeline {
         ))?;
         Ok(tm)
     }
-}
-#[derive(Debug, Default)]
 
+    fn emit_bytecode(&self, ir: IR) -> Vec<u8> {
+        ir.nodes
+            .iter()
+            .map(|op| format!("{op:?}"))
+            .collect::<String>()
+            .into_bytes()
+    }
+    fn emit_llvm(&self, _ir: IR) -> Vec<u8> {
+        vec![]
+    }
+    fn emit_wasm(&self, _ir: IR) -> Vec<u8> {
+        vec![]
+    }
+}
+
+#[cfg(test)]
+impl Default for BackendPipeline {
+    fn default() -> Self {
+        let context = Arc::new(Context::new());
+        let config = Arc::new(RwLock::new(CompileConfig::default()));
+        let state = Arc::new(RwLock::new(CompileState::default()));
+        Self::new(context, config, state)
+    }
+}
+
+#[derive(Debug, Default)]
 pub enum BackendTarget {
     #[default]
     Bytecode,
@@ -229,41 +260,4 @@ pub struct CodegenConfig {
     pub emit_debug_info: bool,
     pub inline_functions: bool,
     pub vectorize: bool,
-}
-
-impl BackendPipeline {
-    /// MAIN ENTRY POINT
-    pub fn run(&self, ir: IR) -> Vec<u8> {
-        match self.target {
-            BackendTarget::Bytecode => self.emit_bytecode(ir),
-            BackendTarget::LLVM => self.emit_llvm(ir),
-            BackendTarget::WASM => self.emit_wasm(ir),
-        }
-    }
-
-    fn emit_bytecode(&self, ir: IR) -> Vec<u8> {
-        ir.nodes
-            .iter()
-            .map(|op| format!("{op:?}"))
-            .collect::<String>()
-            .into_bytes()
-    }
-
-    fn emit_llvm(&self, _ir: IR) -> Vec<u8> {
-        vec![]
-    }
-
-    fn emit_wasm(&self, _ir: IR) -> Vec<u8> {
-        vec![]
-    }
-}
-
-#[cfg(test)]
-impl Default for BackendPipeline {
-    fn default() -> Self {
-        let context = Arc::new(Context::new());
-        let config = Arc::new(RwLock::new(CompileConfig::default()));
-        let state = Arc::new(RwLock::new(CompileState::default()));
-        Self::new(context, config, state)
-    }
 }
