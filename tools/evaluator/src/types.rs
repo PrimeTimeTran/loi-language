@@ -1,94 +1,31 @@
 use std::{collections::HashSet, path::PathBuf};
 use syn::visit::{self, Visit};
 
-use crate::ui::{render_enum, render_struct};
-#[derive(PartialEq, Clone, Copy)]
-pub enum SymbolType {
-    Struct,
-    Enum,
-    Function,
-    Other,
+use crate::{
+    language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind},
+    ui::{render_enum, render_struct},
+};
+
+pub enum ParamFormat {
+    PartialEq,
+    Eq,
+    None,
+    NameOnly,
+    NameList,
+    NameType,
+    TypeOnly,
 }
 
-pub fn get_type(item: &syn::Item) -> SymbolType {
-    match item {
-        syn::Item::Struct(_) => SymbolType::Struct,
-        syn::Item::Enum(_) => SymbolType::Enum,
-        syn::Item::Fn(_) => SymbolType::Function,
-        _ => SymbolType::Other,
-    }
-}
-pub struct MyAnalyzer<'a> {
-    pub config: &'a DenseConfig,
-    pub items: &'a [syn::Item],
-    pub rendered_output: Vec<String>,
-    pub registry: SymbolRegistry,
+pub enum EnumFormat {
+    NameOnly,
+    NameWithTypes,
 }
 
-impl<'a> Visit<'a> for MyAnalyzer<'a> {
-    fn visit_item_struct(&mut self, i: &'a syn::ItemStruct) {
-        let rendered = render_struct(i, self.config, "".to_string(), self.items);
-        self.registry.structs.push(rendered);
-        visit::visit_item_struct(self, i);
-    }
-
-    fn visit_item_enum(&mut self, i: &'a syn::ItemEnum) {
-        let rendered = render_enum(i, self.config, "".to_string());
-        self.registry.enums.push(rendered);
-        visit::visit_item_enum(self, i);
-    }
-}
-
-#[derive(Default)]
-pub struct SymbolRegistry {
-    structs: Vec<String>,
-    enums: Vec<String>,
-    // Add other categories as needed
-}
-
-impl SymbolRegistry {
-    fn render_grouped(&self) -> String {
-        let mut output = Vec::new();
-
-        if !self.structs.is_empty() {
-            output.push(self.structs.join("\n"));
-        }
-
-        if !self.enums.is_empty() {
-            if !output.is_empty() {
-                output.push("".to_string());
-            } // Extra newline
-            output.push(self.enums.join("\n"));
-        }
-
-        output.join("\n\n")
-    }
-}
-
-struct RenderContext {
-    config: DenseConfig,
-    rendered_types: HashSet<String>,
-    output_buffer: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Language {
-    Rust,
-    JavaScript,
-    TypeScript,
-    JSX,
-    TSX,
-    Python,
-    Go,
-    Java,
-    CSharp,
-    Unknown,
-}
-
-pub struct FileMatcher {
-    pub extensions: HashSet<String>,
-    pub path_contains: Option<String>,
-    pub ignore_tests: bool,
+pub enum PathFormat {
+    FileName,
+    Relative,
+    ModulePath,
+    Absolute,
 }
 
 pub enum HeaderFormat {
@@ -96,18 +33,13 @@ pub enum HeaderFormat {
     Flat,
     DepthHash,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+
+#[derive(Eq, PartialEq)]
 pub enum FieldFormat {
     None,
     Name,
     NameAndType,
     All,
-}
-
-pub struct CodeBlockConfig {
-    pub enabled: bool,
-    pub language_override: Option<String>, // e.g. "js", "rust"
-    pub preserve_indentation: bool,
 }
 
 #[derive(Clone)]
@@ -128,42 +60,6 @@ pub enum ExtractMode {
     FullBody,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-
-pub enum FunctionKind {
-    Free,
-    Method,
-    Associated,
-    Lambda,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-
-pub enum VariableKind {
-    Let,
-    Const,
-    Var,
-    Field,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-
-pub enum TypeKind {
-    Struct,
-    Enum,
-    Class,
-    Trait,
-    Interface,
-    TypeAlias,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-
-pub enum SymbolKind {
-    Function(FunctionKind),
-    Variable(VariableKind),
-    Type(TypeKind),
-}
-
 pub enum IncludePolicy {
     Only,
     IncludeDerived,
@@ -182,16 +78,6 @@ pub enum DepthConstraint {
     Range { from: usize, to: usize },
 }
 
-pub struct StructuralFilter {
-    pub depth: DepthConstraint,
-    pub parent: Option<ParentConstraint>,
-}
-
-pub struct Rule {
-    pub languages: HashSet<Language>,
-    pub matchers: Vec<Matcher>,
-}
-
 pub enum ScopeRoot {
     File,
     Module,
@@ -203,23 +89,60 @@ pub enum Matcher {
     File(FileMatcher),
 }
 
+pub struct CodeBlockConfig {
+    pub enabled: bool,
+    pub language_override: Option<String>,
+    pub preserve_indentation: bool,
+}
+
+pub struct StructuralFilter {
+    pub depth: DepthConstraint,
+    pub parent: Option<ParentConstraint>,
+}
+
+pub struct Rule {
+    pub languages: HashSet<Language>,
+    pub matchers: Vec<Matcher>,
+}
+
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,
 }
 
-pub enum ParamFormat {
-    PartialEq,
-    Eq,
-    None,
-    NameOnly,
-    NameList,
-    NameType,
-    TypeOnly,
-}
-
 pub struct FunctionDenseConfig {
     pub params: ParamFormat,
+}
+
+pub struct StructDenseConfig {
+    pub fields: ParamFormat,
+    pub functions: FunctionDenseConfig,
+}
+
+pub struct EnumDenseConfig {
+    pub variants: ParamFormat,
+}
+
+pub struct DenseConfig {
+    pub fields: FieldFormat,
+    pub functions: FunctionDenseConfig,
+    pub structs: StructDenseConfig,
+    pub enums: EnumDenseConfig,
+}
+
+pub struct OutputConfig {
+    pub path_format: PathFormat,
+    pub header: HeaderFormat,
+    pub codeblock: Option<CodeBlockConfig>,
+    pub dense: DenseConfig,
+}
+
+pub struct ExtractConfig {
+    pub input_dir: PathBuf,
+    pub output_file: PathBuf,
+
+    pub rules: Vec<Rule>,
+    pub output: OutputConfig,
 }
 
 impl Default for FunctionDenseConfig {
@@ -229,21 +152,16 @@ impl Default for FunctionDenseConfig {
         }
     }
 }
-pub struct StructDenseConfig {
-    pub fields: ParamFormat,
-}
-
-impl Default for StructDenseConfig {
+impl Default for OutputConfig {
     fn default() -> Self {
         Self {
-            fields: ParamFormat::NameType,
+            path_format: PathFormat::Relative,
+            header: HeaderFormat::DepthHash,
+            codeblock: Some(CodeBlockConfig::default()),
+            dense: DenseConfig::default(),
         }
     }
 }
-pub struct EnumDenseConfig {
-    pub variants: ParamFormat,
-}
-
 impl Default for EnumDenseConfig {
     fn default() -> Self {
         Self {
@@ -251,16 +169,15 @@ impl Default for EnumDenseConfig {
         }
     }
 }
-pub enum EnumFormat {
-    NameOnly,
-    NameWithTypes,
-}
-
-pub struct DenseConfig {
-    pub fields: FieldFormat,
-    pub functions: FunctionDenseConfig,
-    pub structs: StructDenseConfig,
-    pub enums: EnumDenseConfig,
+impl Default for ExtractConfig {
+    fn default() -> Self {
+        Self {
+            input_dir: PathBuf::from("./tools/evaluator"),
+            output_file: PathBuf::from("structure.txt"),
+            rules: vec![Rule::default()],
+            output: OutputConfig::default(),
+        }
+    }
 }
 impl Default for DenseConfig {
     fn default() -> Self {
@@ -272,38 +189,26 @@ impl Default for DenseConfig {
         }
     }
 }
-
-pub enum PathFormat {
-    FileName,
-    Relative,
-    ModulePath,
-    Absolute,
-}
-
 impl Default for PathMode {
     fn default() -> Self {
         PathMode::Relative
     }
 }
-
 impl Default for ExtractMode {
     fn default() -> Self {
         ExtractMode::SymbolsOnly
     }
 }
-
 impl Default for HeaderFormat {
     fn default() -> Self {
         HeaderFormat::DepthHash
     }
 }
-
 impl Default for PathFormat {
     fn default() -> Self {
         PathFormat::Relative
     }
 }
-
 impl Default for CodeBlockConfig {
     fn default() -> Self {
         Self {
@@ -313,19 +218,16 @@ impl Default for CodeBlockConfig {
         }
     }
 }
-
 impl Default for DepthConstraint {
     fn default() -> Self {
         DepthConstraint::Any
     }
 }
-
 impl Default for ParentConstraint {
     fn default() -> Self {
         ParentConstraint::Any
     }
 }
-
 impl Default for StructuralFilter {
     fn default() -> Self {
         Self {
@@ -334,7 +236,6 @@ impl Default for StructuralFilter {
         }
     }
 }
-
 impl Default for SymbolMatcher {
     fn default() -> Self {
         Self {
@@ -343,7 +244,6 @@ impl Default for SymbolMatcher {
         }
     }
 }
-
 impl Default for Rule {
     fn default() -> Self {
         let mut languages = HashSet::new();
@@ -367,7 +267,6 @@ impl Default for Rule {
         }
     }
 }
-
 impl Default for FileMatcher {
     fn default() -> Self {
         let mut extensions = HashSet::new();
@@ -385,40 +284,11 @@ impl Default for FileMatcher {
         }
     }
 }
-
-pub struct OutputConfig {
-    pub path_format: PathFormat,
-    pub header: HeaderFormat,
-    pub codeblock: Option<CodeBlockConfig>,
-    pub dense: DenseConfig,
-}
-impl Default for OutputConfig {
+impl Default for StructDenseConfig {
     fn default() -> Self {
         Self {
-            path_format: PathFormat::Relative,
-            header: HeaderFormat::DepthHash,
-            codeblock: Some(CodeBlockConfig::default()),
-            dense: DenseConfig::default(),
-        }
-    }
-}
-
-pub struct ExtractConfig {
-    pub input_dir: PathBuf,
-    pub output_file: PathBuf,
-
-    pub rules: Vec<Rule>,
-    pub output: OutputConfig,
-}
-impl Default for ExtractConfig {
-    fn default() -> Self {
-        Self {
-            input_dir: PathBuf::from("."),
-            output_file: PathBuf::from("structure.txt"),
-
-            rules: vec![Rule::default()],
-
-            output: OutputConfig::default(),
+            fields: ParamFormat::NameType,
+            functions: FunctionDenseConfig::default(),
         }
     }
 }

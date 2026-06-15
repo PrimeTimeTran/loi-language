@@ -1,8 +1,12 @@
-use crate::types::{
-    DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FieldFormat, FunctionKind,
-    HeaderFormat, HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode,
-    StructuralFilter, SymbolKind, SymbolMatcher, TypeKind, VariableKind::Field,
+use crate::{
+    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
+    types::{
+        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FieldFormat, HeaderFormat,
+        HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode,
+        StructuralFilter, SymbolMatcher,
+    },
 };
+
 use quote::{ToTokens, quote};
 use std::{
     collections::HashSet,

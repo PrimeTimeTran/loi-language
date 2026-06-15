@@ -1,22 +1,26 @@
-use evaluator::{
-    types::{
-        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FunctionKind, HeaderFormat,
-        HeaderMode, Matcher, MyAnalyzer, OutputConfig, ParamFormat, ParentConstraint, PathMode,
-        StructuralFilter, SymbolKind, SymbolMatcher, SymbolRegistry, TypeKind,
-    },
-    ui::{format_output, render_enum, render_function, render_header, render_item, render_struct},
-};
 use quote::{ToTokens, quote};
-use std::cmp::Ordering;
 use std::{
+    cmp::Ordering,
     collections::HashSet,
     env, fs,
     path::{Component, Path, PathBuf},
 };
-use syn::visit::{self, Visit};
-
-use syn::{File, Item};
+use syn::{
+    File, Item,
+    visit::{self, Visit},
+};
 use walkdir::WalkDir;
+
+use evaluator::{
+    analyzer::MyAnalyzer,
+    language::{FunctionKind, SymbolKind, SymbolRegistry, TypeKind},
+    types::{
+        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, HeaderFormat, HeaderMode,
+        Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode, StructuralFilter,
+        SymbolMatcher,
+    },
+    ui::{format_output, render_enum, render_function, render_header, render_item, render_struct},
+};
 
 fn main() {
     let config = ExtractConfig::default();
