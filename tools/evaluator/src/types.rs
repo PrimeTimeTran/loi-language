@@ -93,8 +93,15 @@ pub struct FileMatcher {
 
 pub enum HeaderFormat {
     None,
-    Flat,      // single-line header
-    DepthHash, // hierarchical like # / ## / ###
+    Flat,
+    DepthHash,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FieldFormat {
+    None,
+    Name,
+    NameAndType,
+    All,
 }
 
 pub struct CodeBlockConfig {
@@ -202,9 +209,13 @@ pub struct SymbolMatcher {
 }
 
 pub enum ParamFormat {
+    PartialEq,
+    Eq,
+    None,
     NameOnly,
     NameList,
     NameType,
+    TypeOnly,
 }
 
 pub struct FunctionDenseConfig {
@@ -246,6 +257,7 @@ pub enum EnumFormat {
 }
 
 pub struct DenseConfig {
+    pub fields: FieldFormat,
     pub functions: FunctionDenseConfig,
     pub structs: StructDenseConfig,
     pub enums: EnumDenseConfig,
@@ -253,6 +265,7 @@ pub struct DenseConfig {
 impl Default for DenseConfig {
     fn default() -> Self {
         Self {
+            fields: FieldFormat::NameAndType,
             functions: FunctionDenseConfig::default(),
             structs: StructDenseConfig::default(),
             enums: EnumDenseConfig::default(),

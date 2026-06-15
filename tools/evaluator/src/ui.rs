@@ -1,7 +1,7 @@
 use crate::types::{
-    DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FunctionKind, HeaderFormat,
-    HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode, StructuralFilter,
-    SymbolKind, SymbolMatcher, TypeKind,
+    DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FieldFormat, FunctionKind,
+    HeaderFormat, HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode,
+    StructuralFilter, SymbolKind, SymbolMatcher, TypeKind, VariableKind::Field,
 };
 use quote::{ToTokens, quote};
 use std::{
@@ -86,26 +86,76 @@ pub fn render_function(f: &syn::ItemFn, config: &DenseConfig, indent: String) ->
 
     format!("{}{}", indent, body)
 }
-
 pub fn render_struct(
     s: &syn::ItemStruct,
     config: &DenseConfig,
     indent: String,
     items: &[syn::Item],
 ) -> String {
-    // 1. Render the header
     let mut output = format!("{}struct {}", indent, s.ident);
-    // (Optional: add your field rendering logic here)
 
-    // 2. SEARCH: Find all Impl blocks for this struct within the provided items
+    // 1. Render Fields based on config
+    if config.fields != FieldFormat::None {
+        match &s.fields {
+            syn::Fields::Named(fields) => {
+                for field in &fields.named {
+                    let name = field
+                        .ident
+                        .as_ref()
+                        .map(|i| i.to_string())
+                        .unwrap_or_else(|| "_".to_string());
+                    let ty = &field.ty;
+
+                    let line = match config.fields {
+                        FieldFormat::Name => format!(
+                            "\n{}  - {}: {}",
+                            indent,
+                            name,
+                            quote::ToTokens::to_token_stream(ty)
+                        ),
+                        FieldFormat::NameAndType => {
+                            format!(
+                                "\n{}  - {}: {}",
+                                indent,
+                                name,
+                                quote::ToTokens::to_token_stream(ty)
+                            )
+                        }
+                        FieldFormat::All => {
+                            format!(
+                                "\n{}  - {}: {}",
+                                indent,
+                                name,
+                                quote::ToTokens::to_token_stream(ty)
+                            )
+                        }
+                        _ => String::new(),
+                    };
+                    output.push_str(&line);
+                }
+            }
+            syn::Fields::Unnamed(fields) => {
+                for (idx, field) in fields.unnamed.iter().enumerate() {
+                    let ty = &field.ty;
+                    output.push_str(&format!(
+                        "\n{}  - {}: {}",
+                        indent,
+                        idx,
+                        quote::ToTokens::to_token_stream(ty)
+                    ));
+                }
+            }
+            syn::Fields::Unit => { /* Nothing to render for unit structs */ }
+        }
+    }
+
+    // 2. SEARCH: Find all Impl blocks for this struct
     let methods: Vec<String> = items
         .iter()
         .filter_map(|item| {
             if let syn::Item::Impl(i) = item {
-                // Check if this impl is for our struct
                 if let syn::Type::Path(p) = &*i.self_ty {
                     if p.path.is_ident(&s.ident) {
-                        // Found a match, extract methods
                         return Some(render_impl_methods(i, config, &format!("{}  ", indent)));
                     }
                 }
@@ -123,7 +173,6 @@ pub fn render_struct(
 
     output
 }
-
 pub fn render_impl_methods(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) -> Vec<String> {
     i.items
         .iter()
@@ -146,7 +195,6 @@ pub fn render_impl_methods(i: &syn::ItemImpl, config: &DenseConfig, indent: &str
         })
         .collect()
 }
-
 pub fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> String {
     let name = e.ident.to_string();
 
@@ -169,13 +217,12 @@ pub fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> S
 
                         match config.enums.variants {
                             ParamFormat::NameOnly => field_name.clone(),
-
                             ParamFormat::NameList => field_name,
-
                             ParamFormat::NameType => {
                                 let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
                                 format!("{}:{}", field_name, ty)
                             }
+                            _ => todo!(),
                         }
                     })
                     .collect(),
@@ -195,6 +242,9 @@ pub fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> S
                             ParamFormat::NameType => {
                                 let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
                                 format!("{}:{}", field_name, ty)
+                            }
+                            _ => {
+                                todo!()
                             }
                         }
                     })
@@ -217,7 +267,16 @@ pub fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> S
 
     format!("{}enum {} {{ {} }}", indent, name, variants.join(", "))
 }
-
+pub fn render_impl_block(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) -> String {
+    let mut methods = Vec::new();
+    for item in &i.items {
+        if let syn::ImplItem::Fn(m) = item {
+            // Use your existing logic to render a function
+            methods.push(format!("{}- fn {}", indent, m.sig.ident));
+        }
+    }
+    methods.join("\n")
+}
 pub fn format_output(output: &str, config: &OutputConfig) -> String {
     let mut result = output.to_string();
 
@@ -229,17 +288,6 @@ pub fn format_output(output: &str, config: &OutputConfig) -> String {
 
     result.push('\n');
     result
-}
-
-pub fn render_impl_block(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) -> String {
-    let mut methods = Vec::new();
-    for item in &i.items {
-        if let syn::ImplItem::Fn(m) = item {
-            // Use your existing logic to render a function
-            methods.push(format!("{}- fn {}", indent, m.sig.ident));
-        }
-    }
-    methods.join("\n")
 }
 
 // Inside ui.rs
