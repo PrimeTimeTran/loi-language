@@ -2,13 +2,13 @@ use std::{collections::HashSet, path::PathBuf};
 use syn::visit::{self, Visit};
 
 use crate::{
-    format::DenseConfig,
+    config::Config,
     language::{FileMatcher, Language, SymbolKind, SymbolRegistry, SymbolType},
     ui::{render_enum, render_struct},
 };
 
 pub struct MyAnalyzer<'a> {
-    pub config: &'a DenseConfig,
+    pub config: &'a Config,
     pub items: &'a [syn::Item],
     pub rendered_output: Vec<String>,
     pub registry: SymbolRegistry,

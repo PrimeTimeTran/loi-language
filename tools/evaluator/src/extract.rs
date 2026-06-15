@@ -1,66 +1,60 @@
-use std::{collections::HashSet, path::PathBuf};
-use syn::visit::{self, Visit};
-
 use crate::{
     format::{CodeBlockConfig, DenseConfig, HeaderFormat, OutputConfig, ParamFormat, PathFormat},
     language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind},
     ui::{render_enum, render_struct},
 };
+use clap::Parser;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use syn::visit::{self, Visit};
 
 pub enum IncludePolicy {
     Only,
     IncludeDerived,
     IncludeNested,
 }
+#[derive(Debug)]
+
 pub enum ParentConstraint {
     Any,
     Within(SymbolKind),
     WithinPath(Vec<SymbolKind>),
 }
+#[derive(Debug)]
+
 pub enum DepthConstraint {
     Any,
     Exact(usize),
     Range { from: usize, to: usize },
 }
+
 pub enum ScopeRoot {
     File,
     Module,
     Symbol(SymbolKind),
 }
+
+#[derive(Debug)]
 pub enum Matcher {
     Symbol(SymbolMatcher),
     File(FileMatcher),
 }
+#[derive(Debug)]
 pub struct StructuralFilter {
     pub depth: DepthConstraint,
     pub parent: Option<ParentConstraint>,
 }
+#[derive(Debug)]
 pub struct Rule {
     pub languages: HashSet<Language>,
     pub matchers: Vec<Matcher>,
 }
+#[derive(Debug)]
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,
 }
-pub struct ExtractConfig {
-    pub input_dir: PathBuf,
-    pub output_file: PathBuf,
 
-    pub rules: Vec<Rule>,
-    pub output: OutputConfig,
-}
-
-impl Default for ExtractConfig {
-    fn default() -> Self {
-        Self {
-            input_dir: PathBuf::from("./tools/evaluator"),
-            output_file: PathBuf::from("structure.txt"),
-            rules: vec![Rule::default()],
-            output: OutputConfig::default(),
-        }
-    }
-}
 impl Default for DepthConstraint {
     fn default() -> Self {
         DepthConstraint::Any

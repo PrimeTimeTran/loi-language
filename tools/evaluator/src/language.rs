@@ -23,6 +23,7 @@ pub enum SymbolType {
     Other,
 }
 
+#[derive(Debug)]
 pub struct FileMatcher {
     pub extensions: HashSet<String>,
     pub path_contains: Option<String>,

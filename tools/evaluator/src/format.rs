@@ -6,6 +6,14 @@ use crate::{
     ui::{render_enum, render_struct},
 };
 
+#[derive(Debug, Clone)]
+pub enum LineStyle {
+    Compact,
+    ExpandedParams,
+    Block,
+}
+
+#[derive(Debug)]
 pub enum ParamFormat {
     PartialEq,
     Eq,
@@ -16,6 +24,7 @@ pub enum ParamFormat {
     TypeOnly,
 }
 
+#[derive(Debug)]
 pub enum EnumFormat {
     NameOnly,
     NameWithTypes,
@@ -27,14 +36,14 @@ pub enum PathFormat {
     ModulePath,
     Absolute,
 }
-
+#[derive(Debug)]
 pub enum HeaderFormat {
     None,
     Flat,
     DepthHash,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum FieldFormat {
     None,
     Name,
@@ -89,6 +98,7 @@ pub enum Matcher {
     File(FileMatcher),
 }
 
+#[derive(Debug)]
 pub struct CodeBlockConfig {
     pub enabled: bool,
     pub language_override: Option<String>,
@@ -100,34 +110,32 @@ pub struct StructuralFilter {
     pub parent: Option<ParentConstraint>,
 }
 
-pub struct Rule {
-    pub languages: HashSet<Language>,
-    pub matchers: Vec<Matcher>,
-}
-
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,
 }
 
+#[derive(Debug)]
 pub struct FunctionDenseConfig {
     pub params: ParamFormat,
 }
 
+#[derive(Debug)]
 pub struct StructDenseConfig {
     pub fields: ParamFormat,
     pub functions: FunctionDenseConfig,
 }
 
+#[derive(Debug)]
 pub struct EnumDenseConfig {
     pub variants: ParamFormat,
 }
 
+// 2. DenseConfig: The Layout Engine
+#[derive(Debug, Clone)]
 pub struct DenseConfig {
-    pub fields: FieldFormat,
-    pub functions: FunctionDenseConfig,
-    pub structs: StructDenseConfig,
-    pub enums: EnumDenseConfig,
+    pub enabled: bool,
+    pub line_style: LineStyle,
 }
 
 pub struct OutputConfig {
@@ -165,10 +173,8 @@ impl Default for EnumDenseConfig {
 impl Default for DenseConfig {
     fn default() -> Self {
         Self {
-            fields: FieldFormat::NameAndType,
-            functions: FunctionDenseConfig::default(),
-            structs: StructDenseConfig::default(),
-            enums: EnumDenseConfig::default(),
+            enabled: true,
+            line_style: LineStyle::Compact,
         }
     }
 }
@@ -227,30 +233,6 @@ impl Default for SymbolMatcher {
         }
     }
 }
-impl Default for Rule {
-    fn default() -> Self {
-        let mut languages = HashSet::new();
-        languages.insert(Language::Rust);
-        languages.insert(Language::TypeScript);
-        languages.insert(Language::JavaScript);
-
-        let mut kinds = HashSet::new();
-        kinds.insert(SymbolKind::Type(TypeKind::Struct));
-        kinds.insert(SymbolKind::Function(FunctionKind::Free));
-        kinds.insert(SymbolKind::Type(TypeKind::Trait));
-        kinds.insert(SymbolKind::Type(TypeKind::Enum));
-        kinds.insert(SymbolKind::Variable(VariableKind::Const));
-
-        Self {
-            languages,
-            matchers: vec![Matcher::Symbol(SymbolMatcher {
-                kinds,
-                structural: None,
-            })],
-        }
-    }
-}
-
 impl Default for StructDenseConfig {
     fn default() -> Self {
         Self {

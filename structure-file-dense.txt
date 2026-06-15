@@ -1,0 +1,11 @@
+
+struct KernelBuilder
+   properties:
+   context, engine, logger, cache, ....
+  
+   functions:
+   news, context, engine ...
+   
+impl KernelBuilder
+   functions:
+   default, with_name, with_engine, ...

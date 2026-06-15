@@ -10,36 +10,35 @@ use syn::{File, Item};
 use walkdir::WalkDir;
 
 use crate::{
-    extract::{
-        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
+    config::{Config, RenderPolicy},
+    extract::{DepthConstraint, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher},
+    format::{
+        DenseConfig, FieldFormat, HeaderFormat, LineStyle, OutputConfig, ParamFormat, PathMode,
     },
-    format::{DenseConfig, FieldFormat, HeaderFormat, OutputConfig, ParamFormat, PathMode},
     language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
+    mode::ViewMode,
 };
 
 pub fn render_item(
     item: &syn::Item,
-    config: &DenseConfig,
+    config: &Config,
     indent: String,
-    items: &[syn::Item], // Add this
+    items: &[syn::Item],
 ) -> Option<String> {
     match item {
         syn::Item::Fn(f) => Some(render_function(f, config, indent)),
-        // Pass items down here
         syn::Item::Struct(s) => Some(render_struct(s, config, indent, items)),
         syn::Item::Enum(e) => Some(render_enum(e, config, indent)),
         _ => None,
     }
 }
 
-pub fn render_header(rel: &Path, file_depth: usize, config: &ExtractConfig) -> String {
-    match config.output.header {
+pub fn render_header(rel: &Path, file_depth: usize, config: &Config) -> String {
+    match config.format.header {
         HeaderFormat::None => String::new(),
-
         HeaderFormat::Flat => {
             format!("# {}\n\n", rel.to_string_lossy())
         }
-
         HeaderFormat::DepthHash => {
             let depth = file_depth.max(1);
             let hashes = "#".repeat(depth);
@@ -48,134 +47,112 @@ pub fn render_header(rel: &Path, file_depth: usize, config: &ExtractConfig) -> S
         }
     }
 }
-pub fn render_function(f: &syn::ItemFn, config: &DenseConfig, indent: String) -> String {
+pub fn render_function(f: &syn::ItemFn, config: &Config, indent: String) -> String {
     let name = f.sig.ident.to_string();
+    let policy = &config.render_policy;
+    let format = &config.format;
+    let layout = &config.layout;
 
-    let body = match config.functions.params {
-        ParamFormat::NameOnly => return format!("{}{}", indent, name),
+    // 1. Gatekeeper: Quick check for Summary mode
+    if let ViewMode::Summary = policy.mode {
+        return format!("{}{}", indent, name);
+    }
 
-        _ => {
-            let params: Vec<String> = f
-                .sig
-                .inputs
-                .iter()
-                .map(|input| match input {
-                    syn::FnArg::Typed(pat_type) => {
-                        let param_name = match &*pat_type.pat {
-                            syn::Pat::Ident(i) => i.ident.to_string(),
-                            _ => "_".to_string(),
-                        };
-
-                        match config.functions.params {
-                            ParamFormat::NameList => param_name,
-
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
-                                format!("{}:{}", param_name, ty)
-                            }
-
-                            _ => unreachable!(),
-                        }
+    // 2. Data Collection: Gather params only if allowed
+    let params: Vec<String> = if policy.include_functions && policy.include_params {
+        f.sig
+            .inputs
+            .iter()
+            .map(|input| match input {
+                syn::FnArg::Typed(pat_type) => {
+                    let p_name = match &*pat_type.pat {
+                        syn::Pat::Ident(i) => i.ident.to_string(),
+                        _ => "_".to_string(),
+                    };
+                    if policy.include_nested_types {
+                        let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
+                        format!("{}: {}", p_name, ty)
+                    } else {
+                        p_name
                     }
+                }
+                syn::FnArg::Receiver(_) => "self".to_string(),
+            })
+            .collect()
+    } else {
+        vec![]
+    };
 
-                    syn::FnArg::Receiver(_) => "self".to_string(),
-                })
-                .collect();
-
-            format!("{}({})", name, params.join(", "))
+    // 3. Layout Engine: Use the triad logic
+    let body = match layout.line_style {
+        LineStyle::Compact => format!("{}({})", name, params.join(", ")),
+        LineStyle::ExpandedParams => {
+            if params.is_empty() {
+                format!("{}()", name)
+            } else {
+                format!("{}(\n{}{}\n{})", name, indent, params.join(",\n"), indent)
+            }
         }
+        LineStyle::Block => format!("{}\n{}{}", name, indent, params.join("\n")),
     };
 
     format!("{}{}", indent, body)
 }
 pub fn render_struct(
     s: &syn::ItemStruct,
-    config: &DenseConfig,
+    config: &Config,
     indent: String,
     items: &[syn::Item],
 ) -> String {
     let mut output = format!("{}struct {}", indent, s.ident);
+    let policy = &config.render_policy;
 
-    // 1. Render Fields based on config
-    if config.fields != FieldFormat::None {
+    if policy.include_nested_types {
         match &s.fields {
             syn::Fields::Named(fields) => {
                 for field in &fields.named {
-                    let name = field
-                        .ident
-                        .as_ref()
-                        .map(|i| i.to_string())
-                        .unwrap_or_else(|| "_".to_string());
-                    let ty = &field.ty;
-
-                    let line = match config.fields {
-                        FieldFormat::Name => format!(
-                            "\n{}  - {}: {}",
-                            indent,
-                            name,
-                            quote::ToTokens::to_token_stream(ty)
-                        ),
-                        FieldFormat::NameAndType => {
-                            format!(
-                                "\n{}  - {}: {}",
-                                indent,
-                                name,
-                                quote::ToTokens::to_token_stream(ty)
-                            )
-                        }
-                        FieldFormat::All => {
-                            format!(
-                                "\n{}  - {}: {}",
-                                indent,
-                                name,
-                                quote::ToTokens::to_token_stream(ty)
-                            )
-                        }
-                        _ => String::new(),
-                    };
-                    output.push_str(&line);
+                    let name = field.ident.as_ref().unwrap().to_string();
+                    let ty = quote::ToTokens::to_token_stream(&field.ty);
+                    output.push_str(&format!("\n{}  - {}: {}", indent, name, ty));
                 }
             }
             syn::Fields::Unnamed(fields) => {
                 for (idx, field) in fields.unnamed.iter().enumerate() {
-                    let ty = &field.ty;
-                    output.push_str(&format!(
-                        "\n{}  - {}: {}",
-                        indent,
-                        idx,
-                        quote::ToTokens::to_token_stream(ty)
-                    ));
+                    let ty = quote::ToTokens::to_token_stream(&field.ty);
+                    output.push_str(&format!("\n{}  - {}: {}", indent, idx, ty));
                 }
             }
-            syn::Fields::Unit => { /* Nothing to render for unit structs */ }
+            syn::Fields::Unit => {}
         }
     }
 
-    // 2. SEARCH: Find all Impl blocks for this struct
-    let methods: Vec<String> = items
-        .iter()
-        .filter_map(|item| {
-            if let syn::Item::Impl(i) = item {
-                if let syn::Type::Path(p) = &*i.self_ty {
-                    if p.path.is_ident(&s.ident) {
-                        return Some(render_impl_methods(i, config, &format!("{}  ", indent)));
+    // 2. Render Associated Methods
+    // We only traverse items if policy allows
+    if policy.include_functions {
+        let methods: Vec<String> = items
+            .iter()
+            .filter_map(|item| {
+                if let syn::Item::Impl(i) = item {
+                    if let syn::Type::Path(p) = &*i.self_ty {
+                        if p.path.is_ident(&s.ident) {
+                            return Some(render_impl_methods(i, config, indent.clone()));
+                        }
                     }
                 }
-            }
-            None
-        })
-        .flatten()
-        .collect();
+                None
+            })
+            .flatten()
+            .collect();
 
-    // 3. APPEND: If methods were found, add them
-    if !methods.is_empty() {
-        output.push('\n');
-        output.push_str(&methods.join("\n"));
+        if !methods.is_empty() {
+            output.push('\n');
+            output.push_str(&methods.join("\n"));
+        }
     }
 
     output
 }
-pub fn render_impl_methods(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) -> Vec<String> {
+pub fn render_impl_methods(i: &syn::ItemImpl, config: &Config, indent: String) -> Vec<String> {
     i.items
         .iter()
         .filter_map(|item| {
@@ -188,7 +165,7 @@ pub fn render_impl_methods(i: &syn::ItemImpl, config: &DenseConfig, indent: &str
                 };
                 // Put return type on a new line with extra indentation
                 Some(format!(
-                    "{}- fn {}(...)\n{}    -> {}",
+                    "{} fn {}(...)\n{}    -> {}",
                     indent, m.sig.ident, indent, ret
                 ))
             } else {
@@ -197,77 +174,69 @@ pub fn render_impl_methods(i: &syn::ItemImpl, config: &DenseConfig, indent: &str
         })
         .collect()
 }
-pub fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> String {
+pub fn render_enum(e: &syn::ItemEnum, config: &Config, indent: String) -> String {
     let name = e.ident.to_string();
+    let policy = &config.render_policy;
+    let format = &config.format;
 
+    // 1. If mode is Summary, just output the name
+    if let ViewMode::Summary = policy.mode {
+        return format!("{}enum {}", indent, name);
+    }
+
+    // 2. Map the variants
     let variants: Vec<String> = e
         .variants
         .iter()
         .map(|v| {
             let variant_name = v.ident.to_string();
 
-            let payloads: Vec<String> = match &v.fields {
-                syn::Fields::Named(named) => named
-                    .named
-                    .iter()
-                    .map(|f| {
-                        let field_name = f
-                            .ident
-                            .as_ref()
-                            .map(|i| i.to_string())
-                            .unwrap_or("_".to_string());
-
-                        match config.enums.variants {
-                            ParamFormat::NameOnly => field_name.clone(),
-                            ParamFormat::NameList => field_name,
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                                format!("{}:{}", field_name, ty)
-                            }
-                            _ => todo!(),
-                        }
-                    })
-                    .collect(),
-
-                syn::Fields::Unnamed(unnamed) => unnamed
-                    .unnamed
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| {
-                        let field_name = format!("_{}", i);
-
-                        match config.enums.variants {
-                            ParamFormat::NameOnly => field_name.clone(),
-
-                            ParamFormat::NameList => field_name,
-
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                                format!("{}:{}", field_name, ty)
-                            }
-                            _ => {
-                                todo!()
-                            }
-                        }
-                    })
-                    .collect(),
-
-                syn::Fields::Unit => vec![],
-            };
+            // Use a sub-renderer for the payload
+            let payloads = render_enum_payload(&v.fields, policy);
 
             if payloads.is_empty() {
                 variant_name
             } else {
-                format!("{}({})", variant_name, payloads.join(", "))
+                // Apply formatting logic based on line_style
+                match format.line_style {
+                    LineStyle::Compact => format!("{}({})", variant_name, payloads.join(", ")),
+                    _ => format!("{}(\n  {}\n)", variant_name, payloads.join(",\n  ")),
+                }
             }
         })
         .collect();
 
-    if variants.is_empty() {
-        return format!("{}enum {}", indent, name);
+    // 3. Final layout composition
+    format!("{}enum {} {{ {} }}", indent, name, variants.join(", "))
+}
+pub fn render_enum_payload(fields: &syn::Fields, policy: &RenderPolicy) -> Vec<String> {
+    if !policy.include_nested_types {
+        return vec![];
     }
 
-    format!("{}enum {} {{ {} }}", indent, name, variants.join(", "))
+    match fields {
+        syn::Fields::Named(named) => named
+            .named
+            .iter()
+            .map(|f| {
+                let name = f.ident.as_ref().unwrap().to_string();
+                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
+                format!("{}: {}", name, ty)
+            })
+            .collect(),
+
+        syn::Fields::Unnamed(unnamed) => unnamed
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
+                format!("_{}: {}", i, ty)
+            })
+            .collect(),
+
+        syn::Fields::Unit => vec![],
+    }
 }
 pub fn render_impl_block(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) -> String {
     let mut methods = Vec::new();
@@ -279,7 +248,8 @@ pub fn render_impl_block(i: &syn::ItemImpl, config: &DenseConfig, indent: &str) 
     }
     methods.join("\n")
 }
-pub fn format_output(output: &str, config: &OutputConfig) -> String {
+
+pub fn format_output(output: &str, config: &Config) -> String {
     let mut result = output.to_string();
 
     result = result
@@ -292,4 +262,28 @@ pub fn format_output(output: &str, config: &OutputConfig) -> String {
     result
 }
 
-// Inside ui.rs
+fn get_params(f: &syn::ItemFn, policy: &RenderPolicy) -> Vec<String> {
+    if !policy.include_params {
+        return vec![];
+    }
+
+    f.sig
+        .inputs
+        .iter()
+        .map(|input| match input {
+            syn::FnArg::Typed(pat_type) => {
+                let p_name = match &*pat_type.pat {
+                    syn::Pat::Ident(i) => i.ident.to_string(),
+                    _ => "_".to_string(),
+                };
+                if policy.include_nested_types {
+                    let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
+                    format!("{}: {}", p_name, ty)
+                } else {
+                    p_name
+                }
+            }
+            syn::FnArg::Receiver(_) => "self".to_string(),
+        })
+        .collect()
+}

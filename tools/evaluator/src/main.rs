@@ -13,9 +13,8 @@ use walkdir::WalkDir;
 
 use evaluator::{
     analyzer::MyAnalyzer,
-    extract::{
-        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
-    },
+    config::{Config, FormatConfig},
+    extract::{DepthConstraint, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher},
     format::{
         DenseConfig, ExtractMode, HeaderFormat, HeaderMode, OutputConfig, ParamFormat, PathMode,
     },
@@ -24,12 +23,12 @@ use evaluator::{
 };
 
 fn main() {
-    let config = ExtractConfig::default();
+    let config = Config::default();
     let root = config
-        .input_dir
+        .analysis_root
         .canonicalize()
-        .unwrap_or_else(|_| config.input_dir.clone());
-    let mut all_files = collect_files(&config.input_dir);
+        .unwrap_or_else(|_| config.analysis_root.clone());
+    let mut all_files = collect_files(&config.analysis_root);
 
     all_files.sort_by(|a, b| {
         let a_rel = a.strip_prefix(&root).unwrap_or(a);
@@ -43,11 +42,11 @@ fn main() {
     for file in all_files {
         process_file(&file, &config, &mut output);
     }
-    let final_output = format_output(&output, &config.output);
+    let final_output = format_output(&output, &config);
 
-    fs::write(&config.output_file, final_output).expect("failed to write output");
+    fs::write(&config.output_name, final_output).expect("failed to write output");
 
-    println!("Wrote {:?}", config.output_file);
+    println!("Wrote {:?}", config.output_name);
 }
 
 fn collect_files(root: &Path) -> Vec<PathBuf> {
@@ -65,7 +64,7 @@ fn collect_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
-fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
+fn process_file(path: &Path, config: &Config, output: &mut String) {
     let src = fs::read_to_string(path).unwrap_or_default();
     let ast = match syn::parse_file(&src) {
         Ok(f) => f,
@@ -73,7 +72,7 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
     };
 
     let mut analyzer = MyAnalyzer {
-        config: &config.output.dense,
+        config: &config,
         items: &ast.items,
         rendered_output: Vec::new(),
         registry: SymbolRegistry::default(),
@@ -82,9 +81,9 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
     analyzer.visit_file(&ast);
 
     let root = config
-        .input_dir
+        .analysis_root
         .canonicalize()
-        .unwrap_or(config.input_dir.clone());
+        .unwrap_or(config.analysis_root.clone());
 
     let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let rel = abs.strip_prefix(&root).unwrap_or(&abs);
@@ -113,10 +112,9 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
             .to_string()
             .cmp(&b.to_token_stream().to_string())
     });
+
     for item in items {
-        if let Some(rendered) =
-            render_item(item, &config.output.dense, sym_indent.clone(), &ast.items)
-        {
+        if let Some(rendered) = render_item(item, &config, sym_indent.clone(), &ast.items) {
             output.push_str(&rendered);
             output.push('\n');
         }
