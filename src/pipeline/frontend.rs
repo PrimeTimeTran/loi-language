@@ -3,26 +3,25 @@ use std::sync::{Arc, RwLock};
 
 use tracing::Instrument;
 
-use crate::compiler::diagnostic::Severity;
-use crate::compiler::{
-    config::CompileConfig,
-    diagnostic::{Diagnostic, DiagnosticStore, Logger},
-    engine::CompileEngine,
-    state::CompileState,
+use crate::{
+    compiler::{
+        config::CompileConfig,
+        diagnostic::{Diagnostic, DiagnosticStore, Logger, Severity},
+        engine::CompileEngine,
+        state::CompileState,
+    },
+    context::{Context, test::TestContext},
+    frontend::{
+        ast::{AST, Stmt},
+        parser::Parser,
+        token::Token,
+        types::Lexer,
+    },
+    interface::CompileEngineProvider,
+    middle::types::Span,
+    pipeline::{CompileError, Metadata, Pipeline, stage::Stage},
+    test_utils::TestEnv,
 };
-use crate::context::Context;
-use crate::context::test::TestContext;
-use crate::frontend::{
-    ast::{AST, Stmt},
-    parser::Parser,
-    token::Token,
-    types::Lexer,
-};
-use crate::interface::CompileEngineProvider;
-use crate::middle::types::Span;
-// use crate::pipeline::{Metadata, provider::PipelineProvider, stage::Stage};
-use crate::pipeline::{CompileError, Metadata, Pipeline, provider::PipelineProvider, stage::Stage};
-use crate::test_utils::TestEnv;
 
 /// FRONTEND PIPELINE
 /// Responsible for turning raw source code into a typed AST.
@@ -42,18 +41,6 @@ pub struct FrontendPipeline {
     pub parser: Arc<RwLock<Parser>>,
     pub features: FrontendFeatures,
 }
-
-// impl Pipeline for FrontendPipeline {
-//     fn name(&self) -> &str {
-//         &self.metadata.name
-//     }
-
-//     fn compile(&self) -> Result<(), CompileError> {
-//         let config_guard = self.config.read().unwrap();
-//         println!("Frontend compiling in: {:?}", config_guard.root);
-//         Ok(())
-//     }
-// }
 
 impl FrontendPipeline {
     pub fn new(
@@ -159,7 +146,7 @@ impl FrontendPipeline {
             let mut ds = DiagnosticStore::default();
             let diag = Diagnostic::new(
                 format!("Error in parser: {:?}", e),
-                Span::default(), // no real span here
+                Span::default(),
                 Severity::Error,
             )
             .with_code("ELOCK002")

@@ -4,7 +4,9 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::FloatType;
-use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue};
+use inkwell::values::{
+    BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, ValueKind,
+};
 use std::collections::HashMap;
 
 use crate::{
@@ -100,13 +102,17 @@ fn codegen_expr<'ctx>(
                 llvm_args.push(val.into());
             }
 
-            context
+            let call_site = context
                 .builder
                 .build_call(function, &llvm_args, "call")
-                .unwrap()
-                .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap();
+
+            match call_site.try_as_basic_value() {
+                ValueKind::Basic(basic_value) => basic_value,
+                ValueKind::Instruction(_) => {
+                    panic!("Function call did not return a value (returned Instruction instead)");
+                }
+            }
         }
         Expr::Unary { op, expr } => {
             let val = codegen_expr(expr, ty, context);
@@ -253,8 +259,18 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
             op,
             right,
         } => {
-            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
-            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
+            let lhs = match codegen_expr(&left.expr, &left.ty, context) {
+                BasicValueEnum::FloatValue(v) => v,
+                _ => return Err("lhs is not float".into()),
+            };
+
+            let rhs = match codegen_expr(&right.expr, &right.ty, context) {
+                BasicValueEnum::FloatValue(v) => v,
+                _ => return Err("rhs is not float".into()),
+            };
+
+            println!("LEFT TYPE {:?}", left.ty);
+            println!("RIGHT TYPE {:?}", right.ty);
 
             let result = match op {
                 BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
@@ -686,7 +702,7 @@ pub mod llvm {
         let fmt_i32 = create_fmt(b"%d\n\0", "fmt_i32");
         let fmt_str = create_fmt(b"%s\n\0", "fmt_str");
         let i32_type = context.i32_type();
-        let void_ptr = context.i8_type().ptr_type(AddressSpace::default());
+        let void_ptr = context.ptr_type(AddressSpace::default());
         let printf_type = i32_type.fn_type(&[void_ptr.into()], true);
         let printf = module.add_function("printf", printf_type, None);
         Runtime {

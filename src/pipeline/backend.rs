@@ -5,11 +5,12 @@ use inkwell::targets::{
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    backend::llvm::CodeGenContext,
+    backend::llvm::{CodeGenContext, lower_expr_to_ir},
     compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
+    frontend::ast::Expr,
     interface::CompileEngineProvider,
-    middle::ir::{IR, IROp},
+    middle::ir::{IR, IROp, Op},
     pipeline::{CompileError, Metadata, Pipeline},
 };
 
@@ -21,7 +22,6 @@ use crate::{
 /// - WASM generation
 /// - custom bytecode
 #[derive(Debug)]
-// pub struct BackendPipeline<'ctx> {
 pub struct BackendPipeline {
     // pub ctx: CodeGenContext<'ctx>,
     pub llvm_context: Mutex<inkwell::context::Context>,
@@ -34,41 +34,6 @@ pub struct BackendPipeline {
     pub codegen_config: CodegenConfig,
     pub debug: bool,
 }
-
-// impl Pipeline for BackendPipeline {
-//     fn name(&self) -> &str {
-//         &self.metadata.name
-//     }
-
-//     fn compile(&self) -> Result<(), CompileError> {
-//         println!(">>> BACKEND RUNNING");
-//         let state = self.state.read().unwrap();
-//         println!("IR = {:?}", state.current_ir());
-//         let state = self.state.read().unwrap();
-
-//         let ir = state.current_ir().ok_or_else(|| {
-//             CompileError::Backend(
-//                 "Backend requires IR but none was produced by Middle stage".into(),
-//             )
-//         })?;
-
-//         let object = match self.target {
-//             BackendTarget::LLVM => self.codegen_llvm(ir)?,
-//             BackendTarget::WASM => self.codegen_wasm(ir)?,
-//             BackendTarget::Bytecode => {
-//                 return Err(CompileError::Backend(
-//                     "Bytecode backend not implemented".into(),
-//                 ));
-//             }
-//         };
-
-//         let artifact = BuildArtifact::Object(object);
-//         let mut state = self.state.write().unwrap();
-//         state.build_cache.current = Some(artifact);
-
-//         Ok(())
-//     }
-// }
 
 impl BackendPipeline {
     pub fn new(
@@ -125,76 +90,27 @@ impl BackendPipeline {
         }
     }
 
-    // fn compile_ir(&mut self, ir: IR) -> Result<Vec<u8>, CompileError> {
-    //     for op in ir.nodes {
-    //         self.emit(op)?;
-    //     }
-
-    //     self.finalize()
-    // }
-
     pub fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
-        use inkwell::OptimizationLevel;
-
         let ctx = self.llvm_context.lock().unwrap();
-        let module = ctx.create_module("main_module");
-        let builder = ctx.create_builder();
 
-        let f64_type = ctx.f64_type();
-        let fn_type = f64_type.fn_type(&[], false);
+        // 1. Initialize your context struct immediately
+        let mut context = CodeGenContext::new(&ctx);
 
-        let function = module.add_function("main", fn_type, None);
-        let entry = ctx.append_basic_block(function, "entry");
-
-        builder.position_at_end(entry);
-
-        fn emit_expr<'ctx>(
-            ctx: &'ctx inkwell::context::Context,
-            builder: &inkwell::builder::Builder<'ctx>,
-            ir: IR,
-        ) -> inkwell::values::FloatValue<'ctx> {
-            match ir {
-                // IR::Const { value } => ctx.f64_type().const_float(value),
-
-                // IR::Add { lhs, rhs } => {
-                //     let l = emit_expr(ctx, builder, *lhs);
-                //     let r = emit_expr(ctx, builder, *rhs);
-                //     builder.build_float_add(l, r, "addtmp")
-                // }
-                // IR::Assign { name, value } => {
-                //     let rhs = emit_expr(ctx, builder, value)?;
-
-                //     // allocate variable (simplified model)
-                //     let ptr = ctx.build_alloca(ctx.f64_type(), name);
-
-                //     builder.build_store(ptr, rhs);
-
-                //     // store in env if you have one
-                //     ctx.env.insert(name.clone(), ptr);
-
-                //     rhs
-                // } // or unit depending on your IR design
-                _ => {
-                    todo!("Unhandled IR node: {:?}", ir);
-                }
-            }
+        // 2. Reuse your existing, working logic
+        for op in ir.nodes {
+            println!("LOWERING IR: {:?}", op);
+            lower_expr_to_ir(&mut context, op).map_err(|e| CompileError::Backend(e))?;
         }
 
-        let result = emit_expr(&ctx, &builder, ir);
-
-        builder.build_return(Some(&result));
-
-        // Verify module (optional but real)
-        if module.verify().is_err() {
+        // 3. Finalize
+        // Now you access module/builder through your context struct
+        if context.module.verify().is_err() {
             return Err(CompileError::Backend("invalid LLVM module".into()));
         }
 
-        // Emit object file
-        let ctx = &self.llvm_context;
         let target = self.create_native_target_machine()?;
-
         let buf = target
-            .write_to_memory_buffer(&module, inkwell::targets::FileType::Object)
+            .write_to_memory_buffer(&context.module, inkwell::targets::FileType::Object)
             .map_err(|e| CompileError::Backend(format!("{:?}", e)))?;
 
         Ok(buf.as_slice().to_vec())
@@ -238,22 +154,18 @@ impl BackendPipeline {
 
     fn emit_node(&mut self, node: IROp) {
         match node {
-            IROp::Assign { name, value } => {
-                let rhs = self.emit_expr(value);
+            IROp::Assign { name, value } => { /* ... */ }
+            IROp::Binary {
+                left, op, right, ..
+            } => { /* ... */ }
 
-                let ptr = self
-                    .env
-                    .entry(name.clone())
-                    .or_insert_with(|| self.builder.build_alloca(self.ctx.f64_type(), &name));
+            // Add all the missing ones here
+            IROp::Return { .. } => todo!("Implement Return"),
+            IROp::Declare { .. } => todo!("Implement Declare"),
+            IROp::Nop => {} // Does nothing
 
-                self.builder.build_store(*ptr, rhs);
-            }
-
-            IROp::Binary { left, op, right } => {
-                let l = self.emit_expr(left);
-                let r = self.emit_expr(right);
-                self.builder.build_float_add(l, r, "tmp")
-            }
+            // Use a wildcard to catch any others you don't care about yet
+            _ => todo!("Implement remaining IR operations"),
         }
     }
 

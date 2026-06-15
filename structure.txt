@@ -1138,11 +1138,9 @@ struct ModuleState
         struct Span
 
 #### src/pipeline/backend.rs
-
-        enum BackendTarget { Bytecode, LLVM, WASM }
-        enum OptimizationLevel { None, Basic, Aggressive }
-        struct CodegenConfig
         struct BackendPipeline
+            - fn codegen(...)
+              -> Result < Vec < u8 > , CompileError >
           - fn new(...)
               -> Self
           - fn with_name(...)
@@ -1157,8 +1155,7 @@ struct ModuleState
               -> Self
           - fn run(...)
               -> Vec < u8 >
-          - fn codegen(...)
-              -> Result < Vec < u8 > , CompileError >
+
           - fn codegen_llvm(...)
               -> Result < Vec < u8 > , CompileError >
           - fn codegen_wasm(...)

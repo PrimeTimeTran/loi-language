@@ -17,7 +17,12 @@ default = []
 # snapshotting = ["insta"]
 snapshotting = []
 
+[patch.crates-io]
+inkwell = { path = "../inkwell-patched" }
+
 [dependencies]
+inkwell = { version = "0.4", features = ["llvm17-0"] }
+derivative = "2.2"
 syn = { version = "2", features = ["full", "visit"] }
 insta = { version = "1", features = ["yaml"] }
 clap = { version = "4", features = ["derive"] }
@@ -38,7 +43,7 @@ lasso = "0.7"
 petgraph = "0.6"
 smallvec = "1"
 bincode = "1"
-inkwell = { version = "0.4", features = ["llvm17-0"] }
+
 notify = "6"
 serde = { version = "1", features = ["derive"] }
 ignore = "0.4"
@@ -59,6 +64,7 @@ strum = { version = "0.26", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }
 tower-lsp = "0.20.0"
 regex = "1.12.4"
+either = "1.16.0"
 
 [dev-dependencies]
 criterion = "0.5"
