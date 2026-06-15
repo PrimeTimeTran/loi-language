@@ -20,6 +20,17 @@ use crate::{
 // services, worker threads, and event loops that do work.
 // It is the "root" of your application that coordinates the Context
 // to achieve a goal.
+
+#[derive(Clone)]
+pub struct KernelContext {
+    pub context: Arc<Context>,
+    pub logger: Arc<Logger>,
+    pub cache: Arc<MemoryCache>,
+    pub job_queue: Arc<JobQueue>,
+    pub scheduler: Arc<TaskScheduler>,
+    pub diagnostics: Arc<DiagnosticStore>,
+}
+
 #[derive(Debug)]
 pub struct Kernel {
     pub context: Arc<Context>,

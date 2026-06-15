@@ -92,6 +92,12 @@ pub struct DiagnosticStore {
     pub diagnostics: VecDeque<Diagnostic>,
 }
 impl DiagnosticStore {
+    pub fn to_compile_error(&self, stage: &str) -> CompileError {
+        CompileError::Stage {
+            stage: stage.to_string(),
+            source: Box::new(DiagnosticError(self.clone())),
+        }
+    }
     pub fn emit(&mut self, diag: Diagnostic) -> bool {
         if matches!(diag.severity, Severity::Error) {
             self.error_count += 1;
@@ -101,9 +107,9 @@ impl DiagnosticStore {
         self.halt_on_error && self.has_errors()
     }
 
-    pub fn check_halt(&self) -> Result<(), String> {
+    pub fn check_halt(&self) -> Result<(), CompileError> {
         if self.has_errors() {
-            return Err("frontend errors".into());
+            return Err(self.to_compile_error("frontend"));
         }
         Ok(())
     }
@@ -166,7 +172,7 @@ pub struct Inspector;
 
 #[derive(Default)]
 pub struct CompilerEventBus;
-use crate::middle;
+use crate::{middle, pipeline::CompileError};
 use middle::types::Span;
 use std::path::PathBuf;
 
@@ -188,3 +194,22 @@ pub type DiagnosticId = u64;
 //     Warning,
 //     Info,
 // }
+
+impl From<DiagnosticStore> for CompileError {
+    fn from(d: DiagnosticStore) -> Self {
+        CompileError::Frontend(format!("{:?}", d))
+    }
+}
+
+use std::fmt;
+
+#[derive(Debug)]
+pub struct DiagnosticError(pub DiagnosticStore);
+
+impl fmt::Display for DiagnosticError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "diagnostic errors: {:?}", self.0)
+    }
+}
+
+impl std::error::Error for DiagnosticError {}

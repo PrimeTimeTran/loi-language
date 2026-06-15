@@ -1,9 +1,9 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(serde::Serialize, Debug, thiserror::Error)]
 pub enum Error {
     #[error("IO Error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
 
     #[error("Lexer Error: {0}")]
     Lexer(String),

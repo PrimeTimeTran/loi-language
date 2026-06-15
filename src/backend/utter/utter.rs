@@ -147,10 +147,18 @@ pub fn get_language_definitions() -> Vec<GenericUtter> {
             to_ir: Some(Arc::new(|meta, _| {
                 let content = std::fs::read_to_string(&meta.path).map_err(|e| e.to_string())?;
                 Ok(IR {
-                    raw: content,
+                    raw: content, // OK: plugin input snapshot
                     nodes: Vec::new(),
                     symbols: HashMap::new(),
-                    metadata: HashMap::new(),
+                    metadata: {
+                        let mut m = HashMap::new();
+                        m.insert("lang".into(), "identity".into());
+                        m.insert("source".into(), meta.path.to_string_lossy().to_string());
+                        m
+                    },
+                    ops: Vec::new(),
+                    modules: Vec::new(),
+                    functions: Vec::new(),
                 })
             })),
             ..Default::default()

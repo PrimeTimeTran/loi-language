@@ -5,40 +5,49 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-#[derive(Clone, Debug)]
-pub struct Config {
-    pub root: Arc<RwLock<PathBuf>>,
-    pub name: Arc<RwLock<String>>,
-    pub input: Option<PathBuf>,
-    pub output: Option<PathBuf>,
-    pub watch: Option<bool>,
-    pub concurrency: Option<usize>,
+#[derive(Clone, Copy, Debug)]
+pub enum CompileTarget {
+    Build,
+    Jit,
+    IR,
+    Codegen,
+}
+#[derive(Clone, Copy, Debug)]
+pub enum CompileStage {
+    Parse,
+    Analyze,
+    Lower,
+    Backend,
 }
 
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub target: CompileTarget,
+    pub stage: CompileStage,
+
+    pub root: PathBuf,
+    pub name: String,
+
+    pub input: Option<PathBuf>,
+    pub output: Option<PathBuf>,
+
+    pub watch: bool,
+    pub concurrency: usize,
+}
 impl Default for Config {
     fn default() -> Self {
         Self {
-            root: Arc::new(RwLock::new(PathBuf::from("./targets/syntax"))),
-            name: Arc::new(RwLock::new("project".to_string())),
+            root: PathBuf::from("./targets/syntax"),
+            name: "project".to_string(),
 
             input: Some(PathBuf::from("./targets/syntax")),
             output: Some(PathBuf::from("./build")),
 
-            watch: Some(false),
-            concurrency: Some(1),
-        }
-    }
-}
+            watch: false,
+            concurrency: 1,
 
-impl From<Config> for CompileConfig {
-    fn from(cfg: Config) -> Self {
-        Self {
-            root: cfg.root.read().unwrap().clone(),
-            name: cfg.name.read().unwrap().clone(),
-            input: cfg.input.expect("input dir must be set"),
-            output: cfg.output.unwrap_or_else(|| "./dist".into()),
-            watch: cfg.watch.unwrap_or(false),
-            concurrency: cfg.concurrency.unwrap_or(4),
+            target: CompileTarget::Build,
+            stage: CompileStage::Backend,
         }
     }
 }
@@ -47,10 +56,35 @@ impl From<Config> for CompileConfig {
 pub struct CompileConfig {
     pub root: PathBuf,
     pub name: String,
+
     pub input: PathBuf,
     pub output: PathBuf,
+
     pub watch: bool,
     pub concurrency: usize,
+
+    pub target: CompileTarget,
+    pub stage: CompileStage,
+}
+
+impl From<Config> for CompileConfig {
+    fn from(cfg: Config) -> Self {
+        Self {
+            root: cfg.root,
+            name: cfg.name,
+
+            input: cfg
+                .input
+                .unwrap_or_else(|| PathBuf::from("./targets/syntax")),
+            output: cfg.output.unwrap_or_else(|| PathBuf::from("./build")),
+
+            watch: cfg.watch,
+            concurrency: cfg.concurrency,
+
+            target: cfg.target,
+            stage: cfg.stage,
+        }
+    }
 }
 
 impl Default for CompileConfig {
@@ -62,6 +96,8 @@ impl Default for CompileConfig {
             output: PathBuf::from("./output/fs"),
             watch: false,
             concurrency: 1,
+            target: CompileTarget::Build,
+            stage: CompileStage::Backend,
         }
     }
 }
@@ -72,46 +108,26 @@ pub enum ConfigSource {
     Cli(CliArgs),
     ReplOverrides,
 }
-
 pub struct ConfigResolver;
 
 impl ConfigResolver {
     pub fn resolve(sources: Vec<ConfigSource>) -> Config {
         let mut config = Config::default();
-
         for source in sources {
             match source {
                 ConfigSource::Defaults => {
-                    config = Config {
-                        root: Arc::new(RwLock::new(PathBuf::from("./targets/syntax"))),
-                        name: Arc::new(RwLock::new("DefaultProject".to_string())),
-                        input: Some(PathBuf::from("./targets/syntax")),
-                        output: Some(PathBuf::from("./output/syntax")),
-                        watch: Some(false),
-                        concurrency: Some(4),
-                    };
+                    config = Config::default();
                 }
-
                 ConfigSource::File(path) => {
                     let file_cfg = Self::load_file(&path);
                     config = Self::merge(config, file_cfg);
                 }
-
                 ConfigSource::Cli(cli) => {
-                    let cli_cfg = Config {
-                        root: config.root.clone(),
-                        name: config.name.clone(),
-                        input: cli.input,
-                        output: cli.output,
-                        watch: Some(cli.watch),
-                        concurrency: None,
-                    };
-
+                    let cli_cfg = Self::from_cli(&config, cli);
                     config = Self::merge(config, cli_cfg);
                 }
-
                 ConfigSource::ReplOverrides => {
-                    // dynamic runtime overrides
+                    // future: incremental patching layer
                 }
             }
         }
@@ -119,15 +135,19 @@ impl ConfigResolver {
         config
     }
 
-    fn merge(base: Config, override_cfg: Config) -> Config {
+    fn merge(base: Config, overlay: Config) -> Config {
         Config {
-            // Choose the lock from the override if it exists, otherwise keep base
-            root: override_cfg.root,
-            name: override_cfg.name,
-            input: override_cfg.input.or(base.input),
-            output: override_cfg.output.or(base.output),
-            watch: override_cfg.watch.or(base.watch),
-            concurrency: override_cfg.concurrency.or(base.concurrency),
+            root: overlay.root,
+            name: overlay.name,
+
+            input: overlay.input.or(base.input),
+            output: overlay.output.or(base.output),
+
+            watch: overlay.watch,
+            concurrency: overlay.concurrency,
+
+            target: overlay.target,
+            stage: overlay.stage,
         }
     }
 
@@ -137,5 +157,20 @@ impl ConfigResolver {
 
     fn parse_cli(_args: Vec<String>) -> Config {
         Config::default()
+    }
+    fn from_cli(base: &Config, cli: CliArgs) -> Config {
+        Config {
+            root: base.root.clone(),
+            name: base.name.clone(),
+
+            input: cli.input,
+            output: cli.output,
+
+            watch: cli.watch,
+            concurrency: base.concurrency,
+
+            target: base.target,
+            stage: base.stage,
+        }
     }
 }

@@ -29,16 +29,62 @@ pub enum Op {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IR {
+    // ========================================
+    // LEGACY / TRANSITIONAL (DO NOT EXPAND)
+    // ========================================
+    /// ⚠️ LEGACY: raw debug representation of IR.
+    /// Eventually remove once debugging moves to structured tooling.
     pub raw: String,
+
+    /// ⚠️ LEGACY: flat instruction stream.
+    /// Migration target: FunctionIR → BasicBlock → ops
     pub nodes: Vec<IROp>,
+
+    /// ⚠️ SHOULD MOVE TO CompileState (symbol system owns this)
     pub symbols: HashMap<String, Symbol>,
+
+    /// ⚠️ REPLACE WITH STRUCTURED IR METADATA (IRMeta / CompilerState)
     pub metadata: HashMap<String, String>,
+
+    /// ⚠️ DUPLICATE OF `nodes` (remove once migration completes)
+    pub ops: Vec<IROp>,
+
+    // ========================================
+    // MODERN IR STRUCTURE (TARGET DESIGN)
+    // ========================================
+    /// ⭐ FINAL TARGET REPRESENTATION OF IR
+    /// This is the ONLY structure you should ultimately keep.
+    ///
+    /// MIGRATION TARGET:
+    /// - move all ops into BasicBlock
+    /// - move blocks into functions
+    /// - eliminate flat instruction forms
+    pub modules: Vec<ModuleIR>,
+    pub functions: Vec<FunctionIR>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleIR {
+    /// Module name / path
+    pub name: String,
+
+    /// Functions defined in this module
+    pub functions: Vec<FunctionIR>,
+
+    /// Optional globals (consts, static values)
+    pub globals: Vec<IROp>,
+
+    /// Exported symbols (public API of module)
+    pub exports: Vec<String>,
 }
 
-impl Default for IR {
-    fn default() -> Self {
-        Self::raw(String::new())
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionIR {
+    pub name: String,
+    pub blocks: Vec<BasicBlock>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BasicBlock {
+    pub ops: Vec<IROp>,
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -193,34 +239,64 @@ impl fmt::Display for IR {
 }
 
 impl IR {
-    /// Empty structured IR
+    /// Create an empty IR (no modules)
     pub fn new() -> Self {
         Self {
             raw: String::new(),
             nodes: Vec::new(),
             symbols: HashMap::new(),
             metadata: HashMap::new(),
+            ops: Vec::new(),
+            modules: Vec::new(),
+            functions: Vec::new(),
         }
     }
 
-    /// IR containing foreign/raw block
+    /// Create IR from a single module
+    pub fn from_module(module: ModuleIR) -> Self {
+        Self {
+            raw: String::new(),
+            nodes: Vec::new(),
+            symbols: HashMap::new(),
+            metadata: HashMap::new(),
+            ops: Vec::new(),
+            modules: vec![module],
+            functions: Vec::new(),
+        }
+    }
+
+    /// Create IR from raw operations (legacy bridge only)
+    ///
+    /// ⚠️ Transitional API — will disappear once modules/functions are stable
+    pub fn from_ops(ops: Vec<IROp>) -> Self {
+        Self {
+            raw: String::new(),
+            nodes: ops.clone(),
+            ops,
+            symbols: HashMap::new(),
+            metadata: HashMap::new(),
+            modules: Vec::new(),
+            functions: Vec::new(),
+        }
+    }
+
+    /// Attach metadata (stage, debug, etc.)
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    /// ⚠️ Legacy debug helper (DO NOT build logic on this)
     pub fn raw(content: impl Into<String>) -> Self {
         Self {
             raw: content.into(),
             nodes: Vec::new(),
+            ops: Vec::new(),
             symbols: HashMap::new(),
             metadata: HashMap::new(),
+            modules: Vec::new(),
+            functions: Vec::new(),
         }
-    }
-
-    /// Explicit structured IR
-    pub fn structured() -> Self {
-        Self::new()
-    }
-
-    /// Helper: check if this is a passthrough block
-    pub fn is_raw(&self) -> bool {
-        !self.raw.is_empty()
     }
 }
 
@@ -334,4 +410,46 @@ pub struct RegionBlock {
 
 pub trait RegionProcessor {
     fn process(&self, block: &RegionBlock) -> Vec<u8>;
+}
+
+impl Default for IR {
+    fn default() -> Self {
+        Self {
+            // ========================================
+            // LEGACY / TRANSITIONAL (SAFE EMPTY STATE)
+            // ========================================
+            raw: String::new(),
+            nodes: Vec::new(),
+            symbols: HashMap::new(),
+            metadata: HashMap::new(),
+            ops: Vec::new(),
+
+            // ========================================
+            // MODERN IR STRUCTURE (PRIMARY PATH)
+            // ========================================
+            modules: Vec::new(),
+            functions: Vec::new(),
+        }
+    }
+}
+
+impl IR {
+    pub fn new_from_ops(ops: Vec<IROp>) -> Self {
+        Self {
+            raw: String::new(),
+            nodes: ops.clone(),
+            ops,
+            symbols: std::collections::HashMap::new(),
+            metadata: std::collections::HashMap::new(),
+            modules: Vec::new(),
+            functions: Vec::new(),
+        }
+    }
+}
+
+impl IR {
+    pub fn with_stage(mut self, stage: &str) -> Self {
+        self.metadata.insert("stage".to_string(), stage.to_string());
+        self
+    }
 }

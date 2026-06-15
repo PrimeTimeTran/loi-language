@@ -22,9 +22,9 @@ use loi::{
     middle::{
         ir::{IROp, IrInstruction, LoweredOp, Op, TypedExpr},
         semantic::{self, SemanticAnalyzer},
-        types::{Span, Type},
+        types::{IRVal, Span, Type},
     },
-    pipeline::frontend::FrontendPipeline,
+    pipeline::{CompileError, frontend::FrontendPipeline},
     registry::{file_meta::FileMeta, registry::Registry},
 };
 use owo_colors::OwoColorize;
@@ -45,53 +45,31 @@ struct ParseResult {
     diagnostics: DiagnosticStore,
 }
 
-pub fn parses(src: &str) -> String {
-    parse_to_ast(src).expect("Parsing failed").to_sexpr()
+pub fn parses(src: &str) -> Result<String, CompileError> {
+    let ast = parse_to_ast(src)?;
+    Ok(ast.to_sexpr())
 }
 
-pub fn parse_to_ast(input: &str) -> Result<AST, String> {
+pub fn parse_to_ast(input: &str) -> Result<AST, CompileError> {
     let (ast, _) = parse_with_diagnostics(input)?;
     Ok(ast)
 }
 
-pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), String> {
+pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), CompileError> {
     let mut harness: TestHarness = TestHarness::new().with_source(input);
     let pipeline = harness.build_frontend();
-    harness.run_stage(pipeline).map_err(|_| "Pipeline failed")?;
+    harness
+        .run_stage(pipeline)
+        .map_err(|_| CompileError::Frontend("pipeline failed".into()))?;
     let ast = harness.get_ast()?;
     let diagnostics = harness.get_diagnostics();
     Ok((ast, diagnostics))
 }
 
-// pub fn parses(src: &str) -> String {
-//     parse_to_ast(src).expect("Parsing failed").to_sexpr()
-// }
-
-// pub fn parse_to_ast(input: &str) -> Result<AST, String> {
-//     let (ast, _) = parse_with_diagnostics(input)?;
-//     Ok(ast)
-// }
-
-// pub fn parse_with_diagnostics(input: &str) -> Result<(AST, DiagnosticStore), String> {
-//     // 1. Initialize and configure
-//     let harness = TestHarness::new().with_source(input);
-//     let pipeline = harness.build_frontend();
-
-//     // 2. Execute: harness.run_stage consumes the original harness,
-//     // so we must capture the returned value to keep using it.
-//     let harness = TestHarness::new().with_source(input);
-
-//     harness.run_stage(pipeline);
-//     println!("Loi Tran");
-
-//     let ast = harness.get_ast()?;
-//     println!("${:?}", ast);
-//     let diagnostics = harness.get_diagnostics();
-
-//     Ok((ast, diagnostics))
-// }
-
-pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
+pub fn compile_and_lower<'ctx>(
+    context: &'ctx Context,
+    input: &str,
+) -> Result<LLVM<'ctx>, CompileError> {
     let (ast, diagnostics) = parse_with_diagnostics(input)?;
 
     diagnostics.check_halt()?;
@@ -103,16 +81,7 @@ pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LL
     Ok(LLVM::new(context, &ir))
 }
 
-// pub fn compile_and_lower<'ctx>(context: &'ctx Context, input: &str) -> Result<LLVM<'ctx>, String> {
-//     let (ast, diagnostics) = parse_with_diagnostics(input)?;
-//     diagnostics.check_halt()?;
-//     let mut ir = ast_to_ir(ast)?;
-//     ir = finalize_ir(ir);
-//     Ok(LLVM::new(context, &ir))
-// }
-
 pub fn fails(input: &str) {
-    // If it fails to parse, it counts as having errors
     let result = parse_with_diagnostics(input);
     match result {
         Ok((_, diagnostics)) => assert!(diagnostics.has_errors()),
@@ -122,99 +91,97 @@ pub fn fails(input: &str) {
     }
 }
 
-pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, String> {
-    let mut ir = Vec::new();
-    for stmt in ast.stmts {
-        match stmt {
-            Stmt::ExprStmt { expr } => match expr {
-                Expr::Bool(v) => {
-                    ir.push(IROp::Print {
-                        value: TypedExpr {
-                            expr: Expr::Bool(v),
-                            ty: Type::Bool,
-                            span: Span::default(),
-                        },
-                    });
-                }
+fn lower_stmt(stmt: Stmt, ops: &mut Vec<IROp>) -> Result<(), CompileError> {
+    match stmt {
+        Stmt::ExprStmt { expr } => lower_expr_stmt(expr, ops)?,
 
-                Expr::Number(n) => {
-                    ir.push(IROp::Print {
-                        value: TypedExpr {
-                            expr: Expr::Number(n),
-                            ty: Type::F64,
-                            span: Span::default(),
-                        },
-                    });
-                }
-                Expr::Var(name) => {
-                    ir.push(IROp::Print {
-                        value: TypedExpr {
-                            expr: Expr::String(name.clone()),
-                            ty: Type::Str,
-                            span: Span::default(),
-                        },
-                    });
-                }
+        Stmt::Print { expr } => {
+            let typed = lower_expr(expr)?;
+            let value = typed_to_irval(typed)?;
+            ops.push(IROp::Print { value });
+        }
 
-                Expr::String(s) => {
-                    ir.push(IROp::Print {
-                        value: TypedExpr {
-                            expr: Expr::String(s.clone()),
-                            ty: Type::Str,
-                            span: Span::default(),
-                        },
-                    });
-                }
-
-                _ => return Err(format!("Unsupported ExprStmt: {:?}", expr)),
-            },
-
-            Stmt::Print { expr } => {
-                ir.push(IROp::Print {
-                    value: TypedExpr {
-                        span: Span::default(),
-                        expr,
-                        ty: Type::F64,
-                    },
-                });
-            }
-
-            // // =====================================================
-            // // DECLARE
-            // // let x = expr
-            // // =====================================================
-            // Stmt::Declare { name, expr } => {
-            //     ir.push(IROp::Declare {
-            //         name,
-            //         value: TypedExpr {
-            //             expr,
-            //             ty: Type::F64,
-            //         },
-            //     });
-            // }
-
-            // // =====================================================
-            // // ASSIGN
-            // // x = expr
-            // // =====================================================
-            // Stmt::Assign { name, expr } => {
-            //     ir.push(IROp::Assign {
-            //         name,
-            //         value: TypedExpr {
-            //             expr,
-            //             ty: Type::F64,
-            //         },
-            //     });
-            // }
-
-            // =====================================================
-            // fallback
-            // =====================================================
-            _ => return Err(format!("Unsupported AST node: {:?}", stmt)),
+        _ => {
+            return Err(CompileError::Middle(format!(
+                "Unsupported statement: {:?}",
+                stmt
+            )));
         }
     }
 
-    Ok(ir)
+    Ok(())
+}
+fn typed_to_irval(te: TypedExpr) -> Result<IRVal, CompileError> {
+    match te.expr {
+        Expr::Bool(v) => Ok(IRVal::Bool(v)),
+        Expr::Number(n) => Ok(IRVal::Number(n)),
+        Expr::String(s) => Ok(IRVal::Str(s)),
+        Expr::Var(v) => Ok(IRVal::Var(v)),
+
+        _ => Err(CompileError::Middle("Unsupported TypedExpr".into())),
+    }
+}
+
+fn lower_expr_stmt(expr: Expr, ops: &mut Vec<IROp>) -> Result<(), CompileError> {
+    let typed = lower_expr(expr)?;
+    let value = typed_to_irval(typed)?;
+
+    ops.push(IROp::Print { value });
+
+    Ok(())
+}
+
+fn lower_expr(expr: Expr) -> Result<TypedExpr, CompileError> {
+    let span = Span::default();
+
+    let typed = match expr {
+        Expr::Bool(v) => TypedExpr {
+            expr: Expr::Bool(v),
+            ty: Type::Bool,
+            span,
+        },
+
+        Expr::Number(n) => TypedExpr {
+            expr: Expr::Number(n),
+            ty: Type::F64,
+            span,
+        },
+
+        Expr::String(s) => TypedExpr {
+            expr: Expr::String(s.clone()),
+            ty: Type::Str,
+            span,
+        },
+
+        Expr::Var(name) => TypedExpr {
+            expr: Expr::Var(name.clone()),
+            ty: Type::Str,
+            span,
+        },
+
+        other => {
+            return Err(CompileError::Middle(format!(
+                "Unsupported expression: {:?}",
+                other
+            )));
+        }
+    };
+
+    Ok(typed)
+}
+
+pub fn lower_ast_to_ops(ast: AST) -> Result<Vec<IROp>, CompileError> {
+    let mut ops = Vec::new();
+
+    for stmt in ast.stmts {
+        lower_stmt(stmt, &mut ops)?;
+    }
+
+    Ok(ops)
+}
+
+pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, CompileError> {
+    lower_ast_to_ops(ast)
 }
 
 fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
@@ -224,7 +191,7 @@ fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
     ir
 }
 
-pub fn generate_binary_ir(target: &str, left: TypedExpr, right: TypedExpr) -> IROp {
+pub fn generate_binary_ir(target: &str, left: IRVal, right: IRVal) -> IROp {
     IROp::Binary {
         target: target.to_string(),
         left,
@@ -328,76 +295,3 @@ pub fn assert_symbol_missing(sym: &SymbolRegistry, name: &str, file: &str) {
 pub fn assert_snapshot_value(label: &str, value: impl std::fmt::Display) {
     insta::assert_snapshot!(label, value.to_string());
 }
-
-// pub fn compile_project(
-//     registry: Registry,
-//     engines: HashMap<String, Box<dyn Utter>>,
-// ) -> CompileResult {
-//     let symbols = run_symbol_pipeline(&registry, &engines);
-//     let ir = lower_to_ir(&registry, &symbols);
-//     let llvm = generate_llvm(&ir);
-
-//     CompileResult { symbols, ir, llvm }
-// }
-
-// #[test]
-// #[cfg(feature = "snapshotting")]
-// fn debug_parser() {
-//     let output = parses("x = 5");
-//     panic!("DEBUG OUTPUT: {}", output);
-// }
-
-// #[test]
-// fn test_binary_operations() {
-//     let default_span = Span::default();
-
-//     // inputs must be REAL variables you expect in env
-//     let left = TypedExpr {
-//         expr: Expr::Var("a".to_string()),
-//         ty: Type::F64,
-//         span: default_span,
-//     };
-
-//     let right = TypedExpr {
-//         expr: Expr::Var("b".to_string()),
-//         ty: Type::F64,
-//         span: default_span,
-//     };
-
-//     let ir = vec![
-//         IROp::Declare {
-//             name: "a".to_string(),
-//             value: Some(TypedExpr {
-//                 expr: Expr::Number(1.0),
-//                 ty: Type::F64,
-//                 span: Span::default(),
-//             }),
-//         },
-//         IROp::Declare {
-//             name: "b".to_string(),
-//             value: Some(TypedExpr {
-//                 expr: Expr::Number(2.0),
-//                 ty: Type::F64,
-//                 span: Span::default(),
-//             }),
-//         },
-//         IROp::Binary {
-//             target: "res".to_string(),
-//             left: TypedExpr {
-//                 expr: Expr::Var("a".into()),
-//                 ty: Type::F64,
-//                 span,
-//             },
-//             right: TypedExpr {
-//                 expr: Expr::Var("b".into()),
-//                 ty: Type::F64,
-//                 span,
-//             },
-//             op: BinOp::Add,
-//         },
-//     ];
-
-//     let harness = IrTestHarness::new(&ir);
-
-//     harness.assert_contains("%res = fadd double");
-// }

@@ -31,26 +31,6 @@ pub struct MiddlePipeline {
     pub features: MiddleFeatures,
 }
 
-// impl Pipeline for MiddlePipeline {
-//     fn name(&self) -> &str {
-//         &self.metadata.name
-//     }
-
-//     fn compile(&self, engine: &CompileEngine) -> Result<(), CompileError> {
-//         println!("MIDDLE START");
-
-//         let ast = { engine.state.read().unwrap().ast.clone() }
-//             .ok_or_else(|| CompileError::Middle("missing AST".into()))?;
-
-//         let ir = engine.run(ast);
-
-//         engine.state.write().unwrap().ir_cache.current = Some(ir);
-
-//         println!("MIDDLE END (IR written)");
-
-//         Ok(())
-//     }
-// }
 impl MiddlePipeline {
     pub fn new(
         context: Arc<Context>,
@@ -97,17 +77,8 @@ impl MiddlePipeline {
             .ast
             .clone()
             .ok_or_else(|| CompileError::Middle("missing AST".into()))?;
-
-        let ir = IR {
-            raw: String::new(),
-            nodes: self.lower_ast(ast),
-            symbols: std::collections::HashMap::new(),
-            metadata: {
-                let mut m = std::collections::HashMap::new();
-                m.insert("stage".into(), "middle".into());
-                m
-            },
-        };
+        let ops = self.lower_ast(ast);
+        let ir = IR::new_from_ops(ops).with_stage("middle");
         engine.state.write().unwrap().current_ir = Some(ir);
         Ok(())
     }

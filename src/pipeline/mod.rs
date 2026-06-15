@@ -1,6 +1,5 @@
 use crate::{
-    compiler::engine::CompileEngine,
-    pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline},
+    compiler::{engine::CompileEngine, state::CompileState}, kernel::KernelContext, pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline}
 };
 
 pub mod backend;
@@ -39,8 +38,13 @@ pub mod stage;
 //   - linking
 //   - artifact
 pub trait Pipeline {
-    fn compile(&self, engine: &CompileEngine) -> Result<(), CompileError>;
     fn name(&self) -> &str;
+    fn run(
+        &self,
+        ctx: &KernelContext,
+        engine: &CompileEngine,
+        state: &mut CompileState,
+    ) -> Result<(), CompileError>;
 }
 
 #[derive(Debug)]

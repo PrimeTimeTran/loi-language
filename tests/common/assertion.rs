@@ -27,18 +27,13 @@ impl From<bool> for AssertOpts {
     }
 }
 
-// #[macro_export]
-// macro_rules! assert_expr {
-//     ($input:expr, $expected:expr) => {
-//         $crate::common::assertion::run_assert_with_snapshot(stringify!($input), $input, $expected);
-//     };
-// }
-
 #[track_caller]
 pub fn assert_expr(input: &str, expected: &str) {
-    let actual = parses(input);
+    let actual = parses(input).expect("parses() failed");
+
     let clean_actual = clean(&actual);
     let clean_expected = clean(expected);
+
     println!(" actual {}", actual);
     println!(" clean_actual {}", clean_actual);
     println!(" clean_expected {}", clean_expected);
@@ -75,7 +70,6 @@ pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: 
         .to_string();
     let test_name = thread_name.split("::").last().unwrap_or("unknown");
 
-    // Increment and get the current count for this test
     let count = ASSERT_COUNT.with(|c| {
         let mut count = c.borrow_mut();
         *count += 1;
@@ -83,10 +77,10 @@ pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: 
     });
     let snapshot_name = format!("{}_{}", test_name, count);
     insta::with_settings!({
-        snapshot_path => "../snapshots/ast",
-    }, {
-        insta::assert_yaml_snapshot!(snapshot_name, parse_to_ast(input));
-    });
-
+            snapshot_path => "../snapshots/ast",
+        }, {
+    let ast = parse_to_ast(input).expect("parse failed");
+    insta::assert_yaml_snapshot!(snapshot_name, ast);
+        });
     assert_expr(input, expected);
 }

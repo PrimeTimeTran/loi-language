@@ -189,7 +189,6 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
         //         scope_id: id,
         //     }))
         // }
-
         Stmt::Function { name, params, body } => {
             let mut func_symbols = HashMap::new();
 

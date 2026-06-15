@@ -10,6 +10,7 @@ use crate::frontend::{
 };
 use crate::kernel::Kernel;
 use crate::middle::semantic::{SemanticAnalyzer, analyze};
+use crate::pipeline::CompileError;
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -47,16 +48,16 @@ pub fn compile_project(kernel: &Kernel, config: &CompileConfig) -> Result<(), Ve
 
 pub fn compile_file(kernel: &Kernel, path: &Path, output_dir: &Path) -> Result<(), Error> {
     if !output_dir.exists() {
-        std::fs::create_dir_all(output_dir).map_err(Error::Io)?;
+        std::fs::create_dir_all(output_dir);
     }
 
-    let source = std::fs::read_to_string(path)?;
     let file_name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("output");
     let out_base = output_dir.join(file_name);
 
+    let source = std::fs::read_to_string(path).map_err(|e| Error::Io(e.to_string()))?;
     let tokens = lexer::lex(&source).map_err(Error::Lexer)?;
     let token_stream = TokenStream::new(tokens);
 

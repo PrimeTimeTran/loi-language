@@ -2,16 +2,18 @@ use std::collections::HashMap;
 
 use inkwell::context::Context;
 use loi::backend::llvm::{CodeGenContext, LLVM};
-use loi::frontend::ast::Expr;
-use loi::middle::ir::{IROp, IrInstruction, TypedExpr};
+use loi::frontend::ast::{Expr, HashF64};
 use loi::middle::types::{Span, Type};
+use loi::middle::{
+    ir::{IROp, IrInstruction},
+    types::IRVal,
+};
 
 use crate::common::generate_binary_ir;
 
 pub fn get_ir_string(ops: &[IROp]) -> String {
     let context = Context::create();
     let llvm = LLVM::default(&context, "test_module");
-    // llvm.lower(&context, ops).expect("Failed to generate IR");
     llvm.ir()
 }
 
@@ -49,10 +51,7 @@ pub mod ir_factory {
     use super::*;
     use loi::{
         frontend::ast::{Expr, HashF64},
-        middle::{
-            ir::TypedExpr,
-            types::{Span, Type},
-        },
+        middle::types::{IRVal, Span, Type},
     };
     fn dummy_span() -> Span {
         Span::default()
@@ -61,11 +60,7 @@ pub mod ir_factory {
     pub fn declare_f64(name: &str, val: f64) -> IROp {
         IROp::Declare {
             name: name.to_string(),
-            value: TypedExpr {
-                expr: Expr::Number(HashF64(val)),
-                ty: Type::F64,
-                span: dummy_span(),
-            },
+            value: IRVal::Number(HashF64(val)),
             mutable: true,
             dynamic: false,
         }
@@ -73,29 +68,14 @@ pub mod ir_factory {
 
     pub fn print_val(val: f64) -> IROp {
         IROp::Print {
-            value: TypedExpr {
-                expr: Expr::Number(HashF64(val)),
-                ty: Type::F64,
-                span: dummy_span(),
-            },
+            value: IRVal::Number(HashF64(val)),
         }
     }
 }
 
 pub fn add_var(target: &str, left: &str, right: &str) -> IrInstruction {
-    let e1 = Expr::Var(left.to_string());
-    let e2 = Expr::Var(right.to_string());
-    let default_span = Span::default();
-    let te1 = TypedExpr {
-        expr: e1,
-        ty: Type::F64,
-        span: default_span.clone(),
-    };
+    let te1 = IRVal::Var(left.to_string());
+    let te2 = IRVal::Var(right.to_string());
 
-    let te2 = TypedExpr {
-        expr: e2,
-        ty: Type::F64,
-        span: default_span,
-    };
     generate_binary_ir(target, te1, te2)
 }

@@ -131,12 +131,13 @@ impl TestHarness {
         self
     }
 
-    pub fn get_ast(&self) -> Result<AST, String> {
+    pub fn get_ast(&self) -> Result<AST, CompileError> {
         let state = self.env.state.read().unwrap();
+
         state
             .ast
             .clone()
-            .ok_or_else(|| "AST missing from get_AST test harness".to_string())
+            .ok_or_else(|| CompileError::Frontend("AST missing from test harness".into()))
     }
     pub fn get_diagnostics(&self) -> DiagnosticStore {
         self.env.context.diagnostics.read().unwrap().clone()
