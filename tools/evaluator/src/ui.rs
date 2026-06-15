@@ -1,25 +1,21 @@
-use crate::{
-    extract::{
-        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
-    },
-    format::{
-        DenseConfig, ExtractMode, FieldFormat, HeaderFormat, HeaderMode, OutputConfig, ParamFormat,
-        PathMode,
-    },
-    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
-};
-
 use quote::{ToTokens, quote};
 use std::{
+    cmp::Ordering,
     collections::HashSet,
     env, fs,
     path::{Component, Path, PathBuf},
 };
 
-use std::cmp::Ordering;
-
 use syn::{File, Item};
 use walkdir::WalkDir;
+
+use crate::{
+    extract::{
+        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
+    },
+    format::{DenseConfig, FieldFormat, HeaderFormat, OutputConfig, ParamFormat, PathMode},
+    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
+};
 
 pub fn render_item(
     item: &syn::Item,

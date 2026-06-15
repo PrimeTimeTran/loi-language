@@ -14,24 +14,21 @@ use walkdir::WalkDir;
 use evaluator::{
     analyzer::MyAnalyzer,
     extract::{
-        DepthConstraint, ExtractConfig, ExtractMode, Matcher, OutputConfig, ParentConstraint,
-        StructuralFilter, SymbolMatcher,
+        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
     },
-    format::{DenseConfig, HeaderFormat, HeaderMode, ParamFormat, PathMode},
+    format::{
+        DenseConfig, ExtractMode, HeaderFormat, HeaderMode, OutputConfig, ParamFormat, PathMode,
+    },
     language::{FunctionKind, SymbolKind, SymbolRegistry, TypeKind},
     ui::{format_output, render_enum, render_function, render_header, render_item, render_struct},
 };
 
 fn main() {
     let config = ExtractConfig::default();
-
-    // canonical root once (used for stable relative paths)
     let root = config
         .input_dir
         .canonicalize()
         .unwrap_or_else(|_| config.input_dir.clone());
-
-    // collect + sort phase (pure traversal layer)
     let mut all_files = collect_files(&config.input_dir);
 
     all_files.sort_by(|a, b| {
@@ -40,19 +37,12 @@ fn main() {
 
         let a_depth = a_rel.components().count();
         let b_depth = b_rel.components().count();
-
         a_depth.cmp(&b_depth).then_with(|| a_rel.cmp(b_rel))
     });
-
-    // extraction buffer (pure output accumulator)
     let mut output = String::new();
-
-    // execution phase (rule-based extraction engine)
     for file in all_files {
         process_file(&file, &config, &mut output);
     }
-
-    // final formatting layer (OutputConfig responsibility)
     let final_output = format_output(&output, &config.output);
 
     fs::write(&config.output_file, final_output).expect("failed to write output");
@@ -173,8 +163,6 @@ fn match_symbol(item: &syn::Item, matcher: &SymbolMatcher, indent: String) -> Op
 }
 
 fn passes_structural_filter(_item: &syn::Item, filter: &StructuralFilter) -> bool {
-    // simplified version for now
-
     match &filter.depth {
         DepthConstraint::Any => {}
         DepthConstraint::Exact(_) => {

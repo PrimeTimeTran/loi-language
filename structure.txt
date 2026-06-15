@@ -8,30 +8,16 @@
 
 ## src/extract.rs
 
-    enum ExtractMode { SymbolsOnly, FullBody }
     enum DepthConstraint { Any, Exact(_0), Range(from, to) }
     enum IncludePolicy { Only, IncludeDerived, IncludeNested }
     enum Matcher { Symbol(_0), File(_0) }
     enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
     enum ScopeRoot { File, Module, Symbol(_0) }
-    struct CodeBlockConfig
-      - enabled: bool
-      - language_override: Option < String >
-      - preserve_indentation: bool
-      - fn default(...)
-          -> Self
     struct ExtractConfig
       - input_dir: PathBuf
       - output_file: PathBuf
       - rules: Vec < Rule >
       - output: OutputConfig
-      - fn default(...)
-          -> Self
-    struct OutputConfig
-      - path_format: PathFormat
-      - header: HeaderFormat
-      - codeblock: Option < CodeBlockConfig >
-      - dense: DenseConfig
       - fn default(...)
           -> Self
     struct Rule
@@ -84,6 +70,13 @@
           -> Self
     struct FunctionDenseConfig
       - params: ParamFormat
+      - fn default(...)
+          -> Self
+    struct OutputConfig
+      - path_format: PathFormat
+      - header: HeaderFormat
+      - codeblock: Option < CodeBlockConfig >
+      - dense: DenseConfig
       - fn default(...)
           -> Self
     struct Rule
