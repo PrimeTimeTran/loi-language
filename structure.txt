@@ -2,46 +2,46 @@
 
 enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
 enum ArtifactKind { Web, Loi }
-struct Artifact(path:PathBuf, bytes:Vec < u8 >, kind:ArtifactKind)
-struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf)
-struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf)
-struct BundleManifest(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
-struct BundleManifest(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
-struct FileStack(files:Vec < FileMeta >, active_file:FileMeta)
-struct GenericHandler(target:RenderTarget)
-struct GenericUtter(name:String, config:LanguageConfig)
-struct LanguageConfig(name:String, flags:UtterFlags, symbol_patterns:Vec < (& 'static str , SymbolKind) >, to_ir:Option < ToIrFn >)
-struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
-struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
-struct UtterRegistry(utters:HashMap < String , Box < dyn Utter > >, handlers:HashMap < String , Box < dyn Handler > >)
+struct Artifact
+struct BundleConfig
+struct BundleConfig
+struct BundleManifest
+struct BundleManifest
+struct FileStack
+struct GenericHandler
+struct GenericUtter
+struct LanguageConfig
+struct Registry
+struct Registry
+struct UtterRegistry
 enum ListFilter { Active, Archived, All }
 enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
 enum SortOrder { Asc, Desc }
-struct GroupKey(namespace:String, name:String, utter:Option < String >, variant:Option < String >, ext:String)
+struct GroupKey
 enum AssignOp { Assign, Immutable, Dynamic }
 enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
 enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
 enum Expr { Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Number(_0), Bool(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
 enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Unknown }
 enum UnOp { Neg, Not, AddrOf }
-struct Span(start:usize, end:usize)
-struct TypedExpr(expr:Expr, ty:Type, span:Span)
+struct Span
+struct TypedExpr
 enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
 enum IROp { Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Declare(name, value, mutable, dynamic), Assign(name, value), Load(name), ExprStmt(expr), If(condition, then_branch, else_branch, scope_id), Return(value), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), Lowered(_0) }
 enum LoweredOp { Binary(target, left, op, right), Move(target, source), Label(_0), Jump(_0), JumpIf(condition, label), Nop }
-struct Symbol(name:String, kind:SymbolKind, value:String, file:FileMeta, origin:String, metadata:HashMap < String , String >)
-struct UtterFlags(browser_dom:bool, allow_network:bool, fs_access:bool, db_access:bool)
-struct BuildAllArgs(target:Option < BuildTarget >, flags:BuildFlags)
-struct BuildFlags(force:bool, ext:Option < String >, filter:Option < String >)
-struct ViewArgs(target:Option < BuildTarget >, flags:ViewFlags)
-struct ViewFlags(name:Option < String >, number:Option < i32 >, sort:Option < SortOrder >)
-struct FileMeta(id:Uuid, filename:String, namespace:String, name:String, utter:Option < String >, version:u32, tag:Option < String >, variant:Option < String >, ext:String, path:PathBuf, active:bool, capabilities:Vec < String >)
+struct Symbol
+struct UtterFlags
+struct BuildAllArgs
+struct BuildFlags
+struct ViewArgs
+struct ViewFlags
+struct FileMeta
 enum BuildTarget { ByName(_0), ByIndex(_0) }
 enum Op { Add, Sub, Mul, Div, Cmp, Neg }
-struct AST(stmts:Vec < Stmt >, expr:Option < Expr >)
+struct AST
 enum Command { Mode(_0), List(_0), Tree, History(_0), CapabilityMap, Diff(_0, _1), Build(_0), BuildAll(_0), View(_0), Clear, Help, Exit }
 enum CompilerError { Io(_0), Lexer(_0), Parser(_0), Analysis(_0), Backend(_0) }
-struct SymbolId(name:String, origin:String)
+struct SymbolId
 enum Token { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le, Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power, Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma, LineNote, BlockNote, RawStart, RawEnd, Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Number(_0), String(_0), Ident(_0), Error, EOF }
 enum Identifiers_06 { Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias }
 enum Meta { LineNote, BlockNote, RawStart, RawEnd }
@@ -49,29 +49,29 @@ enum Meta_05 { LineNote, BlockNote, RawStart, RawEnd }
 enum MultiChar_02 { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le }
 enum SingleChar_03 { Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power }
 enum Structural_04 { Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma }
-struct Config(input:PathBuf, output:PathBuf, watch:bool)
-struct FileView(namespace:String, index:usize, filename:String, active:String, name:String, utter:String, version:String, tag:String, ext:String, capabilities:String)
+struct Config
+struct FileView
 enum CompileMode { Batch, Interactive, Watch }
 enum IR { Raw(_0), Structured(body, symbols, metadata) }
 enum WebTarget { Html, Css, Js }
-struct AssetOptimizer(minify:bool, remove_comments:bool)
-struct BuildContext(build_id:u64, started_at:Instant, dir_root:PathBuf, dir_out:PathBuf, watch:bool, clean:bool, verbose:bool)
-struct BuildSystem(context:BuildContext, registry:Registry, utters:UtterRegistry, bundle_service:BundleService)
-struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleManifest, resolver:OutputResolver, optimizer:AssetOptimizer)
-struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleManifest, resolver:OutputResolver, optimizer:AssetOptimizer)
-struct CliController(system:BuildSystem, history_path:PathBuf, current_namespace:Vec < String >, verbosity:u8)
-struct CodegenState(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >)
-struct CodegenState(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >)
-struct CommandMeta(label:& 'static str, alias:Option < & 'static str >, description:& 'static str, hidden:bool, weight:u32)
-struct CompiledArtifact(ir:IR, bundle:Vec < Artifact >)
-struct CompilerContext(root_dir:PathBuf, output_dir:PathBuf, mode:CompileMode, registry:Registry, build:BuildSystem)
-struct LLVM(module:Module < 'ctx >)
-struct OutputResolver(manifest:BundleManifest)
-struct ParsedPath(variant:Option < String >, version:u32, is_versioned:bool, is_ui:bool)
+struct AssetOptimizer
+struct BuildContext
+struct BuildSystem
+struct BundleService
+struct BundleService
+struct CliController
+struct CodegenState
+struct CodegenState
+struct CommandMeta
+struct CompiledArtifact
+struct CompilerContext
+struct LLVM
+struct OutputResolver
+struct ParsedPath
 struct RegistryRenderer
-struct Runtime(main:FunctionValue < 'ctx >, printf:FunctionValue < 'ctx >, fmt_f64:PointerValue < 'ctx >, fmt_i32:PointerValue < 'ctx >, fmt_str:PointerValue < 'ctx >)
-struct SemanticAnalyzer(symbols:HashMap < String , Type >, scope_counter:AtomicUsize)
-struct SymbolRegistry(table:HashMap < SymbolId , Symbol >, warnings:Vec < String >)
+struct Runtime
+struct SemanticAnalyzer
+struct SymbolRegistry
 struct Theme
 struct ModuleState
 
@@ -89,8 +89,26 @@ struct ModuleState
 
 ## src/kernel.rs
 
-    struct Kernel(context:Arc < Context >, engine:CompileEngine, logger:Arc < Logger >, cache:Arc < MemoryCache >, job_queue:Arc < JobQueue >, scheduler:TaskScheduler, diagnostics:Arc < RwLock < DiagnosticStore > >)
-    struct KernelBuilder(context:Option < Arc < Context > >, engine:Option < CompileEngine >, logger:Option < Arc < Logger > >, cache:Option < Arc < MemoryCache > >, job_queue:Option < Arc < JobQueue > >, scheduler:Option < TaskScheduler >, diagnostics:Option < Arc < RwLock < DiagnosticStore > > >)
+    struct Kernel
+    struct KernelBuilder
+      - fn new(...)
+          -> Self
+      - fn context(...)
+          -> Self
+      - fn engine(...)
+          -> Self
+      - fn logger(...)
+          -> Self
+      - fn cache(...)
+          -> Self
+      - fn job_queue(...)
+          -> Self
+      - fn scheduler(...)
+          -> Self
+      - fn diagnostics(...)
+          -> Self
+      - fn build(...)
+          -> Kernel
 
 ## src/lib.rs
 
@@ -105,6 +123,10 @@ struct ModuleState
 
 ## tests/0002-pipeline-backend.rs
 
+    backend_determinism()
+    backend_generates_artifact()
+    backend_requires_ir()
+    backend_target_selection()
 
 ## tests/0002-pipeline-frontend.rs
 
@@ -115,6 +137,11 @@ struct ModuleState
 
 ## tests/0002-pipeline-middle.rs
 
+    middle_empty_ast_no_crash()
+    middle_generates_ir()
+    middle_ir_determinism()
+    middle_ir_structure()
+    middle_transforms_ast()
 
 ## tests/0002-pulse-parser.rs
 
@@ -502,7 +529,19 @@ struct ModuleState
 
 #### crates/lsp/main.rs
 
-        struct LoiServer(client:Client)
+        struct LoiServer
+          - fn initialize(...)
+              -> Result < InitializeResult , ResponseError >
+          - fn initialized(...)
+              -> ()
+          - fn did_open(...)
+              -> ()
+          - fn hover(...)
+              -> Result < Option < Hover > , ResponseError >
+          - fn completion(...)
+              -> Result < Option < CompletionResponse > , ResponseError >
+          - fn shutdown(...)
+              -> Result < () , ResponseError >
         main()
 
 #### src/backend/link_with_clang.rs
@@ -511,12 +550,12 @@ struct ModuleState
 
 #### src/backend/llvm.rs
 
+        struct Runtime
+        struct CodeGenContext
         codegen_expr(expr:& Expr, ty:& Type, context:& mut CodeGenContext < 'ctx >)
         lower_expr_to_ir(context:& mut CodeGenContext < 'ctx >, op:IROp)
         lower_ir(context:& mut CodeGenContext < 'ctx >, ir:IROp, runtime:& Runtime < 'ctx >, zero:IntValue < 'ctx >)
-        struct CodeGenContext(context:& 'ctx Context, module:Module < 'ctx >, builder:Builder < 'ctx >, runtime:Runtime < 'ctx >, env:HashMap < String , PointerValue < 'ctx > >, counter:usize)
-        struct LLVM(context:CodeGenContext < 'ctx >)
-        struct Runtime(main:FunctionValue < 'ctx >, entry_block:BasicBlock < 'ctx >, printf:FunctionValue < 'ctx >, fmt_f64:PointerValue < 'ctx >, fmt_i32:PointerValue < 'ctx >, fmt_str:PointerValue < 'ctx >)
+        struct LLVM
 
 #### src/backend/mod.rs
 
@@ -528,54 +567,124 @@ struct ModuleState
 #### src/build/artifact.rs
 
         enum ArtifactKind { Web, Loi }
-        struct Artifact(path:PathBuf, bytes:Vec < u8 >, kind:ArtifactKind)
-        struct CompiledArtifact(ir:IR, bundle:Vec < Artifact >)
+        struct Artifact
+        struct CompiledArtifact
 
 #### src/build/asset_optimizer.rs
 
-        struct AssetOptimizer(minify:bool, remove_comments:bool)
+        struct AssetOptimizer
+          - fn minify_js(...)
+              -> String
+          - fn optimize(...)
+              -> IR
+          - fn strip_comments(...)
+              -> String
 
 #### src/build/build_system.rs
 
-        struct BuildContext(build_id:u64, started_at:Instant, dir_root:PathBuf, dir_out:PathBuf, watch:bool, clean:bool, verbose:bool)
-        struct BuildSystem(context:BuildContext, registry:Registry, utters:UtterRegistry, bundle_service:BundleService)
+        struct BuildContext
+        struct BuildSystem
+          - fn new(...)
+              -> Self
+          - fn test(...)
+              -> Self
 
 #### src/build/mod.rs
 
 
 #### src/build/output_resolver.rs
 
-        struct OutputResolver(manifest:BundleConfig)
+        struct OutputResolver
+          - fn new(...)
+              -> Self
+          - fn get_web_path(...)
+              -> Option < PathBuf >
+          - fn get_loi_path(...)
+              -> PathBuf
+          - fn get_stripped_base_name(...)
+              -> String
 
 #### src/build/service.rs
 
-        struct BundleConfig(dir_root:PathBuf, dir_out:PathBuf, strip_namespace:bool, strip_tag:bool, strip_utter:bool, strip_variant:bool, strip_version:bool, minify:bool, remove_comments:bool)
-        struct BundleService(registry:Registry, utter_registry:UtterRegistry, symbols:SymbolRegistry, manifest:BundleConfig, resolver:OutputResolver, optimizer:AssetOptimizer)
+        struct BundleConfig
+          - fn default(...)
+              -> Self
+        struct BundleService
+          - fn new(...)
+              -> Self
+          - fn rebuild_symbols(...)
+              -> ()
+          - fn compile_all(...)
+              -> Vec < Result < (FileMeta , CompiledArtifact) , String > >
+          - fn compile(...)
+              -> Result < CompiledArtifact , String >
 
 #### src/cli/args.rs
 
-        struct CliArgs(watch:bool, input:Option < PathBuf >, output:Option < PathBuf >, concurrency:Option < usize >)
+        struct CliArgs
 
 #### src/cli/command.rs
 
         enum SortOrder { Asc, Desc }
-        struct BuildAllArgs(target:Option < BuildTarget >, flags:BuildFlags)
-        struct BuildFlags(force:bool, ext:Option < String >, filter:Option < String >)
-        struct ViewArgs(target:Option < BuildTarget >, flags:ViewFlags)
-        struct ViewFlags(name:Option < String >, number:Option < i32 >, sort:Option < SortOrder >)
+        struct BuildAllArgs
+        struct BuildFlags
+        struct ViewArgs
+        struct ViewFlags
         enum Command { Mode(_0), List(_0), Tree, History(_0), CapabilityMap, Diff(_0, _1), Build(_0), BuildAll(_0), View(_0), Clear, Help, Exit }
-        struct CommandMeta(label:& 'static str, alias:Option < & 'static str >, description:& 'static str, hidden:bool, weight:u32)
+        struct CommandMeta
 
 #### src/cli/controller.rs
 
-        struct CliController(system:BuildSystem, history_path:PathBuf, current_namespace:Vec < String >, verbosity:u8)
+        struct CliController
+          - fn new(...)
+              -> Self
+          - fn run(...)
+              -> ()
+          - fn build_index(...)
+              -> Vec < & FileMeta >
+          - fn resolve_target(...)
+              -> Option < & 'a FileMeta >
+          - fn handle_build(...)
+              -> ()
+          - fn handle_build_all(...)
+              -> ()
+          - fn handle_view(...)
+              -> ()
 
 #### src/cli/display.rs
 
         enum ListFilter { Active, Archived, All }
-        struct FileView(namespace:String, index:usize, filename:String, active:String, name:String, utter:String, version:String, tag:String, ext:String, capabilities:String)
+        struct FileView
         struct RegistryRenderer
+          - fn render_file_contents(...)
+              -> ()
+          - fn render_header(...)
+              -> ()
+          - fn render_shortcuts(...)
+              -> ()
+          - fn render_list(...)
+              -> ()
+          - fn render_tree(...)
+              -> ()
+          - fn render_version_history(...)
+              -> ()
+          - fn render_capability_map(...)
+              -> ()
+          - fn render_diff(...)
+              -> ()
+          - fn render_error(...)
+              -> ()
         struct Theme
+          - fn light_grey(...)
+              -> String
+          - fn header(...)
+              -> String
+          - fn error(...)
+              -> String
+          - fn success(...)
+              -> String
+          - fn highlight(...)
+              -> String
 
 #### src/cli/mod.rs
 
@@ -592,11 +701,19 @@ struct ModuleState
 
 #### src/compiler/cache.rs
 
-        struct MemoryCache(map:HashMap < String , String >)
+        struct MemoryCache
+          - fn new(...)
+              -> Self
         struct CachePolicy
-        struct CompilationCache(cache:HashMap < String , Vec < u8 > >)
+          - fn should_invalidate(...)
+              -> bool
+        struct CompilationCache
+          - fn new(...)
+              -> Self
         struct NetworkCache
-        struct PersistentCache(disk_path:Option < PathBuf >)
+        struct PersistentCache
+          - fn new(...)
+              -> Self
 
 #### src/compiler/compile.rs
 
@@ -609,35 +726,97 @@ struct ModuleState
 
 #### src/compiler/config.rs
 
-        struct CompileConfig(root:PathBuf, name:String, input:PathBuf, output:PathBuf, watch:bool, concurrency:usize)
-        struct Config(root:Arc < RwLock < PathBuf > >, name:Arc < RwLock < String > >, input:Option < PathBuf >, output:Option < PathBuf >, watch:Option < bool >, concurrency:Option < usize >)
+        struct CompileConfig
+          - fn from(...)
+              -> Self
+          - fn default(...)
+              -> Self
+        struct Config
+          - fn default(...)
+              -> Self
         enum ConfigSource { Defaults, File(_0), Cli(_0), ReplOverrides }
         struct ConfigResolver
+          - fn resolve(...)
+              -> Config
+          - fn merge(...)
+              -> Config
+          - fn load_file(...)
+              -> Config
+          - fn parse_cli(...)
+              -> Config
 
 #### src/compiler/diagnostic.rs
 
-        struct Diagnostic(message:String, code:Option < String >, span:Span, severity:Severity, notes:Vec < String >, suggestions:Vec < String >)
-        struct DiagnosticStore(halt_on_error:bool, error_count:usize, diagnostics:VecDeque < Diagnostic >)
+        struct Diagnostic
+          - fn new(...)
+              -> Self
+          - fn default(...)
+              -> Self
+          - fn error(...)
+              -> Self
+          - fn warning(...)
+              -> Self
+          - fn with_note(...)
+              -> Self
+          - fn with_suggestion(...)
+              -> Self
+          - fn with_code(...)
+              -> Self
+        struct DiagnosticStore
+          - fn emit(...)
+              -> bool
+          - fn check_halt(...)
+              -> Result < () , String >
+          - fn new(...)
+              -> Self
+          - fn has_errors(...)
+              -> bool
+          - fn clear(...)
+              -> ()
+          - fn flush(...)
+              -> ()
         struct Logger
+          - fn log(...)
+              -> ()
+          - fn test(...)
+              -> Self
         struct CompilerEventBus
         struct Inspector
         struct Profiler
+          - fn new(...)
+              -> Self
         struct TraceSystem
+          - fn new(...)
+              -> Self
         enum Severity { Info, Warning, Error, Hint }
 
 #### src/compiler/engine.rs
 
-        struct CompileEngine(state:Arc < RwLock < CompileState > >, config:Arc < RwLock < CompileConfig > >, stages:Vec < Box < dyn Stage > >)
+        struct CompileEngine
+          - fn run_all(...)
+              -> Result < () , () >
+          - fn new(...)
+              -> Self
+          - fn default(...)
+              -> Self
 
 #### src/compiler/env.rs
 
         enum Mode { Batch, Interactive, Watch }
         enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
         enum TargetOS { Linux, MacOS, Windows, Unknown }
-        struct Env(root_dir:PathBuf, output_dir:PathBuf, mode:Mode, target:TargetConfig, features:FeatureFlags, toolchain:ToolchainPaths, cwd:PathBuf, timestamp:u64)
-        struct FeatureFlags(incremental:bool, parallel_frontend:bool, parallel_codegen:bool, aggressive_cache:bool, debug_symbols:bool, hot_reload:bool)
-        struct TargetConfig(os:TargetOS, arch:TargetArch, abi:Option < String >)
-        struct ToolchainPaths(llvm_bin:Option < PathBuf >, linker:Option < PathBuf >, assembler:Option < PathBuf >, wasm_toolchain:Option < PathBuf >, custom_backend:Option < PathBuf >)
+        struct Env
+          - fn default(...)
+              -> Self
+        struct FeatureFlags
+          - fn default(...)
+              -> Self
+        struct TargetConfig
+          - fn default(...)
+              -> Self
+        struct ToolchainPaths
+          - fn default(...)
+              -> Self
 
 #### src/compiler/error.rs
 
@@ -646,13 +825,23 @@ struct ModuleState
 #### src/compiler/execution.rs
 
         struct TaskScheduler
-        struct JobQueue(jobs:Arc < Mutex < Vec < String > > >)
+          - fn new(...)
+              -> Self
+          - fn schedule(...)
+              -> ()
+        struct JobQueue
+          - fn new(...)
+              -> Self
         struct PluginSystem
-        struct PrioritySystem(priority_map:HashMap < String , u8 >)
+        struct PrioritySystem
+          - fn new(...)
+              -> Self
 
 #### src/compiler/mod.rs
 
-        struct Compiler(pipelines:Vec < Box < dyn Pipeline > >)
+        struct Compiler
+          - fn compile(...)
+              -> Result < () , Compiler >
 
 #### src/compiler/runtime.rs
 
@@ -672,14 +861,32 @@ struct ModuleState
 
 #### src/compiler/state.rs
 
-        struct LoweredIR(nodes:Vec < IROp >)
-        struct BuildCache(object_cache:HashMap < u64 , Vec < u8 > >, ir_cache:HashMap < u64 , Vec < IROp > >, symbol_cache:HashMap < u64 , Vec < u8 > >, timestamps:HashMap < PathBuf , u64 >, cache_version:u32, current:Option < BuildArtifact >)
-        struct DependencyGraph(forward:HashMap < SymbolId , HashSet < SymbolId > >, reverse:HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache:HashMap < SymbolId , HashSet < SymbolId > >, cycles:Vec < Vec < SymbolId > >)
-        struct FileGraph(imports:HashMap < Uuid , Vec < Uuid > >, dependents:HashMap < Uuid , Vec < Uuid > >, topo_order:Vec < Uuid >, cycles:Vec < Vec < Uuid > >)
-        struct IRCache(per_file:HashMap < Uuid , Vec < IROp > >, per_symbol:HashMap < SymbolId , Vec < IROp > >, dedup_cache:HashMap < u64 , Vec < IROp > >, ir_versions:HashMap < Uuid , u32 >, current:Option < IR >)
-        struct LoweredCache(per_file:HashMap < Uuid , Vec < LoweredOp > >, per_symbol:HashMap < SymbolId , Vec < LoweredOp > >, backend_cache:HashMap < String , Vec < u8 > >, opt_pass_version:u32, current:Option < LoweredIR >)
-        struct SymbolIndex(by_name:HashMap < String , Vec < SymbolId > >, by_file:HashMap < Uuid , Vec < SymbolId > >, fqns:HashMap < String , SymbolId >, scope_stack:Vec < Vec < SymbolId > >)
-        struct CompileState(source:Option < String >, ast:Option < AST >, registry:Registry, file_graph:FileGraph, dependency_graph:DependencyGraph, symbols:SymbolRegistry, symbol_index:SymbolIndex, ir_cache:IRCache, lowered_cache:LoweredCache, dirty_files:HashSet < Uuid >, dirty_symbols:HashSet < SymbolId >, content_hashes:HashMap < PathBuf , u64 >, build_cache:BuildCache, compiler_version:String, ir_version:u32)
+        struct LoweredIR
+        struct BuildCache
+          - fn insert_artifact(...)
+              -> ()
+          - fn insert_ir(...)
+              -> ()
+          - fn insert_symbol(...)
+              -> ()
+          - fn set_current(...)
+              -> ()
+        struct DependencyGraph
+        struct FileGraph
+        struct IRCache
+        struct LoweredCache
+        struct SymbolIndex
+        struct CompileState
+          - fn current_ir(...)
+              -> Option < IR >
+          - fn current_lowered_ir(...)
+              -> Option < LoweredIR >
+          - fn current_artifact(...)
+              -> Option < BuildArtifact >
+          - fn registry_is_empty(...)
+              -> bool
+          - fn default(...)
+              -> Self
 
 #### src/compiler/types.rs
 
@@ -687,22 +894,34 @@ struct ModuleState
 
 #### src/context/compile.rs
 
-        struct CompileContext(env:Env, config:Config, state:CompileState, diagnostics:DiagnosticStore, cache:MemoryCache)
+        struct CompileContext
+          - fn new(...)
+              -> Self
 
 #### src/context/context.rs
 
-        struct Context(env:Env, config:Config, diagnostics:Arc < RwLock < DiagnosticStore > >, cache:MemoryCache)
+        struct Context
+          - fn new(...)
+              -> Self
 
 #### src/context/fs.rs
 
-        struct FS(root:PathBuf, cwd:PathBuf, cache_dir:PathBuf, build_dir:PathBuf)
+        struct FS
+          - fn source_path(...)
+              -> PathBuf
+          - fn cache_path(...)
+              -> PathBuf
+          - fn build_path(...)
+              -> PathBuf
 
 #### src/context/mod.rs
 
 
 #### src/context/test.rs
 
-        struct TestContext(logger:Logger, cache:MemoryCache, diagnostics:DiagnosticStore)
+        struct TestContext
+          - fn new(...)
+              -> Self
 
 #### src/development/mod.rs
 
@@ -710,15 +929,25 @@ struct ModuleState
 #### src/development/server.rs
 
         enum Command { Build(_0), Rebuild(_0), Clean(_0), Inspect(_0), Exit }
-        struct CompileServer(engine:CompileEngine, state:CompileState, watcher:Option < FileWatcher >, repl:Option < Repl >, events:CompilerEventBus)
+        struct CompileServer
+          - fn new(...)
+              -> Self
+          - fn run(...)
+              -> ()
+          - fn execute(...)
+              -> ()
+          - fn rebuild(...)
+              -> ()
+          - fn next_event(...)
+              -> Event
         enum Event { FileChanged(_0), Command(_0) }
         enum FileChangeKind { Created, Modified, Deleted }
         start(kernel:Kernel)
         start_server(kernel:Kernel, config:CompileConfig)
         struct BuildCommand
         struct CleanCommand
-        struct CommandEvent(command:Command)
-        struct FileChangedEvent(path:PathBuf, kind:FileChangeKind)
+        struct CommandEvent
+        struct FileChangedEvent
         struct InspectCommand
         struct RebuildCommand
         struct Repl
@@ -726,9 +955,17 @@ struct ModuleState
 #### src/development/watcher.rs
 
         struct ChangeDetector
+          - fn detect(...)
+              -> bool
         struct FileWatcher
+          - fn watch(...)
+              -> Result < () , String >
         struct HotReloadManager
+          - fn reload(...)
+              -> ()
         struct IncrementalCompiler
+          - fn invalidate(...)
+              -> ()
 
 #### src/diagnostics/mod.rs
 
@@ -736,14 +973,28 @@ struct ModuleState
 
 #### src/frontend/ast.rs
 
-        struct HashF64(_0:f64)
+        struct HashF64
+          - fn eq(...)
+              -> bool
+          - fn hash(...)
+              -> ()
+          - fn fmt(...)
+              -> fmt :: Result
         enum AssignOp { Assign, Immutable, Dynamic }
-        struct AST(program:Program, stmts:Vec < Stmt >)
+        struct AST
+          - fn new(...)
+              -> Self
+          - fn to_sexpr(...)
+              -> String
         enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
-        struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
+        struct Program
+          - fn new(...)
+              -> Self
+          - fn default(...)
+              -> Self
         enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
-        enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
         enum Expr { Number(_0), Unary(op, expr), Binary(left, op, right), Assign(left, right, op), Bool(_0), String(_0), Var(_0), Array(_0), Call(callee, args), Index(target, index), Member(target, field) }
+        enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
         enum UnOp { Neg, Not, AddrOf }
 
 #### src/frontend/display.rs
@@ -761,6 +1012,12 @@ struct ModuleState
 #### src/frontend/parser.rs
 
         struct Parser
+          - fn new(...)
+              -> Self
+          - fn parse(...)
+              -> Result < AST , DiagnosticStore >
+          - fn parse_incremental(...)
+              -> Result < AST , DiagnosticStore >
         is_assignable(expr:& Expr)
         is_expr_start(tok:Option < & Token >)
         kind_from_token(tok:& Token)
@@ -782,18 +1039,19 @@ struct ModuleState
         parse_unary(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
         parse(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
         parse_incremental(prev:& AST, tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
+        parse_let(tokens:& mut TokenStream, diagnostics:& mut DiagnosticStore)
         parse_source(input:& str)
 
 #### src/frontend/token.rs
 
-        enum Token { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le, Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power, Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma, LineNote, BlockNote, RawStart, RawEnd, Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Ident(_0), Number(_0), String(_0), Error, EOF }
+        enum Token { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le, Assign, Not, Ampersand, Colon, Pipe, Plus, Minus, Slash, Gt, Lt, Star, Mod, Power, Dot, LBrace, RBrace, LBracket, RBracket, LParen, RParen, Semicolon, Comma, LineNote, BlockNote, RawStart, RawEnd, Let, Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Ident(_0), Number(_0), String(_0), Error, EOF }
         lex_block_note(lex:& mut Lexer < Token >)
         lex_line_note(lex:& mut Lexer < Token >)
         lex_raw_block(lex:& mut Lexer < Token >)
 
 #### src/frontend/token_seeds.rs
 
-        enum Identifiers_06 { Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias }
+        enum Identifiers_06 { Dependency, Package, Module, Public, Private, Print, If, ElseIf, Else, Unless, Switch, Case, Default, Match, Pipeline, Function, Yield, Next, Return, Do, Loop, Until, While, For, Of, In, Break, Continue, Is, Assert, Try, Catch, Finally, Throw, Enum, Struct, Trait, Impl, As, True, False, OrAlias, AndAlias, Let }
         enum Meta { LineNote, BlockNote, RawStart, RawEnd }
         enum Meta_05 { LineNote, BlockNote, RawStart, RawEnd }
         enum MultiChar_02 { Eq, Neq, Immutable, Dynamic, EqualsColon, Or, And, Inc, Dec, Floor, Ge, Le }
@@ -802,10 +1060,10 @@ struct ModuleState
 
 #### src/frontend/types.rs
 
-        struct Lexer(state:LexerState, config:LexerConfig)
-        struct TokenStream(tokens:Vec < Token >, pos:usize)
-        struct LexerConfig(allow_unicode_identifiers:bool, allow_raw_strings:bool, comment_support:bool)
-        struct LexerState(position:usize, line:usize, column:usize)
+        struct Lexer
+        struct TokenStream
+        struct LexerConfig
+        struct LexerState
 
 #### src/interface/engine_provider.rs
 
@@ -818,15 +1076,27 @@ struct ModuleState
 
 #### src/middle/ir.rs
 
-        struct TypedExpr(expr:Expr, ty:Type, span:Span)
-        enum IROp { Return(value), Declare(name, value, mutable, dynamic), Nop, Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Assign(name, value), Load(name), If(condition, then_branch, else_branch, scope_id), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), ExprStmt(expr), ControlFlow, Lowered(_0) }
         enum LoweredOp { Binary(target, left, op, right), Move(target, source), Label(_0), Jump(_0), JumpIf(condition, label), Nop }
-        struct IR(raw:String, nodes:Vec < IROp >, symbols:HashMap < String , Symbol >, metadata:HashMap < String , String >)
+        enum IROp { Return(value), Declare(name, value, mutable, dynamic), Nop, Binary(target, left, op, right), Module(body), Function(name, params, body, return_type), Block(body), Assign(name, value), Load(name), If(condition, then_branch, else_branch, scope_id), Call(name, args), Print(value), ExternalCall(namespace, function, args), ModuleScope(name, body), While(condition, body), DoWhile(body, condition), Loop(body), For(iterator, iterable, body), ExprStmt(expr), ControlFlow, Lowered(_0) }
+        struct TypedExpr
+        struct IR
+          - fn default(...)
+              -> Self
+          - fn fmt(...)
+              -> fmt :: Result
+          - fn new(...)
+              -> Self
+          - fn raw(...)
+              -> Self
+          - fn structured(...)
+              -> Self
+          - fn is_raw(...)
+              -> bool
         enum Op { Add, Sub, Mul, Div, Cmp, Neg }
         to_typed_expr(expr:Expr)
         enum RegionKind { Native, JavaScript, TypeScript, JSX, SQL, Python, Shader, Unknown(_0) }
         enum RegionMode { Passthrough, CompileAndInject, Dual }
-        struct RegionBlock(kind:RegionKind, source:String, output:Option < Vec < u8 > >, mode:RegionMode)
+        struct RegionBlock
 
 #### src/middle/mod.rs
 
@@ -843,45 +1113,115 @@ struct ModuleState
         one(op:IROp)
         wrap_typed(expr:Expr, symbols:& HashMap < String , Type >, span:Span)
         analyze(ast:AST)
-        struct SemanticAnalyzer(symbols:HashMap < String , Type >, scope_counter:AtomicUsize)
+        struct SemanticAnalyzer
+          - fn new(...)
+              -> Self
+          - fn analyze(...)
+              -> Result < Vec < IROp > , String >
+          - fn analyze_block(...)
+              -> Result < Vec < IROp > , String >
 
 #### src/middle/types.rs
 
         enum Type { I32, F64, Bool, Str, Void, Ptr(_0), Array(_0), Return, Unknown }
         enum ModuleItem { Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0) }
         enum TopLevelItem { Module(_0), Function(_0), Struct(_0), Enum(_0), Const(_0), Use(_0), Stmt(_0) }
-        struct Block(stmts:Vec < Stmt >)
-        struct Enum(name:String, variants:Vec < Variant >)
-        struct Field(name:String, ty:Type)
-        struct Function(name:String, params:Vec < Param >, body:Block)
-        struct Import(path:Vec < String >, alias:Option < String >, glob:bool)
-        struct Module(name:String, items:Vec < ModuleItem >)
-        struct Param(name:String, ty:Option < Type >)
-        struct Struct(name:String, fields:Vec < Field >)
-        struct Variant(name:String, fields:Vec < Type >)
-        struct Span(file:PathBuf, start:usize, end:usize)
+        struct Block
+        struct Enum
+        struct Field
+        struct Function
+        struct Import
+        struct Module
+        struct Param
+        struct Struct
+        struct Variant
+        struct Span
 
 #### src/pipeline/backend.rs
 
         enum BackendTarget { Bytecode, LLVM, WASM }
         enum OptimizationLevel { None, Basic, Aggressive }
-        struct CodegenConfig(emit_debug_info:bool, inline_functions:bool, vectorize:bool)
-        struct BackendPipeline(llvm_context:Mutex < inkwell :: context :: Context >, metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, target:BackendTarget, opt_level:OptimizationLevel, codegen_config:CodegenConfig, debug:bool)
+        struct CodegenConfig
+        struct BackendPipeline
+          - fn new(...)
+              -> Self
+          - fn with_name(...)
+              -> Self
+          - fn with_target(...)
+              -> Self
+          - fn with_opt_level(...)
+              -> Self
+          - fn with_codegen_config(...)
+              -> Self
+          - fn with_debug(...)
+              -> Self
+          - fn run(...)
+              -> Vec < u8 >
+          - fn codegen(...)
+              -> Result < Vec < u8 > , CompileError >
+          - fn codegen_llvm(...)
+              -> Result < Vec < u8 > , CompileError >
+          - fn codegen_wasm(...)
+              -> Result < Vec < u8 > , CompileError >
+          - fn create_native_target_machine(...)
+              -> Result < TargetMachine , CompileError >
+          - fn emit_node(...)
+              -> ()
+          - fn emit_bytecode(...)
+              -> Vec < u8 >
+          - fn emit_llvm(...)
+              -> Vec < u8 >
+          - fn emit_wasm(...)
+              -> Vec < u8 >
+          - fn default(...)
+              -> Self
 
 #### src/pipeline/frontend.rs
 
-        struct FrontendFeatures(enable_macros:bool, enable_jsx_like_blocks:bool, strict_mode:bool)
-        struct FrontendPipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, lexer:Arc < RwLock < Lexer > >, parser:Arc < RwLock < Parser > >, features:FrontendFeatures)
+        struct FrontendFeatures
+        struct FrontendPipeline
+          - fn new(...)
+              -> Self
+          - fn with_name(...)
+              -> Self
+          - fn with_features(...)
+              -> Self
+          - fn perform_compilation(...)
+              -> Result < AST , DiagnosticStore >
+          - fn run(...)
+              -> Result < () , CompileError >
+          - fn name(...)
+              -> & str
+          - fn default(...)
+              -> Self
 
 #### src/pipeline/middle.rs
 
-        struct IRConfig(preserve_raw_blocks:bool, optimize_early:bool)
-        struct MiddleFeatures(enable_type_checking:bool, enable_macro_expansion:bool, enable_dead_code_analysis:bool)
-        struct MiddlePipeline(metadata:Metadata, context:Arc < Context >, config:Arc < RwLock < CompileConfig > >, state:Arc < RwLock < CompileState > >, ir_config:IRConfig, features:MiddleFeatures)
+        struct IRConfig
+        struct MiddleFeatures
+        struct MiddlePipeline
+          - fn new(...)
+              -> Self
+          - fn with_name(...)
+              -> Self
+          - fn with_ir_config(...)
+              -> Self
+          - fn with_features(...)
+              -> Self
+          - fn run(...)
+              -> Result < () , CompileError >
+          - fn resolve_symbols(...)
+              -> ()
+          - fn lower_ast(...)
+              -> Vec < IROp >
+          - fn default(...)
+              -> Self
 
 #### src/pipeline/mod.rs
 
-        struct Metadata(name:String, version:String)
+        struct Metadata
+          - fn default(...)
+              -> Self
         enum CompileError { Frontend(_0), Middle(_0), Backend(_0) }
 
 #### src/pipeline/provider.rs
@@ -889,7 +1229,13 @@ struct ModuleState
 
 #### src/pipeline/runner.rs
 
-        struct PipelineRunner(stages:Vec < Box < dyn Pipeline > >)
+        struct PipelineRunner
+          - fn new(...)
+              -> Self
+          - fn add_stage(...)
+              -> ()
+          - fn run(...)
+              -> Result < () , () >
 
 #### src/pipeline/stage.rs
 
@@ -905,17 +1251,83 @@ struct ModuleState
 
 #### src/registry/file_meta.rs
 
-        struct GroupKey(namespace:String, name:String, utter:Option < String >, variant:Option < String >, ext:String)
-        struct FileMeta(id:Uuid, filename:String, namespace:String, name:String, utter:Option < String >, version:u32, tag:Option < String >, variant:Option < String >, ext:String, path:PathBuf, active:bool, capabilities:Vec < String >)
-        struct ParsedPath(variant:Option < String >, version:u32, is_versioned:bool, is_ui:bool)
+        struct GroupKey
+        struct FileMeta
+          - fn default(...)
+              -> Self
+          - fn identity(...)
+              -> GroupKey
+          - fn group_key(...)
+              -> GroupKey
+          - fn new(...)
+              -> Self
+          - fn from_path(...)
+              -> Self
+          - fn get_name(...)
+              -> String
+          - fn get_namespace(...)
+              -> String
+          - fn parse_namespace(...)
+              -> (Option < String > , & str)
+          - fn get_utter(...)
+              -> Option < String >
+          - fn get_version(...)
+              -> u32
+          - fn get_variant(...)
+              -> Option < String >
+          - fn get_tag(...)
+              -> Option < String >
+          - fn get_ext(...)
+              -> String
+          - fn capabilities(...)
+              -> Vec < String >
+          - fn infer_capabilities(...)
+              -> Vec < String >
+          - fn get_fs_name(...)
+              -> String
+          - fn wrapped_extension(...)
+              -> Option < & str >
+          - fn is_loi(...)
+              -> bool
+          - fn is_wrapped_loi(...)
+              -> bool
+          - fn mock(...)
+              -> Self
+        struct ParsedPath
+          - fn from(...)
+              -> Self
 
 #### src/registry/mod.rs
 
 
 #### src/registry/registry.rs
 
-        struct Registry(files:HashMap < Uuid , FileMeta >, files_archive:Vec < FileMeta >, from_files:Vec < FileMeta >, stacks:Vec < FileStack >, active_by_group:HashMap < GroupKey , Uuid >)
-        struct FileStack(files:Vec < FileMeta >, active_file:FileMeta)
+        struct Registry
+          - fn new(...)
+              -> Self
+          - fn is_empty(...)
+              -> bool
+          - fn from_files(...)
+              -> Self
+          - fn add_file(...)
+              -> ()
+          - fn build_source(...)
+              -> Vec < FileMeta >
+          - fn organize(...)
+              -> Vec < FileStack >
+          - fn scan(...)
+              -> Self
+          - fn is_active(...)
+              -> bool
+          - fn find_active_by_name(...)
+              -> Option < & FileMeta >
+          - fn compare_stacks(...)
+              -> std :: cmp :: Ordering
+          - fn list_all(...)
+              -> ()
+        struct FileStack
+          - fn group_key(...)
+              -> GroupKey
 
 #### src/registry/test_utils.rs
 
@@ -931,12 +1343,48 @@ struct ModuleState
 
         assert_expr(input:& str, expected:& str)
         assert_expr_with_ops(opts:impl Into < AssertOpts >, input:& str, expected:& str)
-        struct AssertOpts(snapshot:bool, verbose:bool)
+        struct AssertOpts
+          - fn default(...)
+              -> Self
+          - fn from(...)
+              -> Self
 
 #### tests/common/harness.rs
 
         enum PipelineTarget { Frontend, Middle, Backend, Full }
-        struct TestHarness(kernel:Kernel, env:TestEnv, registry:Registry, engines:HashMap < String , Box < dyn Utter > >)
+        struct TestHarness
+          - fn run(...)
+              -> Result < () , () >
+          - fn new(...)
+              -> Self
+          - fn with_source(...)
+              -> Self
+          - fn with_file(...)
+              -> Self
+          - fn with_symbol(...)
+              -> Self
+          - fn get_ast(...)
+              -> Result < AST , String >
+          - fn get_diagnostics(...)
+              -> DiagnosticStore
+          - fn assert_symbol_exists(...)
+              -> ()
+          - fn assert_symbol_missing(...)
+              -> ()
+          - fn bootstrap(...)
+              -> Self
+          - fn build_frontend(...)
+              -> FrontendPipeline
+          - fn build_middle(...)
+              -> MiddlePipeline
+          - fn build_backend(...)
+              -> BackendPipeline
+          - fn run_stage(...)
+              -> Result < () , CompileError >
+          - fn run_pipeline(...)
+              -> SymbolRegistry
+          - fn run_incremental(...)
+              -> SymbolRegistry
 
 #### tests/common/helpers.rs
 
@@ -960,25 +1408,63 @@ struct ModuleState
         run_symbol_pipeline(registry:& Registry, engines:& HashMap < String , Box < dyn Utter > >)
         setup_test_context()
         sym(name:& str, value:& str, file:& str)
-        struct ParseResult(ast:AST, diagnostics:DiagnosticStore)
+        struct ParseResult
 
 #### tests/common/kernel.rs
 
-        struct KernelTestHarness(kernel:Kernel)
+        struct KernelTestHarness
+          - fn new(...)
+              -> Self
+          - fn peek_state(...)
+              -> T
+          - fn peek_config(...)
+              -> T
 
 #### tests/common/lexer.rs
 
-        struct LexerTestHarness(tokens:Vec < Token >)
+        struct LexerTestHarness
+          - fn new(...)
+              -> Self
+          - fn from_file(...)
+              -> Self
+          - fn assert_snapshot(...)
+              -> ()
+          - fn assert_has_token(...)
+              -> ()
+          - fn assert_no_tokens_of_type(...)
+              -> ()
 
 #### tests/common/llvm.rs
 
         add_var(target:& str, left:& str, right:& str)
         get_ir_string(ops:& [IROp])
-        struct IrTestHarness(ir:String)
+        struct IrTestHarness
+          - fn new(...)
+              -> Self
+          - fn assert_contains(...)
+              -> ()
+          - fn assert_snapshot(...)
+              -> ()
 
 #### tests/common/mock_engine.rs
 
-        struct MockEngine(name:String, registry:HashMap < String , Vec < Symbol > >)
+        struct MockEngine
+          - fn new(...)
+              -> Self
+          - fn add_symbol(...)
+              -> ()
+          - fn name(...)
+              -> & str
+          - fn flags(...)
+              -> UtterFlags
+          - fn to_ir(...)
+              -> Result < IR , String >
+          - fn get_exported_symbols(...)
+              -> Vec < Symbol >
+          - fn as_any(...)
+              -> & dyn Any
+          - fn as_any_mut(...)
+              -> & mut dyn Any
 
 #### tests/common/mod.rs
 
@@ -1006,7 +1492,9 @@ struct ModuleState
 
 #### tests/common/snapshot.rs
 
-        struct SnapshotTester(sub_dir:& 'static str)
+        struct SnapshotTester
+          - fn assert(...)
+              -> ()
 
 #### tests/dir_tests/00-1.foo.rs
 
@@ -1311,27 +1799,79 @@ struct ModuleState
 ###### src/backend/symbol/registry.rs
 
             enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
-            struct Symbol(name:String, kind:SymbolKind, value:String, file:FileMeta, origin:String, metadata:HashMap < String , String >)
-            struct SymbolRegistry(table:HashMap < SymbolId , Symbol >, warnings:Vec < String >)
-            struct SymbolId(name:String, origin:String)
+            struct Symbol
+            struct SymbolRegistry
+              - fn new(...)
+                  -> Self
+              - fn build(...)
+                  -> ()
+              - fn lookup(...)
+                  -> Option < & Symbol >
+              - fn reset(...)
+                  -> ()
+              - fn build_step(...)
+                  -> ()
+              - fn build_all(...)
+                  -> ()
+              - fn build_incremental(...)
+                  -> ()
+              - fn build_with_warnings(...)
+                  -> Vec < String >
+              - fn add_symbols(...)
+                  -> ()
+            struct SymbolId
 
 ###### src/backend/utter/handler.rs
 
             enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
-            struct GenericHandler(target:RenderTarget)
+            struct GenericHandler
+              - fn render_ir(...)
+                  -> String
+              - fn handle(...)
+                  -> Result < IR , String >
+              - fn emit(...)
+                  -> Result < String , String >
 
 ###### src/backend/utter/mod.rs
 
 
 ###### src/backend/utter/registry.rs
 
-            struct UtterRegistry(utters:HashMap < String , Box < dyn Utter > >, handlers:HashMap < String , Box < dyn Handler > >)
+            struct UtterRegistry
+              - fn default(...)
+                  -> Self
+              - fn eq(...)
+                  -> bool
+              - fn new(...)
+                  -> Self
+              - fn get_utter(...)
+                  -> Option < & dyn Utter >
 
 ###### src/backend/utter/utter.rs
 
-            struct GenericUtter(name:String, config:LanguageConfig)
-            struct LanguageConfig(name:String, flags:UtterFlags, symbol_patterns:Vec < (& 'static str , SymbolKind) >, to_ir:Option < ToIrFn >)
-            struct UtterFlags(browser_dom:bool, allow_network:bool, fs_access:bool, db_access:bool)
+            struct GenericUtter
+              - fn new(...)
+                  -> Self
+              - fn fmt(...)
+                  -> std :: fmt :: Result
+              - fn name(...)
+                  -> & str
+              - fn flags(...)
+                  -> UtterFlags
+              - fn to_ir(...)
+                  -> Result < IR , String >
+              - fn get_exported_symbols(...)
+                  -> Vec < Symbol >
+              - fn as_any(...)
+                  -> & dyn Any
+              - fn as_any_mut(...)
+                  -> & mut dyn Any
+            struct LanguageConfig
+              - fn default(...)
+                  -> Self
+            struct UtterFlags
+              - fn default(...)
+                  -> Self
             get_language_definitions()
 
 ###### tools/code_gen/src/main.rs
@@ -1342,29 +1882,22 @@ struct ModuleState
 ###### tools/evaluator/src/lib.rs
 
 
-###### tools/evaluator/src/main copy.rs
+###### tools/evaluator/src/loi.rs
 
-            struct ExtractConfig(include_structs:bool, include_enums:bool)
-            main()
-            process_file(path:& Path, config:& ExtractConfig, output:& mut String)
-            quote_item(item:& Item)
+            struct Loi
+              - fn new(...)
+                  -> Self
 
 ###### tools/evaluator/src/main.rs
 
             collect_files(root:& Path)
             depth(path:& Path, root:& Path)
-            format_output(output:& str, config:& OutputConfig)
             format_path(path:& Path, root:& Path, mode:& PathMode)
             indent(level:usize)
             main()
             match_symbol(item:& syn :: Item, matcher:& SymbolMatcher, indent:String)
             passes_structural_filter(_item:& syn :: Item, filter:& StructuralFilter)
             process_file(path:& Path, config:& ExtractConfig, output:& mut String)
-            render_enum(e:& syn :: ItemEnum, config:& DenseConfig, indent:String)
-            render_function(f:& syn :: ItemFn, config:& DenseConfig, indent:String)
-            render_header(rel:& Path, file_depth:usize, config:& ExtractConfig)
-            render_item(item:& syn :: Item, config:& DenseConfig, indent:String)
-            render_struct(s:& syn :: ItemStruct, config:& DenseConfig, indent:String)
             tree_cmp(a:& Path, b:& Path)
             vis_to_str(vis:& syn :: Visibility)
 
@@ -1377,6 +1910,10 @@ struct ModuleState
             enum SymbolKind { Function(_0), Variable(_0), Type(_0) }
             enum TypeKind { Struct, Enum, Class, Trait, Interface, TypeAlias }
             enum VariableKind { Let, Const, Var, Field }
+            struct SymbolRegistry
+              - fn render_grouped(...)
+                  -> String
+            enum SymbolType { Struct, Enum, Function, Other }
             enum DepthConstraint { Any, Exact(_0), Range(from, to) }
             enum EnumFormat { NameOnly, NameWithTypes }
             enum HeaderFormat { None, Flat, DepthHash }
@@ -1387,17 +1924,53 @@ struct ModuleState
             enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
             enum PathFormat { FileName, Relative, ModulePath, Absolute }
             enum ScopeRoot { File, Module, Symbol(_0) }
-            struct CodeBlockConfig(enabled:bool, language_override:Option < String >, preserve_indentation:bool)
-            struct DenseConfig(functions:FunctionDenseConfig, structs:StructDenseConfig, enums:EnumDenseConfig)
-            struct EnumDenseConfig(variants:ParamFormat)
-            struct ExtractConfig(input_dir:PathBuf, output_file:PathBuf, rules:Vec < Rule >, output:OutputConfig)
-            struct FileMatcher(extensions:HashSet < String >, path_contains:Option < String >, ignore_tests:bool)
-            struct FunctionDenseConfig(params:ParamFormat)
-            struct OutputConfig(path_format:PathFormat, header:HeaderFormat, codeblock:Option < CodeBlockConfig >, dense:DenseConfig)
-            struct Rule(languages:HashSet < Language >, matchers:Vec < Matcher >)
-            struct StructDenseConfig(fields:ParamFormat)
-            struct StructuralFilter(depth:DepthConstraint, parent:Option < ParentConstraint >)
-            struct SymbolMatcher(kinds:HashSet < SymbolKind >, structural:Option < StructuralFilter >)
+            get_type(item:& syn :: Item)
+            struct CodeBlockConfig
+              - fn default(...)
+                  -> Self
+            struct DenseConfig
+              - fn default(...)
+                  -> Self
+            struct EnumDenseConfig
+              - fn default(...)
+                  -> Self
+            struct ExtractConfig
+              - fn default(...)
+                  -> Self
+            struct FileMatcher
+              - fn default(...)
+                  -> Self
+            struct FunctionDenseConfig
+              - fn default(...)
+                  -> Self
+            struct MyAnalyzer
+            struct OutputConfig
+              - fn default(...)
+                  -> Self
+            struct Rule
+              - fn default(...)
+                  -> Self
+            struct StructDenseConfig
+              - fn default(...)
+                  -> Self
+            struct StructuralFilter
+              - fn default(...)
+                  -> Self
+            struct SymbolMatcher
+              - fn default(...)
+                  -> Self
+            struct RenderContext
+
+###### tools/evaluator/src/ui.rs
+
+            format_output(output:& str, config:& OutputConfig)
+            render_enum(e:& syn :: ItemEnum, config:& DenseConfig, indent:String)
+            render_function(f:& syn :: ItemFn, config:& DenseConfig, indent:String)
+            render_header(rel:& Path, file_depth:usize, config:& ExtractConfig)
+            render_impl_block(i:& syn :: ItemImpl, config:& DenseConfig, indent:& str)
+            render_impl_methods(i:& syn :: ItemImpl, config:& DenseConfig, indent:& str)
+            render_item(item:& syn :: Item, config:& DenseConfig, indent:String, items:& [syn :: Item])
+            render_struct(s:& syn :: ItemStruct, config:& DenseConfig, indent:String, items:& [syn :: Item])
 
 ########## target/debug/build/serde-5f75ab21720aa2d3/out/private.rs
 

@@ -1,16 +1,19 @@
-use evaluator::types::{
-    DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FunctionKind, HeaderFormat,
-    HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode, StructuralFilter,
-    SymbolKind, SymbolMatcher, TypeKind,
+use evaluator::{
+    types::{
+        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FunctionKind, HeaderFormat,
+        HeaderMode, Matcher, MyAnalyzer, OutputConfig, ParamFormat, ParentConstraint, PathMode,
+        StructuralFilter, SymbolKind, SymbolMatcher, SymbolRegistry, TypeKind,
+    },
+    ui::{format_output, render_enum, render_function, render_header, render_item, render_struct},
 };
 use quote::{ToTokens, quote};
+use std::cmp::Ordering;
 use std::{
     collections::HashSet,
     env, fs,
     path::{Component, Path, PathBuf},
 };
-
-use std::cmp::Ordering;
+use syn::visit::{self, Visit};
 
 use syn::{File, Item};
 use walkdir::WalkDir;
@@ -68,12 +71,22 @@ fn collect_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
-// wrap_in_codeblock
-// codeblock_lang
-// include_structs
-// include_enums
-// wrap_in_codeblock
 fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
+    let src = fs::read_to_string(path).unwrap_or_default();
+    let ast = match syn::parse_file(&src) {
+        Ok(f) => f,
+        Err(_) => return,
+    };
+
+    let mut analyzer = MyAnalyzer {
+        config: &config.output.dense,
+        items: &ast.items,
+        rendered_output: Vec::new(),
+        registry: SymbolRegistry::default(),
+    };
+
+    analyzer.visit_file(&ast);
+
     let root = config
         .input_dir
         .canonicalize()
@@ -94,13 +107,11 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
         Err(_) => return,
     };
 
-    // ---- header (now purely output-driven) ----
     let header = render_header(rel, file_depth, config);
     output.push_str(&header);
 
     let sym_indent = indent(file_depth);
 
-    // ---- collect items ----
     let mut items: Vec<&syn::Item> = ast.items.iter().collect();
 
     items.sort_by(|a, b| {
@@ -108,9 +119,10 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
             .to_string()
             .cmp(&b.to_token_stream().to_string())
     });
-    // ---- rule-based rendering ----
     for item in items {
-        if let Some(rendered) = render_item(item, &config.output.dense, sym_indent.clone()) {
+        if let Some(rendered) =
+            render_item(item, &config.output.dense, sym_indent.clone(), &ast.items)
+        {
             output.push_str(&rendered);
             output.push('\n');
         }
@@ -119,56 +131,6 @@ fn process_file(path: &Path, config: &ExtractConfig, output: &mut String) {
     output.push_str("\n");
 }
 
-// pub fn render_item(item: &syn::Item, config: &ExtractConfig, indent: String) -> Option<String> {
-//     match item {
-//         syn::Item::Fn(f) => {
-//             // 👇 CALL HERE
-//             Some(render_fn_dense(f, &config.output.dense, indent))
-//         }
-
-//         syn::Item::Struct(s) => {
-//             let fields: Vec<String> = match &s.fields {
-//                 syn::Fields::Named(named) => named
-//                     .named
-//                     .iter()
-//                     .map(|f| {
-//                         let name = f.ident.as_ref().unwrap().to_string();
-//                         let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-
-//                         match config.output.dense.structs.fields {
-//                             ParamFormat::NameOnly => name,
-//                             ParamFormat::NameList => name,
-//                             ParamFormat::NameType => format!("{}:{}", name, ty),
-//                         }
-//                     })
-//                     .collect(),
-
-//                 syn::Fields::Unnamed(_) => vec![],
-//                 syn::Fields::Unit => vec![],
-//             };
-
-//             Some(format!(
-//                 "{}struct {} {{ {} }}",
-//                 indent,
-//                 s.ident,
-//                 fields.join(", ")
-//             ))
-//         }
-
-//         syn::Item::Enum(e) => Some(format!("{}enum {} {{}}", indent, e.ident)),
-
-//         _ => None,
-//     }
-// }
-
-fn render_item(item: &syn::Item, config: &DenseConfig, indent: String) -> Option<String> {
-    match item {
-        syn::Item::Fn(f) => Some(render_function(f, config, indent)),
-        syn::Item::Struct(s) => Some(render_struct(s, config, indent)),
-        syn::Item::Enum(e) => Some(render_enum(e, config, indent)),
-        _ => None,
-    }
-}
 fn match_symbol(item: &syn::Item, matcher: &SymbolMatcher, indent: String) -> Option<String> {
     let kind = match item {
         syn::Item::Struct(_) => SymbolKind::Type(TypeKind::Struct),
@@ -297,258 +259,4 @@ fn depth(path: &Path, root: &Path) -> usize {
 
 fn indent(level: usize) -> String {
     "  ".repeat(level)
-}
-
-fn render_header(rel: &Path, file_depth: usize, config: &ExtractConfig) -> String {
-    match config.output.header {
-        HeaderFormat::None => String::new(),
-
-        HeaderFormat::Flat => {
-            format!("# {}\n\n", rel.to_string_lossy())
-        }
-
-        HeaderFormat::DepthHash => {
-            let depth = file_depth.max(1);
-            let hashes = "#".repeat(depth);
-
-            format!("{} {}\n\n", hashes, rel.to_string_lossy())
-        }
-    }
-}
-
-fn format_output(output: &str, config: &OutputConfig) -> String {
-    let mut result = output.to_string();
-
-    result = result
-        .lines()
-        .map(|l| l.trim_end())
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    result.push('\n');
-    result
-}
-
-// fn render_fn_dense(f: &syn::ItemFn, config: &DenseConfig, indent: String) -> String {
-//     let name = f.sig.ident.to_string();
-//     if matches!(config.params, ParamFormat::NameOnly) {
-//         return format!("{}{}", indent, name);
-//     }
-//     let params: Vec<String> = f
-//         .sig
-//         .inputs
-//         .iter()
-//         .map(|input| match input {
-//             syn::FnArg::Typed(pat_type) => {
-//                 let param_name = match &*pat_type.pat {
-//                     syn::Pat::Ident(i) => i.ident.to_string(),
-//                     _ => "_".to_string(),
-//                 };
-
-//                 match config.params {
-//                     ParamFormat::NameOnly => "".to_string(),
-
-//                     ParamFormat::NameList => param_name,
-
-//                     ParamFormat::NameType => {
-//                         let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
-//                         format!("{}:{}", param_name, ty)
-//                     }
-//                 }
-//             }
-
-//             syn::FnArg::Receiver(_) => match config.params {
-//                 ParamFormat::NameOnly => "self".to_string(),
-//                 ParamFormat::NameList => "self".to_string(),
-//                 ParamFormat::NameType => "self:Self".to_string(),
-//             },
-//         })
-//         .collect();
-
-//     let body = match config.params {
-//         ParamFormat::NameOnly => {
-//             format!("{}", name)
-//         }
-
-//         ParamFormat::NameList => {
-//             format!("{}({})", name, params.join(", "))
-//         }
-
-//         ParamFormat::NameType => {
-//             format!("{}({})", name, params.join(", "))
-//         }
-//     };
-
-//     format!("{}{}", indent, body)
-// }
-
-fn render_function(f: &syn::ItemFn, config: &DenseConfig, indent: String) -> String {
-    let name = f.sig.ident.to_string();
-
-    let body = match config.functions.params {
-        ParamFormat::NameOnly => return format!("{}{}", indent, name),
-
-        _ => {
-            let params: Vec<String> = f
-                .sig
-                .inputs
-                .iter()
-                .map(|input| match input {
-                    syn::FnArg::Typed(pat_type) => {
-                        let param_name = match &*pat_type.pat {
-                            syn::Pat::Ident(i) => i.ident.to_string(),
-                            _ => "_".to_string(),
-                        };
-
-                        match config.functions.params {
-                            ParamFormat::NameList => param_name,
-
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
-                                format!("{}:{}", param_name, ty)
-                            }
-
-                            _ => unreachable!(),
-                        }
-                    }
-
-                    syn::FnArg::Receiver(_) => "self".to_string(),
-                })
-                .collect();
-
-            format!("{}({})", name, params.join(", "))
-        }
-    };
-
-    format!("{}{}", indent, body)
-}
-
-fn render_struct(s: &syn::ItemStruct, config: &DenseConfig, indent: String) -> String {
-    let name = s.ident.to_string();
-
-    let fields: Vec<String> = match &s.fields {
-        syn::Fields::Named(named) => named
-            .named
-            .iter()
-            .map(|f| {
-                let field_name = f
-                    .ident
-                    .as_ref()
-                    .map(|i| i.to_string())
-                    .unwrap_or("_".to_string());
-
-                let ty = match config.structs.fields {
-                    ParamFormat::NameOnly => field_name.clone(),
-
-                    ParamFormat::NameList => field_name,
-
-                    ParamFormat::NameType => {
-                        let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                        format!("{}:{}", field_name, ty)
-                    }
-                };
-
-                ty
-            })
-            .collect(),
-
-        syn::Fields::Unnamed(unnamed) => unnamed
-            .unnamed
-            .iter()
-            .enumerate()
-            .map(|(i, f)| {
-                let field_name = format!("_{}", i);
-
-                match config.structs.fields {
-                    ParamFormat::NameOnly => field_name.clone(),
-
-                    ParamFormat::NameList => field_name,
-
-                    ParamFormat::NameType => {
-                        let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                        format!("{}:{}", field_name, ty)
-                    }
-                }
-            })
-            .collect(),
-
-        syn::Fields::Unit => vec![],
-    };
-
-    if fields.is_empty() {
-        return format!("{}struct {}", indent, name);
-    }
-
-    format!("{}struct {}({})", indent, name, fields.join(", "))
-}
-
-fn render_enum(e: &syn::ItemEnum, config: &DenseConfig, indent: String) -> String {
-    let name = e.ident.to_string();
-
-    let variants: Vec<String> = e
-        .variants
-        .iter()
-        .map(|v| {
-            let variant_name = v.ident.to_string();
-
-            let payloads: Vec<String> = match &v.fields {
-                syn::Fields::Named(named) => named
-                    .named
-                    .iter()
-                    .map(|f| {
-                        let field_name = f
-                            .ident
-                            .as_ref()
-                            .map(|i| i.to_string())
-                            .unwrap_or("_".to_string());
-
-                        match config.enums.variants {
-                            ParamFormat::NameOnly => field_name.clone(),
-
-                            ParamFormat::NameList => field_name,
-
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                                format!("{}:{}", field_name, ty)
-                            }
-                        }
-                    })
-                    .collect(),
-
-                syn::Fields::Unnamed(unnamed) => unnamed
-                    .unnamed
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| {
-                        let field_name = format!("_{}", i);
-
-                        match config.enums.variants {
-                            ParamFormat::NameOnly => field_name.clone(),
-
-                            ParamFormat::NameList => field_name,
-
-                            ParamFormat::NameType => {
-                                let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
-                                format!("{}:{}", field_name, ty)
-                            }
-                        }
-                    })
-                    .collect(),
-
-                syn::Fields::Unit => vec![],
-            };
-
-            if payloads.is_empty() {
-                variant_name
-            } else {
-                format!("{}({})", variant_name, payloads.join(", "))
-            }
-        })
-        .collect();
-
-    if variants.is_empty() {
-        return format!("{}enum {}", indent, name);
-    }
-
-    format!("{}enum {} {{ {} }}", indent, name, variants.join(", "))
 }

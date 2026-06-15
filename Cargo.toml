@@ -18,8 +18,8 @@ default = []
 snapshotting = []
 
 [dependencies]
+syn = { version = "2", features = ["full", "visit"] }
 insta = { version = "1", features = ["yaml"] }
-syn = { version = "2", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 console = "0.15"
 indicatif = "0.17"

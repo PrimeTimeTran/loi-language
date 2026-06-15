@@ -134,6 +134,8 @@ pub enum Token {
     RawStart,
     #[token("}@", lex_raw_block)]
     RawEnd,
+    #[token("let")]
+    Let,
     #[token("dep")]
     Dependency,
     #[token("pkg")]

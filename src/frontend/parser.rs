@@ -115,6 +115,7 @@ pub fn parse_incremental(
     }
 
     stmts.extend(updated);
+
     // LEAVE FOR CLI/REPL
     // let last_expr = stmts.iter().rev().find_map(|stmt| {
     //     if let Stmt::ExprStmt { expr } = stmt {
@@ -139,7 +140,7 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
                 expr: parse_expr(tokens, diagnostics)?,
             })
         }
-
+        Some(Token::Let) => parse_let(tokens, diagnostics),
         Some(Token::If) => control::parse_if(tokens, diagnostics),
         Some(Token::While) => control::parse_while(tokens, diagnostics),
         Some(Token::Do) => control::parse_do_while(tokens, diagnostics),
@@ -231,6 +232,53 @@ fn parse_assignment(
         });
     }
     Ok(left)
+}
+
+pub fn parse_let(
+    tokens: &mut TokenStream,
+    diagnostics: &mut DiagnosticStore,
+) -> Result<Stmt, String> {
+    // assume current token is already `let`
+    tokens.bump(); // consume `let`
+
+    // 1. expect identifier
+    let name = match tokens.next() {
+        Some(Token::Ident(name)) => name,
+        other => {
+            diagnostics.emit(Diagnostic::error(
+                "Expected identifier after 'let'",
+                Span::default(),
+            ));
+            return Err(format!("expected identifier, found {:?}", other));
+        }
+    };
+
+    // 2. optional type annotation (future-proof)
+    // if matches!(tokens.peek(), Some(Token::Colon)) { ... }
+
+    // 3. expect '='
+    match tokens.peek() {
+        Some(Token::Assign) => tokens.bump(),
+        _ => {
+            diagnostics.emit(Diagnostic::error(
+                "Expected '=' in let declaration",
+                Span::default(),
+            ));
+            return Err("missing '='".into());
+        }
+    }
+
+    let value = parse_assignment(tokens, None, diagnostics)?;
+
+    if matches!(tokens.peek(), Some(Token::Semicolon)) {
+        tokens.bump();
+    }
+
+    Ok(Stmt::Let {
+        name,
+        kind: DeclKind::MutableStatic,
+        value,
+    })
 }
 fn parse_equality(
     tokens: &mut TokenStream,

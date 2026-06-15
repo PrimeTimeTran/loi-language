@@ -1,4 +1,75 @@
 use std::{collections::HashSet, path::PathBuf};
+use syn::visit::{self, Visit};
+
+use crate::ui::{render_enum, render_struct};
+#[derive(PartialEq, Clone, Copy)]
+pub enum SymbolType {
+    Struct,
+    Enum,
+    Function,
+    Other,
+}
+
+pub fn get_type(item: &syn::Item) -> SymbolType {
+    match item {
+        syn::Item::Struct(_) => SymbolType::Struct,
+        syn::Item::Enum(_) => SymbolType::Enum,
+        syn::Item::Fn(_) => SymbolType::Function,
+        _ => SymbolType::Other,
+    }
+}
+pub struct MyAnalyzer<'a> {
+    pub config: &'a DenseConfig,
+    pub items: &'a [syn::Item],
+    pub rendered_output: Vec<String>,
+    pub registry: SymbolRegistry,
+}
+
+impl<'a> Visit<'a> for MyAnalyzer<'a> {
+    fn visit_item_struct(&mut self, i: &'a syn::ItemStruct) {
+        let rendered = render_struct(i, self.config, "".to_string(), self.items);
+        self.registry.structs.push(rendered);
+        visit::visit_item_struct(self, i);
+    }
+
+    fn visit_item_enum(&mut self, i: &'a syn::ItemEnum) {
+        let rendered = render_enum(i, self.config, "".to_string());
+        self.registry.enums.push(rendered);
+        visit::visit_item_enum(self, i);
+    }
+}
+
+#[derive(Default)]
+pub struct SymbolRegistry {
+    structs: Vec<String>,
+    enums: Vec<String>,
+    // Add other categories as needed
+}
+
+impl SymbolRegistry {
+    fn render_grouped(&self) -> String {
+        let mut output = Vec::new();
+
+        if !self.structs.is_empty() {
+            output.push(self.structs.join("\n"));
+        }
+
+        if !self.enums.is_empty() {
+            if !output.is_empty() {
+                output.push("".to_string());
+            } // Extra newline
+            output.push(self.enums.join("\n"));
+        }
+
+        output.join("\n\n")
+    }
+}
+
+struct RenderContext {
+    config: DenseConfig,
+    rendered_types: HashSet<String>,
+    output_buffer: Vec<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Language {

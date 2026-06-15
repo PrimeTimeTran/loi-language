@@ -200,4 +200,6 @@ pub enum Identifiers_06 {
     OrAlias,
     #[token("and")]
     AndAlias,
+    #[token("let")]
+    Let,
 }

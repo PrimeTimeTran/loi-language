@@ -9,7 +9,7 @@ use crate::{
     compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     interface::CompileEngineProvider,
-    middle::ir::IR,
+    middle::ir::{IR, IROp},
     pipeline::{CompileError, Metadata, Pipeline},
 };
 
@@ -161,6 +161,19 @@ impl BackendPipeline {
                 //     let r = emit_expr(ctx, builder, *rhs);
                 //     builder.build_float_add(l, r, "addtmp")
                 // }
+                // IR::Assign { name, value } => {
+                //     let rhs = emit_expr(ctx, builder, value)?;
+
+                //     // allocate variable (simplified model)
+                //     let ptr = ctx.build_alloca(ctx.f64_type(), name);
+
+                //     builder.build_store(ptr, rhs);
+
+                //     // store in env if you have one
+                //     ctx.env.insert(name.clone(), ptr);
+
+                //     rhs
+                // } // or unit depending on your IR design
                 _ => {
                     todo!("Unhandled IR node: {:?}", ir);
                 }
@@ -221,6 +234,27 @@ impl BackendPipeline {
             "failed to create target machine".into(),
         ))?;
         Ok(tm)
+    }
+
+    fn emit_node(&mut self, node: IROp) {
+        match node {
+            IROp::Assign { name, value } => {
+                let rhs = self.emit_expr(value);
+
+                let ptr = self
+                    .env
+                    .entry(name.clone())
+                    .or_insert_with(|| self.builder.build_alloca(self.ctx.f64_type(), &name));
+
+                self.builder.build_store(*ptr, rhs);
+            }
+
+            IROp::Binary { left, op, right } => {
+                let l = self.emit_expr(left);
+                let r = self.emit_expr(right);
+                self.builder.build_float_add(l, r, "tmp")
+            }
+        }
     }
 
     fn emit_bytecode(&self, ir: IR) -> Vec<u8> {
