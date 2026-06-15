@@ -137,21 +137,6 @@ pub struct OutputConfig {
     pub dense: DenseConfig,
 }
 
-pub struct ExtractConfig {
-    pub input_dir: PathBuf,
-    pub output_file: PathBuf,
-
-    pub rules: Vec<Rule>,
-    pub output: OutputConfig,
-}
-
-impl Default for FunctionDenseConfig {
-    fn default() -> Self {
-        Self {
-            params: ParamFormat::NameType,
-        }
-    }
-}
 impl Default for OutputConfig {
     fn default() -> Self {
         Self {
@@ -162,20 +147,18 @@ impl Default for OutputConfig {
         }
     }
 }
+
+impl Default for FunctionDenseConfig {
+    fn default() -> Self {
+        Self {
+            params: ParamFormat::NameType,
+        }
+    }
+}
 impl Default for EnumDenseConfig {
     fn default() -> Self {
         Self {
             variants: ParamFormat::NameList,
-        }
-    }
-}
-impl Default for ExtractConfig {
-    fn default() -> Self {
-        Self {
-            input_dir: PathBuf::from("./tools/evaluator"),
-            output_file: PathBuf::from("structure.txt"),
-            rules: vec![Rule::default()],
-            output: OutputConfig::default(),
         }
     }
 }
@@ -267,23 +250,7 @@ impl Default for Rule {
         }
     }
 }
-impl Default for FileMatcher {
-    fn default() -> Self {
-        let mut extensions = HashSet::new();
 
-        extensions.insert("rs".into());
-        extensions.insert("ts".into());
-        extensions.insert("tsx".into());
-        extensions.insert("js".into());
-        extensions.insert("jsx".into());
-
-        Self {
-            extensions,
-            path_contains: None,
-            ignore_tests: true,
-        }
-    }
-}
 impl Default for StructDenseConfig {
     fn default() -> Self {
         Self {

@@ -6,6 +6,107 @@
       - rendered_output: Vec < String >
       - registry: SymbolRegistry
 
+## src/extract.rs
+
+    enum ExtractMode { SymbolsOnly, FullBody }
+    enum DepthConstraint { Any, Exact(_0), Range(from, to) }
+    enum IncludePolicy { Only, IncludeDerived, IncludeNested }
+    enum Matcher { Symbol(_0), File(_0) }
+    enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
+    enum ScopeRoot { File, Module, Symbol(_0) }
+    struct CodeBlockConfig
+      - enabled: bool
+      - language_override: Option < String >
+      - preserve_indentation: bool
+      - fn default(...)
+          -> Self
+    struct ExtractConfig
+      - input_dir: PathBuf
+      - output_file: PathBuf
+      - rules: Vec < Rule >
+      - output: OutputConfig
+      - fn default(...)
+          -> Self
+    struct OutputConfig
+      - path_format: PathFormat
+      - header: HeaderFormat
+      - codeblock: Option < CodeBlockConfig >
+      - dense: DenseConfig
+      - fn default(...)
+          -> Self
+    struct Rule
+      - languages: HashSet < Language >
+      - matchers: Vec < Matcher >
+      - fn default(...)
+          -> Self
+    struct StructuralFilter
+      - depth: DepthConstraint
+      - parent: Option < ParentConstraint >
+      - fn default(...)
+          -> Self
+    struct SymbolMatcher
+      - kinds: HashSet < SymbolKind >
+      - structural: Option < StructuralFilter >
+      - fn default(...)
+          -> Self
+
+## src/format.rs
+
+    enum ExtractMode { SymbolsOnly, FullBody }
+    enum PathMode { FileName, Relative, ModulePath }
+    enum FieldFormat { None, Name, NameAndType, All }
+    enum DepthConstraint { Any, Exact(_0), Range(from, to) }
+    enum EnumFormat { NameOnly, NameWithTypes }
+    enum HeaderFormat { None, Flat, DepthHash }
+    enum HeaderMode { Flat, DepthHash }
+    enum IncludePolicy { Only, IncludeDerived, IncludeNested }
+    enum Matcher { Symbol(_0), File(_0) }
+    enum ParamFormat { PartialEq, Eq, None, NameOnly, NameList, NameType, TypeOnly }
+    enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
+    enum PathFormat { FileName, Relative, ModulePath, Absolute }
+    enum ScopeRoot { File, Module, Symbol(_0) }
+    struct CodeBlockConfig
+      - enabled: bool
+      - language_override: Option < String >
+      - preserve_indentation: bool
+      - fn default(...)
+          -> Self
+    struct DenseConfig
+      - fields: FieldFormat
+      - functions: FunctionDenseConfig
+      - structs: StructDenseConfig
+      - enums: EnumDenseConfig
+      - fn default(...)
+          -> Self
+    struct EnumDenseConfig
+      - variants: ParamFormat
+      - fn default(...)
+          -> Self
+    struct FunctionDenseConfig
+      - params: ParamFormat
+      - fn default(...)
+          -> Self
+    struct Rule
+      - languages: HashSet < Language >
+      - matchers: Vec < Matcher >
+      - fn default(...)
+          -> Self
+    struct StructDenseConfig
+      - fields: ParamFormat
+      - functions: FunctionDenseConfig
+      - fn default(...)
+          -> Self
+    struct StructuralFilter
+      - depth: DepthConstraint
+      - parent: Option < ParentConstraint >
+      - fn default(...)
+          -> Self
+    struct SymbolMatcher
+      - kinds: HashSet < SymbolKind >
+      - structural: Option < StructuralFilter >
+      - fn default(...)
+          -> Self
+
 ## src/language.rs
 
     enum FunctionKind { Free, Method, Associated, Lambda }
@@ -49,77 +150,6 @@
     process_file(path:& Path, config:& ExtractConfig, output:& mut String)
     tree_cmp(a:& Path, b:& Path)
     vis_to_str(vis:& syn :: Visibility)
-
-## src/types.rs
-
-    enum ExtractMode { SymbolsOnly, FullBody }
-    enum PathMode { FileName, Relative, ModulePath }
-    enum FieldFormat { None, Name, NameAndType, All }
-    enum DepthConstraint { Any, Exact(_0), Range(from, to) }
-    enum EnumFormat { NameOnly, NameWithTypes }
-    enum HeaderFormat { None, Flat, DepthHash }
-    enum HeaderMode { Flat, DepthHash }
-    enum IncludePolicy { Only, IncludeDerived, IncludeNested }
-    enum Matcher { Symbol(_0), File(_0) }
-    enum ParamFormat { PartialEq, Eq, None, NameOnly, NameList, NameType, TypeOnly }
-    enum ParentConstraint { Any, Within(_0), WithinPath(_0) }
-    enum PathFormat { FileName, Relative, ModulePath, Absolute }
-    enum ScopeRoot { File, Module, Symbol(_0) }
-    struct CodeBlockConfig
-      - enabled: bool
-      - language_override: Option < String >
-      - preserve_indentation: bool
-      - fn default(...)
-          -> Self
-    struct DenseConfig
-      - fields: FieldFormat
-      - functions: FunctionDenseConfig
-      - structs: StructDenseConfig
-      - enums: EnumDenseConfig
-      - fn default(...)
-          -> Self
-    struct EnumDenseConfig
-      - variants: ParamFormat
-      - fn default(...)
-          -> Self
-    struct ExtractConfig
-      - input_dir: PathBuf
-      - output_file: PathBuf
-      - rules: Vec < Rule >
-      - output: OutputConfig
-      - fn default(...)
-          -> Self
-    struct FunctionDenseConfig
-      - params: ParamFormat
-      - fn default(...)
-          -> Self
-    struct OutputConfig
-      - path_format: PathFormat
-      - header: HeaderFormat
-      - codeblock: Option < CodeBlockConfig >
-      - dense: DenseConfig
-      - fn default(...)
-          -> Self
-    struct Rule
-      - languages: HashSet < Language >
-      - matchers: Vec < Matcher >
-      - fn default(...)
-          -> Self
-    struct StructDenseConfig
-      - fields: ParamFormat
-      - functions: FunctionDenseConfig
-      - fn default(...)
-          -> Self
-    struct StructuralFilter
-      - depth: DepthConstraint
-      - parent: Option < ParentConstraint >
-      - fn default(...)
-          -> Self
-    struct SymbolMatcher
-      - kinds: HashSet < SymbolKind >
-      - structural: Option < StructuralFilter >
-      - fn default(...)
-          -> Self
 
 ## src/ui.rs
 

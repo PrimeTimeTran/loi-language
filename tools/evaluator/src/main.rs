@@ -13,12 +13,12 @@ use walkdir::WalkDir;
 
 use evaluator::{
     analyzer::MyAnalyzer,
-    language::{FunctionKind, SymbolKind, SymbolRegistry, TypeKind},
-    types::{
-        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, HeaderFormat, HeaderMode,
-        Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode, StructuralFilter,
-        SymbolMatcher,
+    extract::{
+        DepthConstraint, ExtractConfig, ExtractMode, Matcher, OutputConfig, ParentConstraint,
+        StructuralFilter, SymbolMatcher,
     },
+    format::{DenseConfig, HeaderFormat, HeaderMode, ParamFormat, PathMode},
+    language::{FunctionKind, SymbolKind, SymbolRegistry, TypeKind},
     ui::{format_output, render_enum, render_function, render_header, render_item, render_struct},
 };
 

@@ -1,10 +1,12 @@
 use crate::{
-    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
-    types::{
-        DenseConfig, DepthConstraint, ExtractConfig, ExtractMode, FieldFormat, HeaderFormat,
-        HeaderMode, Matcher, OutputConfig, ParamFormat, ParentConstraint, PathMode,
-        StructuralFilter, SymbolMatcher,
+    extract::{
+        DepthConstraint, ExtractConfig, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher,
     },
+    format::{
+        DenseConfig, ExtractMode, FieldFormat, HeaderFormat, HeaderMode, OutputConfig, ParamFormat,
+        PathMode,
+    },
+    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
 };
 
 use quote::{ToTokens, quote};

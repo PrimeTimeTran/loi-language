@@ -2,8 +2,8 @@ use std::{collections::HashSet, path::PathBuf};
 use syn::visit::{self, Visit};
 
 use crate::{
+    format::DenseConfig,
     language::{FileMatcher, Language, SymbolKind, SymbolRegistry, SymbolType},
-    types::DenseConfig,
     ui::{render_enum, render_struct},
 };
 
