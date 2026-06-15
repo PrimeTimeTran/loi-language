@@ -36,7 +36,7 @@ pub enum PathFormat {
     ModulePath,
     Absolute,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HeaderFormat {
     None,
     Flat,
@@ -98,7 +98,7 @@ pub enum Matcher {
     File(FileMatcher),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeBlockConfig {
     pub enabled: bool,
     pub language_override: Option<String>,

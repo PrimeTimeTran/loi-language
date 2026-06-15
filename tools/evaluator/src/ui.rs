@@ -26,7 +26,7 @@ pub fn render_item(
     items: &[syn::Item],
 ) -> Option<String> {
     match item {
-        syn::Item::Fn(f) => Some(render_function(f, config, indent)),
+        syn::Item::Fn(f) => Some(format!("{}fn {}()", indent, f.sig.ident)),
         syn::Item::Struct(s) => Some(render_struct(s, config, indent, items)),
         syn::Item::Enum(e) => Some(render_enum(e, config, indent)),
         _ => None,
@@ -47,31 +47,85 @@ pub fn render_header(rel: &Path, file_depth: usize, config: &Config) -> String {
         }
     }
 }
-pub fn render_function(f: &syn::ItemFn, config: &Config, indent: String) -> String {
-    let name = f.sig.ident.to_string();
+pub fn render_struct(
+    s: &syn::ItemStruct,
+    config: &Config,
+    indent: String,
+    items: &[syn::Item],
+) -> String {
     let policy = &config.render_policy;
-    let format = &config.format;
-    let layout = &config.layout;
+    // Define the 2-space nest explicitly
+    let nest = "  ";
+    let inner_indent = format!("{}{}", indent, nest);
 
-    // 1. Gatekeeper: Quick check for Summary mode
-    if let ViewMode::Summary = policy.mode {
-        return format!("{}{}", indent, name);
+    let mut output = format!("{}struct {}\n", indent, s.ident);
+
+    if policy.include_properties {
+        let props = collect_fields(s, policy);
+        if !props.is_empty() {
+            output.push_str(&format!("{}PROPERTIES:\n", inner_indent));
+            output.push_str(&format!("{}{}\n\n", inner_indent, props.join(", ")));
+        }
     }
 
-    // 2. Data Collection: Gather params only if allowed
-    let params: Vec<String> = if policy.include_functions && policy.include_params {
-        f.sig
-            .inputs
+    if policy.include_functions {
+        let methods: Vec<String> = items
             .iter()
-            .map(|input| match input {
-                syn::FnArg::Typed(pat_type) => {
-                    let p_name = match &*pat_type.pat {
+            .filter_map(|item| {
+                if let syn::Item::Impl(i) = item {
+                    if let syn::Type::Path(p) = &*i.self_ty {
+                        if p.path.is_ident(&s.ident) {
+                            return Some(render_impl_methods(i, config, inner_indent.clone()));
+                        }
+                    }
+                }
+                None
+            })
+            .flatten()
+            .collect();
+
+        if !methods.is_empty() {
+            output.push_str(&format!("{}METHODS:\n", inner_indent));
+            output.push_str(&format!("{}\n\n", methods.join("\n")));
+        }
+    }
+
+    output
+}
+pub fn render_impl_methods(i: &syn::ItemImpl, config: &Config, indent: String) -> Vec<String> {
+    i.items
+        .iter()
+        .filter_map(|item| {
+            if let syn::ImplItem::Fn(m) = item {
+                // Use the shared signature formatter instead of manual string building
+                // Note: pass empty indent or specific indent to format_signature
+                Some(format_signature(&m.sig, config, &indent))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+pub fn render_function(f: &syn::ItemFn, config: &Config, indent: String) -> String {
+    // Simply pass the signature to the shared formatter
+    format_signature(&f.sig, config, &indent)
+}
+pub fn format_signature(sig: &syn::Signature, config: &Config, indent: &str) -> String {
+    let name = sig.ident.to_string();
+    let policy = &config.render_policy;
+
+    // Extract parameters using the logic you already have
+    let params: Vec<String> = if policy.include_params {
+        sig.inputs
+            .iter()
+            .map(|arg| match arg {
+                syn::FnArg::Typed(pt) => {
+                    let p_name = match &*pt.pat {
                         syn::Pat::Ident(i) => i.ident.to_string(),
                         _ => "_".to_string(),
                     };
                     if policy.include_nested_types {
-                        let ty = quote::ToTokens::to_token_stream(&pat_type.ty).to_string();
-                        format!("{}: {}", p_name, ty)
+                        format!("{}: {}", p_name, quote::ToTokens::to_token_stream(&pt.ty))
                     } else {
                         p_name
                     }
@@ -83,104 +137,23 @@ pub fn render_function(f: &syn::ItemFn, config: &Config, indent: String) -> Stri
         vec![]
     };
 
-    // 3. Layout Engine: Use the triad logic
-    let body = match layout.line_style {
-        LineStyle::Compact => format!("{}({})", name, params.join(", ")),
-        LineStyle::ExpandedParams => {
-            if params.is_empty() {
-                format!("{}()", name)
-            } else {
-                format!("{}(\n{}{}\n{})", name, indent, params.join(",\n"), indent)
-            }
-        }
-        LineStyle::Block => format!("{}\n{}{}", name, indent, params.join("\n")),
+    // EXTRACT RETURN TYPE
+    let ret = match &sig.output {
+        syn::ReturnType::Default => None,
+        syn::ReturnType::Type(_, ty) => Some(quote::ToTokens::to_token_stream(ty).to_string()),
     };
 
-    format!("{}{}", indent, body)
+    // Use your existing central formatter logic
+    config.format_function_signature(&name, &params, ret, indent)
 }
-pub fn render_struct(
-    s: &syn::ItemStruct,
-    config: &Config,
-    indent: String,
-    items: &[syn::Item],
-) -> String {
-    let mut output = format!("{}struct {}", indent, s.ident);
-    let policy = &config.render_policy;
 
-    if policy.include_nested_types {
-        match &s.fields {
-            syn::Fields::Named(fields) => {
-                for field in &fields.named {
-                    let name = field.ident.as_ref().unwrap().to_string();
-                    let ty = quote::ToTokens::to_token_stream(&field.ty);
-                    output.push_str(&format!("\n{}  - {}: {}", indent, name, ty));
-                }
-            }
-            syn::Fields::Unnamed(fields) => {
-                for (idx, field) in fields.unnamed.iter().enumerate() {
-                    let ty = quote::ToTokens::to_token_stream(&field.ty);
-                    output.push_str(&format!("\n{}  - {}: {}", indent, idx, ty));
-                }
-            }
-            syn::Fields::Unit => {}
-        }
-    }
-
-    // 2. Render Associated Methods
-    // We only traverse items if policy allows
-    if policy.include_functions {
-        let methods: Vec<String> = items
-            .iter()
-            .filter_map(|item| {
-                if let syn::Item::Impl(i) = item {
-                    if let syn::Type::Path(p) = &*i.self_ty {
-                        if p.path.is_ident(&s.ident) {
-                            return Some(render_impl_methods(i, config, indent.clone()));
-                        }
-                    }
-                }
-                None
-            })
-            .flatten()
-            .collect();
-
-        if !methods.is_empty() {
-            output.push('\n');
-            output.push_str(&methods.join("\n"));
-        }
-    }
-
-    output
-}
-pub fn render_impl_methods(i: &syn::ItemImpl, config: &Config, indent: String) -> Vec<String> {
-    i.items
-        .iter()
-        .filter_map(|item| {
-            if let syn::ImplItem::Fn(m) = item {
-                let ret = match &m.sig.output {
-                    syn::ReturnType::Default => "()".to_string(),
-                    syn::ReturnType::Type(_, ty) => {
-                        quote::ToTokens::to_token_stream(ty).to_string()
-                    }
-                };
-                // Put return type on a new line with extra indentation
-                Some(format!(
-                    "{} fn {}(...)\n{}    -> {}",
-                    indent, m.sig.ident, indent, ret
-                ))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
 pub fn render_enum(e: &syn::ItemEnum, config: &Config, indent: String) -> String {
     let name = e.ident.to_string();
     let policy = &config.render_policy;
     let format = &config.format;
 
-    // 1. If mode is Summary, just output the name
-    if let ViewMode::Summary = policy.mode {
+    // 1. If mode is System, just output the name
+    if let ViewMode::System = policy.mode {
         return format!("{}enum {}", indent, name);
     }
 
@@ -286,4 +259,26 @@ fn get_params(f: &syn::ItemFn, policy: &RenderPolicy) -> Vec<String> {
             syn::FnArg::Receiver(_) => "self".to_string(),
         })
         .collect()
+}
+
+fn collect_fields(s: &syn::ItemStruct, policy: &RenderPolicy) -> Vec<String> {
+    match &s.fields {
+        syn::Fields::Named(f) => f
+            .named
+            .iter()
+            .map(|f| {
+                let name = f.ident.as_ref().unwrap().to_string();
+                match policy.mode {
+                    ViewMode::System => name,
+                    ViewMode::SystemFlow => name,
+                    ViewMode::SystemFlowDetailed => {
+                        let ty = quote::ToTokens::to_token_stream(&f.ty).to_string();
+                        format!("{}: {}", name, ty)
+                    }
+                    _ => name,
+                }
+            })
+            .collect(),
+        _ => vec![],
+    }
 }

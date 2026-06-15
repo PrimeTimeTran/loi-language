@@ -13,43 +13,44 @@ pub enum IncludePolicy {
     IncludeDerived,
     IncludeNested,
 }
-#[derive(Debug)]
 
+#[derive(Debug, Clone)]
 pub enum ParentConstraint {
     Any,
     Within(SymbolKind),
     WithinPath(Vec<SymbolKind>),
 }
-#[derive(Debug)]
 
+#[derive(Debug, Clone)]
 pub enum DepthConstraint {
     Any,
     Exact(usize),
     Range { from: usize, to: usize },
 }
 
+#[derive(Debug, Clone)]
 pub enum ScopeRoot {
     File,
     Module,
     Symbol(SymbolKind),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Matcher {
     Symbol(SymbolMatcher),
     File(FileMatcher),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructuralFilter {
     pub depth: DepthConstraint,
     pub parent: Option<ParentConstraint>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rule {
     pub languages: HashSet<Language>,
     pub matchers: Vec<Matcher>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,

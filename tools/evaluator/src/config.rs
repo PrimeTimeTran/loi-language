@@ -9,7 +9,7 @@ use crate::{
     mode::ViewMode,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FormatConfig {
     pub line_style: LineStyle,
     pub header: HeaderFormat,
@@ -36,25 +36,14 @@ pub struct RenderPolicy {
     pub include_params: bool,
     pub include_nested_types: bool,
 }
-impl Default for RenderPolicy {
-    fn default() -> Self {
-        Self {
-            mode: ViewMode::Summary,
-            include_params: true,
-            include_functions: true,
-            include_properties: true,
-            include_nested_types: true,
-        }
-    }
-}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RenderConfig {
     pub policy: RenderPolicy,
     pub format: HeaderFormat,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtractConfig {
     pub rules: Vec<Rule>,
 }
@@ -67,35 +56,63 @@ impl Default for ExtractConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub analysis_root: PathBuf,
     pub output_name: String,
     pub output_path: PathBuf,
-    // pub render: RenderConfig,
     pub extract: ExtractConfig,
     pub format: FormatConfig,
     pub render_policy: RenderPolicy,
     pub layout: DenseConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            analysis_root: PathBuf::from("./src"),
-            output_name: String::from("structure.txt"),
-            output_path: PathBuf::from("./"),
-            extract: ExtractConfig::default(),
-            render_policy: RenderPolicy::default(),
-            layout: DenseConfig::default(),
-            format: FormatConfig::default(),
-        }
-    }
-}
-
 impl Config {
     pub fn load() -> Self {
         Self::default()
+    }
+    pub fn format_function_signature(
+        &self,
+        name: &str,
+        params: &[String],
+        ret: Option<String>,
+        indent: &str,
+    ) -> String {
+        let policy = &self.render_policy;
+        let ret_ref = ret.as_ref();
+
+        match policy.mode {
+            ViewMode::SystemFlowDetailed => {
+                if params.is_empty() {
+                    let ret_str = ret_ref.map(|t| format!(" -> {}", t)).unwrap_or_default();
+                    format!("{}fn {}(){}", indent, name, ret_str)
+                } else {
+                    let indented_params = params
+                        .iter()
+                        .map(|p| format!("{}    {}", indent, p))
+                        .collect::<Vec<_>>()
+                        .join(",\n");
+
+                    let ret_str = ret_ref
+                        .map(|t| format!("\n{}    -> {}", indent, t))
+                        .unwrap_or_default();
+
+                    format!(
+                        "{}fn {}(\n{}\n{}){}",
+                        indent, name, indented_params, indent, ret_str
+                    )
+                }
+            }
+            ViewMode::SystemFlow => {
+                let ret_str = ret_ref.map(|t| format!(" -> {}", t)).unwrap_or_default();
+                format!("{}fn {}({}){}", indent, name, params.join(", "), ret_str)
+            }
+            ViewMode::System => format!("{}fn {}", indent, name),
+            _ => {
+                let ret_str = ret_ref.map(|t| format!(" -> {}", t)).unwrap_or_default();
+                format!("{}fn {}({}){}", indent, name, params.join(", "), ret_str)
+            }
+        }
     }
 
     pub fn apply_cli_args(&mut self) {
@@ -118,6 +135,32 @@ impl Config {
                 }
                 _ => i += 1,
             }
+        }
+    }
+}
+
+impl Default for RenderPolicy {
+    fn default() -> Self {
+        Self {
+            mode: ViewMode::System,
+            include_params: true,
+            include_functions: true,
+            include_properties: true,
+            include_nested_types: true,
+        }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            analysis_root: PathBuf::from("./src"),
+            output_name: String::from("eval-.txt"),
+            output_path: PathBuf::from("./"),
+            extract: ExtractConfig::default(),
+            render_policy: RenderPolicy::default(),
+            layout: DenseConfig::default(),
+            format: FormatConfig::default(),
         }
     }
 }

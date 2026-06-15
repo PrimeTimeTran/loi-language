@@ -1,6 +1,9 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewMode {
-    Summary,
+    System,
+    SystemFlow,
+    SystemFlowDetailed,
+    Structures,
     Interface,
     FullDetail,
 }
