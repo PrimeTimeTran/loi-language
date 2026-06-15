@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::frontend::ast::{BinOp, Expr, Stmt};
 
-use crate::middle::types::{Span, Type};
+use crate::middle::types::{IRVal, Span, Type};
 use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
@@ -65,11 +65,11 @@ pub enum LoweredOp {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum IROp {
     Return {
-        value: Option<TypedExpr>,
+        value: Option<IRVal>,
     },
     Declare {
         name: String,
-        value: TypedExpr,
+        value: IRVal,
         mutable: bool,
         dynamic: bool,
     },
@@ -77,9 +77,9 @@ pub enum IROp {
     Nop,
     Binary {
         target: String,
-        left: TypedExpr,
+        left: IRVal,
         op: BinOp,
-        right: TypedExpr,
+        right: IRVal,
     },
     Module {
         body: Vec<IROp>,
@@ -96,13 +96,13 @@ pub enum IROp {
 
     Assign {
         name: String,
-        value: TypedExpr,
+        value: IRVal,
     },
     Load {
         name: String,
     },
     If {
-        condition: TypedExpr,
+        condition: IRVal,
         then_branch: Vec<IROp>,
         else_branch: Vec<IROp>,
         scope_id: usize,
@@ -110,15 +110,15 @@ pub enum IROp {
 
     Call {
         name: String,
-        args: Vec<TypedExpr>,
+        args: Vec<IRVal>,
     },
     Print {
-        value: TypedExpr,
+        value: IRVal,
     },
     ExternalCall {
         namespace: String,
         function: String,
-        args: Vec<TypedExpr>,
+        args: Vec<IRVal>,
     },
 
     ModuleScope {
@@ -127,13 +127,13 @@ pub enum IROp {
     },
 
     While {
-        condition: TypedExpr,
+        condition: IRVal,
         body: Vec<IROp>,
     },
 
     DoWhile {
         body: Vec<IROp>,
-        condition: TypedExpr,
+        condition: IRVal,
     },
 
     Loop {
@@ -142,11 +142,11 @@ pub enum IROp {
 
     For {
         iterator: String,
-        iterable: TypedExpr,
+        iterable: IRVal,
         body: Vec<IROp>,
     },
     ExprStmt {
-        expr: TypedExpr,
+        expr: IRVal,
     },
     ControlFlow,
 
@@ -246,30 +246,41 @@ fn to_typed_expr(expr: Expr) -> TypedExpr {
     }
 }
 
+fn expr_to_irval(expr: Expr) -> IRVal {
+    match expr {
+        Expr::Number(n) => IRVal::Number(n),
+        Expr::Bool(b) => IRVal::Bool(b),
+        Expr::String(s) => IRVal::Str(s),
+        Expr::Var(v) => IRVal::Var(v),
+        _ => {
+            panic!("complex expressions must be lowered in analyze_stmt, not From<Stmt>")
+        }
+    }
+}
+
 impl From<Stmt> for IROp {
     fn from(stmt: Stmt) -> Self {
         match stmt {
             Stmt::ExprStmt { expr } => IROp::ExprStmt {
-                expr: to_typed_expr(expr),
+                expr: expr_to_irval(expr),
             },
 
             Stmt::Let { name, value, .. } => IROp::Assign {
                 name,
-                value: to_typed_expr(value),
+                value: expr_to_irval(value),
             },
 
             Stmt::Return { value } => IROp::Return {
-                value: value.map(to_typed_expr),
+                value: value.map(expr_to_irval),
             },
 
             Stmt::If { .. } | Stmt::While { .. } => IROp::ControlFlow,
 
-            Stmt::Function { .. } => IROp::ControlFlow, // temporary until lowering pass
+            Stmt::Function { .. } => IROp::ControlFlow,
 
             Stmt::Block { .. } => IROp::Block { body: vec![] },
-            _ => {
-                todo!()
-            }
+
+            _ => todo!(),
         }
     }
 }

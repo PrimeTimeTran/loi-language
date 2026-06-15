@@ -9,6 +9,9 @@ use inkwell::values::{
 };
 use std::collections::HashMap;
 
+use crate::frontend::ast::AST;
+use crate::middle::types::IRVal;
+use crate::pipeline::CompileError;
 use crate::{
     frontend::ast::{BinOp, Expr, Stmt, UnOp},
     middle::{
@@ -78,7 +81,7 @@ pub struct LLVM<'ctx> {
 //     op: &IROp,
 // ) -> Result<(), CompileError>
 
-fn codegen_expr<'ctx>(
+pub fn codegen_expr<'ctx>(
     expr: &Expr,
     ty: &Type,
     context: &mut CodeGenContext<'ctx>,
@@ -163,18 +166,19 @@ fn codegen_expr<'ctx>(
             }
             _ => panic!("invalid assignment target"),
         },
-        Expr::Number(n) => match ty {
-            Type::F64 => context.context.f64_type().const_float(n.0).into(),
+        Expr::Number(n) => context.context.f64_type().const_float(n.0).into(),
+        // Expr::Number(n) => match ty {
+        //     Type::F64 => context.context.f64_type().const_float(n.0).into(),
 
-            Type::I32 => context
-                .context
-                .i32_type()
-                .const_int(n.0 as u64, false)
-                .const_signed_to_float(context.context.f64_type())
-                .into(),
+        //     Type::I32 => context
+        //         .context
+        //         .i32_type()
+        //         .const_int(n.0 as u64, false)
+        //         .const_signed_to_float(context.context.f64_type())
+        //         .into(),
 
-            _ => panic!("unsupported numeric type"),
-        },
+        //     _ => panic!("unsupported numeric type"),
+        // },
         Expr::Binary { left, op, right } => {
             let lhs = codegen_expr(left, ty, context).into_float_value();
             let rhs = codegen_expr(right, ty, context).into_float_value();
@@ -251,6 +255,96 @@ fn codegen_expr<'ctx>(
     }
 }
 
+pub fn lower_ast_to_ir(ast: &AST) -> Result<Vec<IROp>, CompileError> {
+    let mut ops = Vec::new();
+
+    for stmt in &ast.stmts {
+        match stmt {
+            Stmt::Let {
+                name,
+                kind: _,
+                value,
+            } => match value {
+                Expr::Binary { left, op, right } => {
+                    ops.push(IROp::Binary {
+                        target: name.clone(),
+                        left: lower_expr_to_ir_value(left),
+                        op: op.clone(),
+                        right: lower_expr_to_ir_value(right),
+                    });
+                }
+
+                Expr::Number(n) => {
+                    ops.push(IROp::Assign {
+                        name: name.clone(),
+                        value: IRVal::Number(*n),
+                    });
+                }
+
+                Expr::Bool(b) => {
+                    ops.push(IROp::Assign {
+                        name: name.clone(),
+                        value: IRVal::Bool(*b),
+                    });
+                }
+
+                Expr::String(s) => {
+                    ops.push(IROp::Assign {
+                        name: name.clone(),
+                        value: IRVal::Str(s.clone()),
+                    });
+                }
+
+                Expr::Var(v) => {
+                    ops.push(IROp::Assign {
+                        name: name.clone(),
+                        value: IRVal::Var(v.clone()),
+                    });
+                }
+
+                _ => {
+                    return Err(CompileError::Middle(format!(
+                        "unsupported expression in let: {:?}",
+                        value
+                    )));
+                }
+            },
+
+            _ => {}
+        }
+    }
+
+    Ok(ops)
+}
+
+pub fn lower_typed_expr_to_ir_value(expr: &TypedExpr) -> IRVal {
+    match &expr.expr {
+        Expr::Number(n) => IRVal::Number(*n),
+
+        Expr::Var(name) => IRVal::Var(name.clone()),
+
+        Expr::Binary { .. } => {
+            panic!("binary should be lowered at statement level first")
+        }
+
+        _ => panic!("unsupported expr"),
+    }
+}
+
+pub fn lower_expr_to_ir_value(expr: &Expr) -> IRVal {
+    match expr {
+        Expr::Number(n) => IRVal::Number(*n),
+
+        Expr::Var(name) => IRVal::Var(name.clone()),
+
+        Expr::Binary { .. } => {
+            panic!("binary must be lowered at statement level")
+        }
+
+        _ => panic!("unsupported expr"),
+    }
+}
+
 pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Result<(), String> {
     match op {
         IROp::Binary {
@@ -259,18 +353,15 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
             op,
             right,
         } => {
-            let lhs = match codegen_expr(&left.expr, &left.ty, context) {
+            let lhs = match codegen_ir_value(left, context) {
                 BasicValueEnum::FloatValue(v) => v,
                 _ => return Err("lhs is not float".into()),
             };
 
-            let rhs = match codegen_expr(&right.expr, &right.ty, context) {
+            let rhs = match codegen_ir_value(right, context) {
                 BasicValueEnum::FloatValue(v) => v,
                 _ => return Err("rhs is not float".into()),
             };
-
-            println!("LEFT TYPE {:?}", left.ty);
-            println!("RIGHT TYPE {:?}", right.ty);
 
             let result = match op {
                 BinOp::Add => context.builder.build_float_add(lhs, rhs, "addtmp"),
@@ -281,26 +372,20 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
             }
             .unwrap();
 
-            // allocate variable slot
             let ptr = context
                 .builder
                 .build_alloca(context.context.f64_type(), &target)
                 .unwrap();
 
-            // store result
             context.builder.build_store(ptr, result).unwrap();
-
-            // update env
             context.env.insert(target.clone(), ptr);
 
             Ok(())
         }
+
         IROp::Print { value } => {
-            let TypedExpr { expr, ty, .. } = value;
-
-            let val = { codegen_expr(&expr, &ty, context) };
-
-            let fmt = context.runtime.get_fmt_for_type(&ty);
+            let val = codegen_ir_value(value.clone(), context);
+            let fmt = fmt_for_irval(&value, context);
 
             context
                 .builder
@@ -313,84 +398,78 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
 
             Ok(())
         }
+
         IROp::Assign { name, value } => {
-            let ptr = {
-                context
-                    .env
-                    .get(&name)
-                    .ok_or_else(|| format!("Assign to undeclared variable: {}", name))?
-                    .clone()
+            let result = match codegen_ir_value(value, context) {
+                BasicValueEnum::FloatValue(v) => v,
+                _ => return Err("only float assignment supported".into()),
             };
 
-            let TypedExpr { expr, ty, .. } = value;
-            let val = codegen_expr(&expr, &ty, context);
-            context.builder.build_store(ptr, val).unwrap();
+            if let Some(ptr) = context.env.get(&name) {
+                context.builder.build_store(*ptr, result).unwrap();
+            } else {
+                let ptr = context
+                    .builder
+                    .build_alloca(context.context.f64_type(), &name)
+                    .unwrap();
+
+                context.builder.build_store(ptr, result).unwrap();
+                context.env.insert(name.clone(), ptr);
+            }
+
             Ok(())
         }
+
         IROp::ExprStmt { expr } => {
-            let TypedExpr { expr, ty, .. } = expr;
-            let val = codegen_expr(&expr, &ty, context);
+            let _ = codegen_ir_value(expr, context);
             Ok(())
         }
+
         IROp::Declare {
             name,
             value,
-            mutable,
-            dynamic,
+            mutable: _,
+            dynamic: _,
         } => {
-            let TypedExpr { expr, ty, .. } = value;
-            let val = codegen_expr(&expr, &ty, context);
+            let val = codegen_ir_value(value, context);
 
-            // 1. Get the current function
             let builder = &context.builder;
             let current_block = builder.get_insert_block().unwrap();
             let function = current_block.get_parent().unwrap();
-
-            // 2. Get the entry block (usually the first block in the function)
             let entry_block = function.get_first_basic_block().unwrap();
 
-            // 3. Save current builder position
             let saved_block = builder.get_insert_block().unwrap();
 
-            // 4. Position builder at the start of the entry block
-            // We use get_first_instruction() to insert BEFORE any other allocas
             if let Some(first_instr) = entry_block.get_first_instruction() {
                 builder.position_before(&first_instr);
             } else {
                 builder.position_at_end(entry_block);
             }
 
-            // 5. Create the alloca
-            let llvm_type = ty.to_llvm_type(context.context);
-            let alloca = context
-                .builder
+            let llvm_type = val.get_type();
+
+            let alloca = builder
                 .build_alloca(llvm_type, &name)
                 .map_err(|e| format!("LLVM Builder error: {:?}", e))?;
 
-            // Do the same for build_store:
-            context
-                .builder
+            builder
                 .build_store(alloca, val)
                 .map_err(|e| format!("LLVM Store error: {:?}", e))?;
 
-            // 6. Restore builder position
             builder.position_at_end(saved_block);
 
-            // 7. Store the initial value
-            builder.build_store(alloca, val);
-
-            // 8. Register in your symbol table
             context.env.insert(name.clone(), alloca);
 
             Ok(())
         }
+
         IROp::Return { value } => {
             match value {
                 Some(val) => {
-                    let val = codegen_expr(&val.expr, &val.ty, context);
+                    let v = codegen_ir_value(val, context);
                     context
                         .builder
-                        .build_return(Some(&val))
+                        .build_return(Some(&v))
                         .map_err(|e| e.to_string())?;
                 }
                 None => {
@@ -401,180 +480,234 @@ pub fn lower_expr_to_ir<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> R
                         .map_err(|e| e.to_string())?;
                 }
             }
+
             Ok(())
         }
 
         _ => {
-            eprintln!("LOWER_IR_RAW UNHANDLED IR_OP: {:?}", op);
+            eprintln!("UNHANDLED IR_OP: {:?}", op);
             Err(format!("not yet implemented: {:?}", op))
         }
     }
 }
 
-pub fn lower_ir<'ctx>(
-    context: &mut CodeGenContext<'ctx>,
-    ir: IROp,
-    runtime: &Runtime<'ctx>,
-    zero: IntValue<'ctx>,
-) -> Result<(), String> {
-    match ir {
-        IROp::Print { value } => {
-            let TypedExpr { expr, ty, .. } = value;
-            let resolved_ty = ty;
+// pub fn lower_ir<'ctx>(
+//     context: &mut CodeGenContext<'ctx>,
+//     ir: IROp,
+//     runtime: &Runtime<'ctx>,
+//     zero: IntValue<'ctx>,
+// ) -> Result<(), String> {
+//     match ir {
+//         IROp::Print { value } => {
+//             let TypedExpr { expr, ty, .. } = value;
+//             let resolved_ty = ty;
 
-            if matches!(resolved_ty, Type::Unknown) {
-                panic!("Found an UNTYPED expression: {:?}", expr);
-            }
+//             if matches!(resolved_ty, Type::Unknown) {
+//                 panic!("Found an UNTYPED expression: {:?}", expr);
+//             }
 
-            let llvm_val = codegen_expr(&expr, &resolved_ty, context);
-            let fmt_ptr = runtime.get_fmt_for_type(&resolved_ty);
-            context
-                .builder
-                .build_call(
-                    runtime.printf,
-                    &[fmt_ptr.into(), llvm_val.into()],
-                    "printf_call",
-                )
-                .unwrap();
-            Ok(())
-        }
-        IROp::Declare { name, value, .. } => {
-            println!("DEBUG: Declaring variable '{}'", name); // ADD THIS
-            let ptr = context
-                .builder
-                .build_alloca(context.context.f64_type(), &name)
-                .unwrap();
-            let val = codegen_expr(&value.expr, &value.ty, context);
-            context.builder.build_store(ptr, val).unwrap();
-            context.env.insert(name, ptr);
+//             let llvm_val = codegen_expr(&expr, &resolved_ty, context);
+//             let fmt_ptr = runtime.get_fmt_for_type(&resolved_ty);
+//             context
+//                 .builder
+//                 .build_call(
+//                     runtime.printf,
+//                     &[fmt_ptr.into(), llvm_val.into()],
+//                     "printf_call",
+//                 )
+//                 .unwrap();
+//             Ok(())
+//         }
+//         IROp::Declare { name, value, .. } => {
+//             println!("DEBUG: Declaring variable '{}'", name); // ADD THIS
+//             let ptr = context
+//                 .builder
+//                 .build_alloca(context.context.f64_type(), &name)
+//                 .unwrap();
+//             let val = codegen_expr(&value.expr, &value.ty, context);
+//             context.builder.build_store(ptr, val).unwrap();
+//             context.env.insert(name, ptr);
 
-            Ok(())
-        }
-        IROp::Assign { name, value } => {
-            let val = codegen_expr(&value.expr, &value.ty, context);
+//             Ok(())
+//         }
+//         IROp::Assign { name, value } => {
+//             let val = codegen_expr(&value.expr, &value.ty, context);
 
-            let ptr = context
-                .env
-                .get(&name)
-                .expect(&format!("Variable '{}' not declared!", name));
+//             let ptr = context
+//                 .env
+//                 .get(&name)
+//                 .expect(&format!("Variable '{}' not declared!", name));
 
-            context.builder.build_store(*ptr, val).unwrap();
-            Ok(())
-        }
-        IROp::If {
-            condition,
-            then_branch,
-            else_branch,
-            scope_id,
-        } => {
-            let keys_before = context.env.keys().cloned().collect::<Vec<_>>();
-            let parent = context
-                .builder
-                .get_insert_block()
+//             context.builder.build_store(*ptr, val).unwrap();
+//             Ok(())
+//         }
+//         IROp::If {
+//             condition,
+//             then_branch,
+//             else_branch,
+//             scope_id,
+//         } => {
+//             let keys_before = context.env.keys().cloned().collect::<Vec<_>>();
+//             let parent = context
+//                 .builder
+//                 .get_insert_block()
+//                 .unwrap()
+//                 .get_parent()
+//                 .unwrap();
+
+//             let then_bb = context
+//                 .context
+//                 .append_basic_block(parent, &format!("then_{}", scope_id));
+//             let else_bb = context
+//                 .context
+//                 .append_basic_block(parent, &format!("else_{}", scope_id));
+//             let merge_bb = context
+//                 .context
+//                 .append_basic_block(parent, &format!("merge_{}", scope_id));
+
+//             let cond_val = codegen_expr(&condition.expr, &condition.ty, context).into_int_value();
+//             context
+//                 .builder
+//                 .build_conditional_branch(cond_val, then_bb, else_bb)
+//                 .unwrap();
+
+//             context.builder.position_at_end(then_bb);
+//             for op in then_branch {
+//                 lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
+//             }
+//             if context
+//                 .builder
+//                 .get_insert_block()
+//                 .unwrap()
+//                 .get_terminator()
+//                 .is_none()
+//             {
+//                 context
+//                     .builder
+//                     .build_unconditional_branch(merge_bb)
+//                     .unwrap();
+//             }
+
+//             context.builder.position_at_end(else_bb);
+//             for op in else_branch {
+//                 lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
+//             }
+//             if context
+//                 .builder
+//                 .get_insert_block()
+//                 .unwrap()
+//                 .get_terminator()
+//                 .is_none()
+//             {
+//                 context
+//                     .builder
+//                     .build_unconditional_branch(merge_bb)
+//                     .unwrap();
+//             }
+
+//             context.env.retain(|key, _| keys_before.contains(key));
+//             context.builder.position_at_end(merge_bb);
+//             Ok(())
+//         }
+
+//         IROp::Binary {
+//             target,
+//             left,
+//             op,
+//             right,
+//         } => {
+//             let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
+//             let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
+//             bin::emit_binary_op(context, &target, lhs, rhs, bin::map_binop(op))
+//         }
+//         IROp::Lowered(LoweredOp::Binary {
+//             target,
+//             left,
+//             op,
+//             right,
+//         }) => {
+//             let lhs = context.load_var(&left);
+//             let rhs = context.load_var(&right);
+//             bin::emit_binary_op(context, &target, lhs, rhs, op)
+//         }
+
+//         IROp::Module { body } => {
+//             for stmt in body {
+//                 lower_ir(context, stmt, runtime, zero)?;
+//             }
+//             Ok(())
+//         }
+
+//         IROp::Return { .. } => {
+//             context.builder.build_return(Some(&zero));
+//             Ok(())
+//         }
+//         IROp::ModuleScope { .. } => Ok(()),
+//         IROp::Load { .. } => Ok(()),
+//         IROp::Block { .. } => Ok(()),
+//         IROp::Function { .. } => Ok(()),
+//         IROp::While { .. } => Ok(()),
+//         IROp::Call { .. } => Ok(()),
+//         IROp::ExternalCall { .. } => Ok(()),
+//         IROp::Loop { .. } => Ok(()),
+//         IROp::DoWhile { .. } => Ok(()),
+//         _ => {
+//             println!("DEBUG: Found an unhandled IR variant: {:?}", ir);
+//             Ok(())
+//         }
+//     }
+// }
+pub fn codegen_ir_value<'ctx>(val: IRVal, ctx: &mut CodeGenContext<'ctx>) -> BasicValueEnum<'ctx> {
+    match val {
+        IRVal::Number(n) => ctx.context.f64_type().const_float(n.0).into(),
+
+        IRVal::Bool(b) => ctx.context.bool_type().const_int(b as u64, false).into(),
+
+        IRVal::Str(s) => ctx
+            .builder
+            .build_global_string_ptr(&s, "str")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
+
+        IRVal::Var(name) => {
+            let ptr = ctx.env.get(&name).expect("undefined variable");
+            ctx.builder
+                .build_load(ctx.context.f64_type(), *ptr, &name)
                 .unwrap()
-                .get_parent()
-                .unwrap();
-
-            let then_bb = context
-                .context
-                .append_basic_block(parent, &format!("then_{}", scope_id));
-            let else_bb = context
-                .context
-                .append_basic_block(parent, &format!("else_{}", scope_id));
-            let merge_bb = context
-                .context
-                .append_basic_block(parent, &format!("merge_{}", scope_id));
-
-            let cond_val = codegen_expr(&condition.expr, &condition.ty, context).into_int_value();
-            context
-                .builder
-                .build_conditional_branch(cond_val, then_bb, else_bb)
-                .unwrap();
-
-            context.builder.position_at_end(then_bb);
-            for op in then_branch {
-                lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
-            }
-            if context
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_terminator()
-                .is_none()
-            {
-                context
-                    .builder
-                    .build_unconditional_branch(merge_bb)
-                    .unwrap();
-            }
-
-            context.builder.position_at_end(else_bb);
-            for op in else_branch {
-                lower_ir(context, op, runtime, zero)?; // Recursion uses runtime
-            }
-            if context
-                .builder
-                .get_insert_block()
-                .unwrap()
-                .get_terminator()
-                .is_none()
-            {
-                context
-                    .builder
-                    .build_unconditional_branch(merge_bb)
-                    .unwrap();
-            }
-
-            context.env.retain(|key, _| keys_before.contains(key));
-            context.builder.position_at_end(merge_bb);
-            Ok(())
         }
+    }
+}
 
-        IROp::Binary {
-            target,
-            left,
-            op,
-            right,
-        } => {
-            let lhs = codegen_expr(&left.expr, &left.ty, context).into_float_value();
-            let rhs = codegen_expr(&right.expr, &right.ty, context).into_float_value();
-            bin::emit_binary_op(context, &target, lhs, rhs, bin::map_binop(op))
-        }
-        IROp::Lowered(LoweredOp::Binary {
-            target,
-            left,
-            op,
-            right,
-        }) => {
-            let lhs = context.load_var(&left);
-            let rhs = context.load_var(&right);
-            bin::emit_binary_op(context, &target, lhs, rhs, op)
-        }
+pub fn fmt_for_irval<'ctx>(val: &IRVal, context: &CodeGenContext<'ctx>) -> BasicValueEnum<'ctx> {
+    match val {
+        IRVal::Number(_) => context
+            .builder
+            .build_global_string_ptr("%f\n", "fmt")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
 
-        IROp::Module { body } => {
-            for stmt in body {
-                lower_ir(context, stmt, runtime, zero)?;
-            }
-            Ok(())
-        }
+        IRVal::Bool(_) => context
+            .builder
+            .build_global_string_ptr("%d\n", "fmt")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
 
-        IROp::Return { .. } => {
-            context.builder.build_return(Some(&zero));
-            Ok(())
-        }
-        IROp::ModuleScope { .. } => Ok(()),
-        IROp::Load { .. } => Ok(()),
-        IROp::Block { .. } => Ok(()),
-        IROp::Function { .. } => Ok(()),
-        IROp::While { .. } => Ok(()),
-        IROp::Call { .. } => Ok(()),
-        IROp::ExternalCall { .. } => Ok(()),
-        IROp::Loop { .. } => Ok(()),
-        IROp::DoWhile { .. } => Ok(()),
-        _ => {
-            println!("DEBUG: Found an unhandled IR variant: {:?}", ir);
-            Ok(())
-        }
+        IRVal::Str(_) => context
+            .builder
+            .build_global_string_ptr("%s\n", "fmt")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
+
+        IRVal::Var(_) => context
+            .builder
+            .build_global_string_ptr("%f\n", "fmt")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
     }
 }
 

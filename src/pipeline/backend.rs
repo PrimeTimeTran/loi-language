@@ -5,7 +5,7 @@ use inkwell::targets::{
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    backend::llvm::{CodeGenContext, lower_expr_to_ir},
+    backend::llvm::{CodeGenContext, LLVM, llvm, lower_expr_to_ir},
     compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     frontend::ast::Expr,
@@ -93,22 +93,40 @@ impl BackendPipeline {
     pub fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
         let ctx = self.llvm_context.lock().unwrap();
 
-        // 1. Initialize your context struct immediately
+        // ✅ THIS is your real state container
         let mut context = CodeGenContext::new(&ctx);
 
-        // 2. Reuse your existing, working logic
+        context.module.set_name("main_module");
+
+        // (IMPORTANT) create function + entry block here if not inside CodeGenContext::new
+        let i32_type = ctx.i32_type();
+        let fn_type = i32_type.fn_type(&[], false);
+
+        let main: inkwell::values::FunctionValue<'_> = context.module.add_function("main", fn_type, None);
+        let entry = ctx.append_basic_block(main, "entry");
+        context.builder.position_at_end(entry);
+
+        // LOWER IR
         for op in ir.nodes {
             println!("LOWERING IR: {:?}", op);
-            lower_expr_to_ir(&mut context, op).map_err(|e| CompileError::Backend(e))?;
+
+            lower_expr_to_ir(&mut context, op).map_err(CompileError::Backend)?;
         }
 
-        // 3. Finalize
-        // Now you access module/builder through your context struct
-        if context.module.verify().is_err() {
+        // RETURN
+        context
+            .builder
+            .build_return(Some(&i32_type.const_int(0, false)))
+            .unwrap();
+
+        // VERIFY
+        if let Err(err) = context.module.verify() {
+            println!("LLVM module verification failed: {:?}", err);
             return Err(CompileError::Backend("invalid LLVM module".into()));
         }
 
         let target = self.create_native_target_machine()?;
+
         let buf = target
             .write_to_memory_buffer(&context.module, inkwell::targets::FileType::Object)
             .map_err(|e| CompileError::Backend(format!("{:?}", e)))?;

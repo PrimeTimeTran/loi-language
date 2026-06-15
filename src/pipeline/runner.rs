@@ -1,6 +1,6 @@
 use crate::{
     compiler::engine::CompileEngine,
-    pipeline::{Pipeline, stage::Stage},
+    pipeline::{CompileError, Pipeline, stage::Stage},
 };
 
 pub struct PipelineRunner {
@@ -16,9 +16,12 @@ impl PipelineRunner {
         self.stages.push(Box::new(stage));
     }
 
-    pub fn run(&self, engine: &CompileEngine) -> Result<(), ()> {
+    pub fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
         for stage in &self.stages {
-            stage.run(engine).map_err(|_| ())?;
+            stage.run(engine).map_err(|e| CompileError::Stage {
+                stage: stage.name().to_string(),
+                source: Box::new(e),
+            })?;
         }
         Ok(())
     }

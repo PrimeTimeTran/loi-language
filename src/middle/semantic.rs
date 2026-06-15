@@ -2,7 +2,7 @@ use crate::frontend::ast::{AST, DeclKind, Expr, Stmt};
 use crate::frontend::lexer;
 use crate::frontend::parser::parse;
 use crate::middle::ir::{IROp, TypedExpr};
-use crate::middle::types::{Span, Type};
+use crate::middle::types::{IRVal, Span, Type};
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -122,77 +122,74 @@ fn analyze_block(
 }
 fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<IROp>, String> {
     let dummy_span = Span::default();
-    let typed = |e: Expr| wrap_typed(e, symbols, dummy_span.clone());
+    let lower = |e: Expr| wrap_to_irval(e, symbols, dummy_span.clone());
 
     match stmt {
         Stmt::Block { body } => analyze_block(body, symbols),
 
         Stmt::Let { name, value, .. } => {
-            let typed_val = typed(value)?;
-            symbols.insert(name.clone(), typed_val.ty.clone());
+            let val = lower(value)?;
+            symbols.insert(name.clone(), val.inferred_type());
+
             Ok(one(IROp::Declare {
                 name,
-                value: typed_val,
+                value: val,
                 mutable: true,
                 dynamic: false,
             }))
         }
 
         Stmt::Print { expr } => Ok(one(IROp::Print {
-            value: typed(expr)?,
+            value: lower(expr)?,
         })),
 
-        Stmt::ExprStmt { expr } => Ok(one(IROp::ExprStmt { expr: typed(expr)? })),
+        Stmt::ExprStmt { expr } => Ok(one(IROp::ExprStmt { expr: lower(expr)? })),
 
         Stmt::While { condition, body } => Ok(one(IROp::While {
-            condition: typed(condition)?,
+            condition: lower(condition)?,
             body: analyze_block(body, symbols)?,
         })),
 
-        Stmt::DoWhile { body, condition } => {
-            // 1. Mutate symbols via analyze_block
-            let body_ir = analyze_block(body, symbols)?;
-
-            // 2. ONLY NOW, borrow symbols for wrapping the condition
-            let typed_condition = wrap_typed(condition, symbols, dummy_span)?;
-
-            Ok(one(IROp::DoWhile {
-                body: body_ir,
-                condition: typed_condition,
-            }))
-        }
-
+        // Stmt::DoWhile { body, condition } => {
+        //     let body_ir = analyze_block(body, symbols)?;
+        //     Ok(one(IROp::DoWhile {
+        //         body: body_ir,
+        //         condition: lower(condition)?,
+        //     }))
+        // }
         Stmt::Loop { body } => Ok(one(IROp::Loop {
             body: analyze_block(body, symbols)?,
         })),
+
         Stmt::For {
             iterator,
             iterable,
             body,
         } => Ok(one(IROp::For {
             iterator,
-            iterable: typed(iterable)?,
+            iterable: lower(iterable)?,
             body: analyze_block(body, symbols)?,
         })),
-        Stmt::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            let id = SCOPE_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-            // Scope isolation: clone symbols for branches
-            let mut then_symbols = symbols.clone();
-            let mut else_symbols = symbols.clone();
+        // Stmt::If {
+        //     condition,
+        //     then_branch,
+        //     else_branch,
+        // } => {
+        //     let id = SCOPE_COUNTER.fetch_add(1, Ordering::SeqCst);
 
-            Ok(one(IROp::If {
-                condition: typed(condition)?,
-                then_branch: analyze_block(then_branch, &mut then_symbols)?,
-                else_branch: else_branch
-                    .map_or(Ok(vec![]), |b| analyze_block(b, &mut else_symbols))?,
-                scope_id: id,
-            }))
-        }
+        //     let then_symbols = symbols.clone();
+        //     let else_symbols = symbols.clone();
+
+        //     Ok(one(IROp::If {
+        //         condition: lower(condition)?,
+        //         then_branch: analyze_block(then_branch, then_symbols)?,
+        //         else_branch: else_branch
+        //             .map_or(Ok(vec![]), |b| analyze_block(b, &mut else_symbols))?,
+        //         scope_id: id,
+        //     }))
+        // }
+
         Stmt::Function { name, params, body } => {
             let mut func_symbols = HashMap::new();
 
@@ -209,9 +206,13 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
                 return_type: Type::F64,
             }))
         }
+
         Stmt::Return { value } => Ok(one(IROp::Return {
-            value: value.map(typed).transpose()?,
+            value: value.map(lower).transpose()?,
         })),
+        _ => {
+            todo!("Analyze statement: unhandled statement type");
+        }
     }
 }
 
@@ -226,6 +227,45 @@ fn wrap_typed(
 ) -> Result<TypedExpr, String> {
     let ty = infer_type(&expr, symbols)?;
     Ok(TypedExpr { expr, ty, span })
+}
+
+fn wrap_to_irval(
+    expr: Expr,
+    symbols: &HashMap<String, Type>,
+    _span: Span,
+) -> Result<IRVal, String> {
+    match expr {
+        Expr::Number(n) => Ok(IRVal::Number(n)),
+        Expr::Bool(b) => Ok(IRVal::Bool(b)),
+        Expr::String(s) => Ok(IRVal::Str(s)),
+        Expr::Var(name) => {
+            if !symbols.contains_key(&name) {
+                return Err(format!("undefined variable: {}", name));
+            }
+            Ok(IRVal::Var(name))
+        }
+        Expr::Binary { left, op, right } => {
+            // IMPORTANT: keep it simple IR-level lowering
+            // (no TypedExpr, no type inference here)
+            let _ = *left;
+            let _ = *right;
+            Err("Binary expressions must be lowered into IROp, not IRVal".into())
+        }
+        Expr::Unary { .. } => Err("Unary expressions must be lowered into IROp, not IRVal".into()),
+        Expr::Assign { .. } => Err("Assign expressions must be lowered into IROp".into()),
+        Expr::Call { .. } => Err("Call expressions must be lowered into IROp".into()),
+        Expr::Index { .. } => Err("Index expressions must be lowered into IROp".into()),
+        Expr::Member { .. } => Err("Member expressions must be lowered into IROp".into()),
+        Expr::Array(items) => {
+            // simple lowering strategy: keep as runtime construct if needed
+            // OR reject for now if IR doesn't support arrays cleanly
+
+            Err(format!(
+                "Array literals not yet supported in IRVal (len={})",
+                items.len()
+            ))
+        }
+    }
 }
 
 // #[test]

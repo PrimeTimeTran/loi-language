@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Stage represents the Work. The CompileEngine asks:
 // "What is the name of the stage you are currently executing?"
 // so it can print logs and handle errors.
 ///////////////////////////////////////////////////////////////////////////////////////////
 use crate::{
-    compiler::{engine::CompileEngine, types::BuildArtifact},
+    compiler::{engine::CompileEngine, env::Env, types::BuildArtifact},
     middle::ir::IR,
     pipeline::{CompileError, backend::BackendPipeline, middle::MiddlePipeline},
 };
@@ -14,6 +16,12 @@ pub trait Stage: std::fmt::Debug + Send + Sync {
     fn run(&self, engine: &CompileEngine) -> Result<(), CompileError>;
     fn name(&self) -> &str;
 }
+
+// trait PipelineStage {
+//     type Error;
+
+//     fn run(&mut self, env: Arc<Env>) -> Result<(), Self::Error>;
+// }
 
 impl Stage for MiddlePipeline {
     fn name(&self) -> &str {

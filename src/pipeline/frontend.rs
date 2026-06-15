@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use tracing::Instrument;
 
+use crate::backend::llvm::lower_ast_to_ir;
 use crate::{
     compiler::{
         config::CompileConfig,
@@ -184,15 +185,18 @@ impl Stage for FrontendPipeline {
             Ok(ast) => {
                 let mut state = self.state.write().unwrap();
                 state.ast = Some(ast);
+                let ir = lower_ast_to_ir(state.ast.as_ref().unwrap())?;
+                state.ir = Some(ir);
+
                 println!("✅ FINAL AST WRITTEN");
                 println!("${:?}", state.ast);
+                println!("🧠 IR WRITTEN");
+
                 Ok(())
             }
             Err(diags) => {
                 let state = self.state.read().unwrap();
                 println!("❌ ERROR PATH AST = {:?}", state.ast);
-
-                // write diagnostics safely
                 {
                     let mut global =
                         self.context.diagnostics.write().map_err(|_| {

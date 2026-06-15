@@ -1,6 +1,7 @@
-use crate::{compiler::engine::CompileEngine, pipeline::{
-    backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline,
-}};
+use crate::{
+    compiler::engine::CompileEngine,
+    pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline},
+};
 
 pub mod backend;
 pub mod frontend;
@@ -47,7 +48,26 @@ pub enum CompileError {
     Frontend(String),
     Middle(String),
     Backend(String),
+    Stage {
+        stage: String,
+        source: Box<dyn std::error::Error>,
+    },
 }
+
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompileError::Frontend(e) => write!(f, "Frontend error: {}", e),
+            CompileError::Middle(e) => write!(f, "Middle error: {}", e),
+            CompileError::Backend(e) => write!(f, "Backend error: {}", e),
+            CompileError::Stage { stage, source } => {
+                write!(f, "Stage error in {}: {}", stage, source)
+            }
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
 
 #[derive(Clone, Debug)]
 pub struct Metadata {

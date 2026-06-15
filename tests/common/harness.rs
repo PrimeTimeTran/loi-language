@@ -52,7 +52,7 @@ pub struct TestHarness {
 }
 
 impl TestHarness {
-    pub fn run(&mut self) -> Result<(), ()> {
+    pub fn run(&mut self) -> Result<(), CompileError> {
         let mut runner = PipelineRunner::new();
 
         runner.add_stage(self.build_frontend());
@@ -63,53 +63,6 @@ impl TestHarness {
 
         Ok(())
     }
-    // pub fn run(&mut self, target: PipelineTarget) -> Result<(), ()> {
-    //     match target {
-    //         PipelineTarget::Frontend => {
-    //             let p = self.build_frontend();
-    //             p.run()?;
-    //             Ok(())
-    //         }
-
-    //         PipelineTarget::Middle => {
-    //             let p = self.build_middle();
-    //             p.run()?;
-    //             Ok(())
-    //         }
-    //         PipelineTarget::Backend => {
-    //             let ir = {
-    //                 let state = self.kernel.engine.state.read().map_err(|_| ())?;
-    //                 state.current_ir()
-    //             }
-    //             .ok_or(())?;
-
-    //             let backend = self.build_backend();
-    //             let output = backend.run(ir.clone());
-
-    //             // compute stable hash for caching
-    //             let hash = {
-    //                 use std::collections::hash_map::DefaultHasher;
-    //                 use std::hash::{Hash, Hasher};
-
-    //                 let mut hasher = DefaultHasher::new();
-    //                 ir.nodes.hash(&mut hasher); // assumes IR { nodes: Vec<IROp> }
-    //                 hasher.finish()
-    //             };
-
-    //             let mut state = self.kernel.engine.state.write().map_err(|_| ())?;
-
-    //             state.build_cache.insert_artifact(hash, output.clone());
-
-    //             state.build_cache.set_current(BuildArtifact::Llvm(output));
-
-    //             Ok(())
-    //         }
-    //         PipelineTarget::Full => {
-    //             self.kernel.engine.run_all()?;
-    //             Ok(())
-    //         }
-    //     }
-    // }
 }
 
 impl TestHarness {
@@ -138,7 +91,6 @@ impl TestHarness {
             config: config.clone(),
             context: context.clone(),
         };
-
         Self {
             engine,
             kernel,
@@ -147,16 +99,15 @@ impl TestHarness {
             engines: HashMap::new(),
         }
     }
+    pub fn with_file(mut self, path: &str) -> Self {
+        self.registry.add_file(FileMeta::mock(path));
+        self
+    }
     pub fn with_source(self, source: &str) -> Self {
-        println!("WITH_SOURCE");
         {
             let mut state = self.env.state.write().unwrap();
             state.source = Some(source.to_string());
         }
-        self
-    }
-    pub fn with_file(mut self, path: &str) -> Self {
-        self.registry.add_file(FileMeta::mock(path));
         self
     }
     pub fn with_symbol(mut self, name: &str, value: &str, file: &str) -> Self {
@@ -212,7 +163,6 @@ impl TestHarness {
 
 impl TestHarness {
     pub fn bootstrap(source: &str, symbol_data: Vec<(&str, &str, &str)>) -> Self {
-        println!("BOOTSTRAP");
         let mut harness = Self::new().with_source(source);
         for (name, val, file) in symbol_data {
             harness = harness.with_symbol(name, val, file);
@@ -221,7 +171,6 @@ impl TestHarness {
     }
 
     pub fn build_frontend(&self) -> FrontendPipeline {
-        println!("FRONTEND DONE");
         FrontendPipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
@@ -230,8 +179,6 @@ impl TestHarness {
         .with_features(FrontendFeatures::default())
     }
     pub fn build_middle(&self) -> MiddlePipeline {
-        println!("MIDDLE START");
-
         MiddlePipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
@@ -242,8 +189,6 @@ impl TestHarness {
     }
 
     pub fn build_backend(&self) -> BackendPipeline {
-        println!("BACKEND START");
-
         BackendPipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
@@ -273,3 +218,12 @@ impl TestHarness {
         sym
     }
 }
+
+// impl TestHarness {
+//     pub fn run_stage<T, E>(&self, mut stage: T) -> Result<(), E>
+//     where
+//         T: Stage<CompileError = E>,
+//     {
+//         stage.run(self.env.clone())
+//     }
+// }

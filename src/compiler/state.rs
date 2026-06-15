@@ -105,18 +105,10 @@ pub struct SymbolIndex {
 /// Purpose:
 /// Stores intermediate representation per file/module
 #[derive(Default, Debug, Clone)]
-
 pub struct IRCache {
-    /// file -> IR tree
-    pub per_file: HashMap<Uuid, Vec<IROp>>,
-
-    /// symbol -> IR fragment (for incremental recompilation)
-    pub per_symbol: HashMap<SymbolId, Vec<IROp>>,
-
-    /// hash -> IR (deduplicated structural cache)
-    pub dedup_cache: HashMap<u64, Vec<IROp>>,
-
-    /// last validated IR version per file
+    pub per_file: HashMap<Uuid, IR>,
+    pub per_symbol: HashMap<SymbolId, IR>,
+    pub dedup_cache: HashMap<u64, IR>,
     pub ir_versions: HashMap<Uuid, u32>,
     pub current: Option<IR>,
 }
@@ -161,7 +153,7 @@ pub struct BuildCache {
     pub object_cache: HashMap<u64, Vec<u8>>,
 
     /// file hash -> IR snapshot
-    pub ir_cache: HashMap<u64, Vec<IROp>>,
+    pub ir_cache: HashMap<u64, IR>,
 
     /// symbol hash -> compiled output
     pub symbol_cache: HashMap<u64, Vec<u8>>,
@@ -179,7 +171,7 @@ impl BuildCache {
         self.object_cache.insert(hash, artifact);
     }
 
-    pub fn insert_ir(&mut self, hash: u64, ir: Vec<IROp>) {
+    pub fn insert_ir(&mut self, hash: u64, ir: IR) {
         self.ir_cache.insert(hash, ir);
     }
 
@@ -232,8 +224,8 @@ pub struct CompileState {
     // IR PIPELINE
     // =========================
     /// Cached intermediate representations per file/module
+    pub ir: Option<IR>,
     pub ir_cache: IRCache,
-
     /// Lowered IR (post-optimization / pre-codegen cache)
     pub lowered_cache: LoweredCache,
 
@@ -298,6 +290,7 @@ impl Default for CompileState {
             dependency_graph: DependencyGraph::default(),
             symbols: SymbolRegistry::default(),
             symbol_index: SymbolIndex::default(),
+            ir: None,
             ir_cache: IRCache::default(),
             lowered_cache: LoweredCache::default(),
             dirty_files: HashSet::new(),

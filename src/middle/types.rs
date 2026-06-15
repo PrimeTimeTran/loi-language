@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::{fmt, path::PathBuf};
 
-use crate::frontend::ast::{Expr, Stmt};
+use crate::frontend::ast::{Expr, HashF64, Stmt};
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Module {
@@ -96,4 +96,23 @@ pub struct Span {
     pub file: PathBuf,
     pub start: usize,
     pub end: usize,
+}
+
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+pub enum IRVal {
+    Number(HashF64),
+    Bool(bool),
+    Str(String),
+    Var(String),
+}
+
+impl IRVal {
+    pub fn inferred_type(&self) -> Type {
+        match self {
+            IRVal::Number(_) => Type::F64,
+            IRVal::Bool(_) => Type::Bool,
+            IRVal::Str(_) => Type::Str,
+            IRVal::Var(_) => Type::Unknown,
+        }
+    }
 }
