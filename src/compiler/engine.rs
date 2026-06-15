@@ -200,6 +200,15 @@ pub struct CompileEngine {
 }
 
 impl CompileEngine {
+    fn parse(&mut self) {}
+
+    fn analyze(&mut self) {}
+
+    fn lower(&mut self) {}
+
+    fn backend(&mut self) {}
+
+    fn build(&mut self) {}
     pub fn run_all(&self) -> Result<(), ()> {
         for stage in &self.stages {
             println!("Running: {}...", stage.name());

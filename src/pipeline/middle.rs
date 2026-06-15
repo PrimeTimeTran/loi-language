@@ -90,9 +90,6 @@ impl MiddlePipeline {
 
 impl MiddlePipeline {
     fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
-        // let ast = { engine.state.read().unwrap().ast.clone() }
-        //     .ok_or_else(|| CompileError::Middle("missing AST".into()))?;
-
         let ast = engine
             .state
             .read()
@@ -111,7 +108,7 @@ impl MiddlePipeline {
                 m
             },
         };
-        engine.state.write().unwrap().ir_cache.current = Some(ir);
+        engine.state.write().unwrap().current_ir = Some(ir);
         Ok(())
     }
 

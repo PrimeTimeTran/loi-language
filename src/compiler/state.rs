@@ -99,47 +99,11 @@ pub struct SymbolIndex {
     pub scope_stack: Vec<Vec<SymbolId>>,
 }
 
-/// =========================
-/// IR CACHE
-/// =========================
-/// Purpose:
-/// Stores intermediate representation per file/module
-#[derive(Default, Debug, Clone)]
-pub struct IRCache {
-    pub per_file: HashMap<Uuid, IR>,
-    pub per_symbol: HashMap<SymbolId, IR>,
-    pub dedup_cache: HashMap<u64, IR>,
-    pub ir_versions: HashMap<Uuid, u32>,
-    pub current: Option<IR>,
+#[derive(Debug, Default)]
+pub struct CompilerCaches {
+    pub build: BuildCache,
+    pub lowered: LoweredCache,
 }
-
-#[derive(Debug, Clone)]
-pub struct LoweredIR {
-    pub nodes: Vec<IROp>,
-}
-
-/// =========================
-/// LOWERED CACHE (POST IR OPTIMIZATION)
-/// =========================
-/// Purpose:
-/// Stores optimized / backend-ready IR
-#[derive(Default, Debug, Clone)]
-pub struct LoweredCache {
-    /// file -> lowered IR
-    pub per_file: HashMap<Uuid, Vec<LoweredOp>>,
-
-    /// symbol-level lowered fragments
-    pub per_symbol: HashMap<SymbolId, Vec<LoweredOp>>,
-
-    /// backend-specific cache (LLVM / WASM / etc.)
-    pub backend_cache: HashMap<String, Vec<u8>>,
-
-    /// optimization pass versioning
-    pub opt_pass_version: u32,
-
-    pub current: Option<LoweredIR>,
-}
-
 /// =========================
 /// BUILD CACHE
 /// =========================
@@ -165,7 +129,153 @@ pub struct BuildCache {
     pub cache_version: u32,
     pub current: Option<BuildArtifact>,
 }
+/// =========================
+/// IR CACHE
+/// =========================
+/// Purpose:
+/// Stores intermediate representation per file/module
+#[derive(Default, Debug, Clone)]
+pub struct IRCache {
+    pub per_file: HashMap<Uuid, IR>,
+    pub per_symbol: HashMap<SymbolId, IR>,
+    pub dedup_cache: HashMap<u64, IR>,
+    pub ir_versions: HashMap<Uuid, u32>,
+    pub current: Option<IR>,
+}
+/// =========================
+/// LOWERED CACHE (POST IR OPTIMIZATION)
+/// =========================
+/// Purpose:
+/// Stores optimized / backend-ready IR
+#[derive(Default, Debug, Clone)]
+pub struct LoweredCache {
+    /// file -> lowered IR
+    pub per_file: HashMap<Uuid, Vec<LoweredOp>>,
 
+    /// symbol-level lowered fragments
+    pub per_symbol: HashMap<SymbolId, Vec<LoweredOp>>,
+
+    /// backend-specific cache (LLVM / WASM / etc.)
+    pub backend_cache: HashMap<String, Vec<u8>>,
+
+    /// optimization pass versioning
+    pub opt_pass_version: u32,
+
+    pub current: Option<LoweredIR>,
+}
+#[derive(Debug, Clone)]
+pub struct LoweredIR {
+    pub nodes: Vec<IROp>,
+}
+
+/// Final backend output
+// CompilerState is the *mutable brain* of the compiler.
+//
+// IMPORTANT DESIGN NOTE:
+// - Env = immutable "what world am I in"
+// - State = evolving "what do I know so far"
+// - Engine = "what do I do with it"
+//
+// This struct should be safe to discard/rebuild from scratch,
+// except for caches if you later introduce persistent incremental builds.
+#[derive(Debug)]
+pub struct CompileState {
+    // ========================================
+    // === 1. WORLD MODEL
+    // "What exists in this project?"
+    // ========================================
+    /// Canonical registry of all known files/modules.
+    /// Owns file identity and metadata.
+    pub registry: Registry,
+
+    /// Directed graph of file relationships.
+    /// Tracks imports/includes between files.
+    pub file_graph: FileGraph,
+
+    /// Symbol dependency graph.
+    /// Tracks which symbols depend on other symbols.
+    pub dependency_graph: DependencyGraph,
+
+    // ========================================
+    // === 2. SEMANTIC MODEL
+    // "What does everything mean?"
+    // ========================================
+    /// Global symbol storage.
+    /// Contains definitions, ownership, metadata, and resolved symbols.
+    pub symbols: SymbolRegistry,
+
+    /// Fast symbol lookup index.
+    /// Handles name resolution, scopes, and symbol id lookup.
+    pub symbol_index: SymbolIndex,
+
+    // ========================================
+    // === 3. INCREMENTAL COMPILATION
+    // "What needs rebuilding?"
+    // ========================================
+    /// Files invalidated by source changes.
+    /// Used to avoid recompiling unchanged files.
+    pub dirty_files: HashSet<Uuid>,
+
+    /// Symbols invalidated by definition changes.
+    /// Used for dependency-aware recompilation.
+    pub dirty_symbols: HashSet<SymbolId>,
+
+    /// Content fingerprints used for change detection.
+    /// Later can migrate from PathBuf -> FileId.
+    pub content_hashes: HashMap<PathBuf, u64>,
+
+    // ========================================
+    // === 4. ACTIVE COMPILATION STATE
+    // "What am I compiling right now?"
+    // ========================================
+    /// Current source input.
+    /// Used by single-file compilation and REPL workflows.
+    pub source: Option<String>,
+
+    /// Parsed syntax tree from current source.
+    pub ast: Option<AST>,
+
+    /// Current intermediate representation.
+    /// Produced by frontend/middle pipeline.
+    pub current_ir: Option<IR>,
+
+    /// Backend-ready IR after optimization/lowering.
+    /// Consumed by LLVM/backend pipeline.
+    pub current_lowered_ir: Option<LoweredIR>,
+
+    /// Final compilation output.
+    /// Executable/object/library/etc.
+    pub current_artifact: Option<BuildArtifact>,
+
+    // ========================================
+    // === 5. CACHING / PERFORMANCE
+    // "What have we already computed?"
+    // ========================================
+    /// Persistent compiler caches.
+    /// Stores reusable IR, lowered IR, and build artifacts.
+    pub caches: CompilerCaches,
+
+    // ========================================
+    // === 6. DIAGNOSTICS
+    // "What did compilation report?"
+    // ========================================
+    /// Central diagnostics storage.
+    /// Errors, warnings, spans, and compiler messages.
+    // pub diagnostics: DiagnosticStore,
+
+    // ========================================
+    // === 7. VERSIONING
+    // "Are cached results still valid?"
+    // ========================================
+
+    /// Compiler version.
+    /// Used for cache invalidation and reproducible builds.
+    pub compiler_version: String,
+
+    /// IR format version.
+    /// Increment when IR structure changes.
+    pub ir_version: u32,
+}
 impl BuildCache {
     pub fn insert_artifact(&mut self, hash: u64, artifact: Vec<u8>) {
         self.object_cache.insert(hash, artifact);
@@ -183,98 +293,15 @@ impl BuildCache {
         self.current = Some(artifact);
     }
 }
-
-/// Final backend output
-// CompilerState is the *mutable brain* of the compiler.
-//
-// IMPORTANT DESIGN NOTE:
-// - Env = immutable "what world am I in"
-// - State = evolving "what do I know so far"
-// - Engine = "what do I do with it"
-//
-// This struct should be safe to discard/rebuild from scratch,
-// except for caches if you later introduce persistent incremental builds.
-#[derive(Debug)]
-pub struct CompileState {
-    pub source: Option<String>,
-    pub ast: Option<AST>,
-
-    // =========================
-    // FILE SYSTEM MODEL
-    // =========================
-    /// Canonical registry of all known files
-    pub registry: Registry,
-
-    /// Directed graph of file relationships (imports/includes)
-    pub file_graph: FileGraph,
-
-    /// Symbol-level dependency graph (who depends on whom)
-    pub dependency_graph: DependencyGraph,
-
-    // =========================
-    // SYMBOL SYSTEM
-    // =========================
-    /// Global symbol storage (definitions, metadata, ownership)
-    pub symbols: SymbolRegistry,
-
-    /// Fast lookup index (name → symbol id, scoped resolution, etc.)
-    pub symbol_index: SymbolIndex,
-
-    // =========================
-    // IR PIPELINE
-    // =========================
-    /// Cached intermediate representations per file/module
-    pub ir: Option<IR>,
-    pub ir_cache: IRCache,
-    /// Lowered IR (post-optimization / pre-codegen cache)
-    pub lowered_cache: LoweredCache,
-
-    // =========================
-    // INCREMENTAL COMPILATION
-    // =========================
-    /// Files that must be recompiled due to changes
-    pub dirty_files: HashSet<Uuid>,
-
-    /// Symbols that are invalidated (definition changed or moved)
-    pub dirty_symbols: HashSet<SymbolId>,
-
-    // =========================
-    // CACHING / PERFORMANCE
-    // =========================
-    /// File content hashes (used for change detection)
-    /// NOTE: PathBuf is acceptable early-stage, but later you may want FileId instead
-    pub content_hashes: HashMap<PathBuf, u64>,
-
-    /// Build-level cache (IR → object code, etc.)
-    pub build_cache: BuildCache,
-
-    // =========================
-    // DIAGNOSTICS
-    // =========================
-    /// Central diagnostic store (errors, warnings, spans, trace info)
-    // pub diagnostics: DiagnosticStore,
-
-    // =========================
-    // VERSIONING (CRITICAL FOR LONG-TERM STABILITY)
-    // =========================
-    /// Compiler semantic version (used for cache invalidation + reproducibility)
-    pub compiler_version: String,
-
-    /// IR format version (must bump when IR structure changes)
-    pub ir_version: u32,
-}
-
 impl CompileState {
     pub fn current_ir(&self) -> Option<IR> {
-        self.ir_cache.current.clone()
+        self.current_ir.clone()
     }
-
     pub fn current_lowered_ir(&self) -> Option<LoweredIR> {
-        self.lowered_cache.current.clone()
+        self.current_lowered_ir.clone()
     }
-
     pub fn current_artifact(&self) -> Option<BuildArtifact> {
-        self.build_cache.current.clone()
+        self.current_artifact.clone()
     }
     pub fn registry_is_empty(&self) -> bool {
         self.registry.is_empty()
@@ -283,21 +310,25 @@ impl CompileState {
 impl Default for CompileState {
     fn default() -> Self {
         Self {
-            source: None,
-            ast: None,
             registry: Registry::default(),
             file_graph: FileGraph::default(),
             dependency_graph: DependencyGraph::default(),
+
             symbols: SymbolRegistry::default(),
             symbol_index: SymbolIndex::default(),
-            ir: None,
-            ir_cache: IRCache::default(),
-            lowered_cache: LoweredCache::default(),
+
             dirty_files: HashSet::new(),
             dirty_symbols: HashSet::new(),
             content_hashes: HashMap::new(),
-            build_cache: BuildCache::default(),
-            // diagnostics: DiagnosticStore::default(),
+
+            source: None,
+            ast: None,
+            current_ir: None,
+            current_lowered_ir: None,
+            current_artifact: None,
+
+            caches: CompilerCaches::default(),
+
             compiler_version: env!("CARGO_PKG_VERSION").to_string(),
             ir_version: 1,
         }
