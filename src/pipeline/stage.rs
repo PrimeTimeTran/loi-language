@@ -3,10 +3,15 @@
 // "What is the name of the stage you are currently executing?"
 // so it can print logs and handle errors.
 ///////////////////////////////////////////////////////////////////////////////////////////
-use crate::pipeline::{backend::BackendPipeline, middle::MiddlePipeline};
+use crate::{
+    compiler::{engine::CompileEngine, types::BuildArtifact},
+    middle::ir::IR,
+    pipeline::{CompileError, backend::BackendPipeline, middle::MiddlePipeline},
+};
 
 pub trait Stage: std::fmt::Debug + Send + Sync {
-    fn run(&self) -> Result<(), ()>;
+    // fn run(&self) -> Result<(), ()>;
+    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError>;
     fn name(&self) -> &str;
 }
 
@@ -14,24 +19,23 @@ impl Stage for MiddlePipeline {
     fn name(&self) -> &str {
         &self.metadata.name
     }
-    fn run(&self) -> Result<(), ()> {
-        // 1. Access the shared state
-        // let state = self.state.read().map_err(|e| e.to_string())?;
-
-        // // 2. Ensure the previous stage finished successfully
-        // let ast = state
-        //     .ast
-        //     .as_ref()
-        //     .ok_or("No AST found - did Frontend fail?")?;
-
-        // // 3. Perform middle-end work
-        // println!("MiddlePipeline: Optimizing AST...");
-        // let ir = self.generate_ir(ast); // Your internal logic
-
-        // // 4. Update the shared state with the result
-        // let mut state = self.state.write().map_err(|e| e.to_string())?;
-        // state.ir = Some(ir);
-
+    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+        println!("MIDDLE START");
+        let ast = { engine.state.read().unwrap().ast.clone() }
+            .ok_or_else(|| CompileError::Middle("missing AST".into()))?;
+        let ir_nodes = self.lower_ast(ast);
+        let ir = IR {
+            raw: String::new(),
+            nodes: ir_nodes,
+            symbols: std::collections::HashMap::new(),
+            metadata: {
+                let mut m = std::collections::HashMap::new();
+                m.insert("stage".into(), "middle".into());
+                m
+            },
+        };
+        engine.state.write().unwrap().ir_cache.current = Some(ir);
+        println!("MIDDLE END");
         Ok(())
     }
 }
@@ -40,25 +44,17 @@ impl Stage for BackendPipeline {
     fn name(&self) -> &str {
         &self.metadata.name
     }
-    fn run(&self) -> Result<(), ()> {
-        // // 1. Access shared state
-        // let state = self.state.read().map_err(|e| e.to_string())?;
+    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+        println!("BACKEND START");
 
-        // // 2. Ensure IR exists
-        // let ir = state
-        //     .ir
-        //     .as_ref()
-        //     .ok_or("No IR found - did Middle stage fail?")?;
+        let ir = { engine.state.read().unwrap().ir_cache.current.clone() }
+            .ok_or_else(|| CompileError::Backend("missing IR".into()))?;
 
-        // // 3. Perform backend generation
-        // println!("BackendPipeline: Generating code...");
-        // let binary = self
-        //     .codegen(ir)
-        //     .map_err(|e| format!("Codegen error: {}", e))?;
+        let object = self.codegen(ir)?;
 
-        // // 4. Finalize state
-        // let mut state = self.state.write().map_err(|e| e.to_string())?;
-        // state.output = Some(binary);
+        engine.state.write().unwrap().build_cache.current = Some(BuildArtifact::Object(object));
+
+        println!("BACKEND END");
 
         Ok(())
     }

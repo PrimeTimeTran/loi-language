@@ -89,7 +89,7 @@ impl fmt::Display for HashF64 {
     }
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize)]
 pub enum Expr {
     Number(HashF64),
     Unary {
@@ -133,7 +133,7 @@ pub enum DeclKind {
     Dynamic,         // =?
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Serialize)]
 pub enum BinOp {
     Add,
     Sub,
@@ -150,14 +150,14 @@ pub enum BinOp {
     Power,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Serialize)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, Serialize)]
 pub enum UnOp {
     Neg,
     Not,
     AddrOf,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize)]
 pub enum AssignOp {
     Assign,    // =
     Immutable, // =!

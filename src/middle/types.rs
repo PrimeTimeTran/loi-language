@@ -78,7 +78,7 @@ pub struct Variant {
     pub fields: Vec<Type>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Hash)]
 pub enum Type {
     I32,
     F64,
@@ -91,7 +91,7 @@ pub enum Type {
     Unknown,
 }
 
-#[derive(Debug, Hash, Clone, Default, PartialEq)]
+#[derive(Debug, Hash, Clone, Default, Eq, PartialEq)]
 pub struct Span {
     pub file: PathBuf,
     pub start: usize,

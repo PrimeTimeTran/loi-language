@@ -25,7 +25,7 @@ impl Compiler {
     pub fn compile(&self) -> Result<(), Compiler> {
         for pipeline in &self.pipelines {
             println!("Running {}", pipeline.name());
-            pipeline.compile();
+            // pipeline.compile();
         }
         Ok(())
     }

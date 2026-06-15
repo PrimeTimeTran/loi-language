@@ -103,10 +103,18 @@ struct ModuleState
 
     common_mods_available_in_test_root()
 
-## tests/0002-pipeline.rs
+## tests/0002-pipeline-backend.rs
 
-    test_everything_at_once()
-    test_piecemeal()
+
+## tests/0002-pipeline-frontend.rs
+
+    frontend_ast_invariants()
+    frontend_parse_expressions()
+    frontend_parse_invalid_input()
+    frontend_parse_statements()
+
+## tests/0002-pipeline-middle.rs
+
 
 ## tests/0002-pulse-parser.rs
 
@@ -730,7 +738,7 @@ struct ModuleState
 
         struct HashF64(_0:f64)
         enum AssignOp { Assign, Immutable, Dynamic }
-        struct AST(stmts:Vec < Stmt >)
+        struct AST(program:Program, stmts:Vec < Stmt >)
         enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
         struct Program(stmts:Vec < Stmt >, modules:Vec < Module >, globals:Vec < Stmt >, entry:Option < Block >)
         enum Stmt { Let(name, kind, value), Print(expr), ExprStmt(expr), Function(name, params, body), Return(value), If(condition, then_branch, else_branch), While(condition, body), Loop(body), For(iterator, iterable, body), DoWhile(body, condition), Block(body) }
@@ -979,8 +987,8 @@ struct ModuleState
 
 #### tests/common/pipeline.rs
 
-        create_test_harness()
         test_middle_pipeline_optimization()
+        create_test_harness()
 
 #### tests/common/pipeline2.rs
 

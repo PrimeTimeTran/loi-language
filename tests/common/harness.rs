@@ -22,6 +22,7 @@ use loi::{
     kernel::{Kernel, KernelBuilder},
     middle::semantic,
     pipeline::{
+        CompileError,
         backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
         frontend::{FrontendFeatures, FrontendPipeline},
         middle::{IRConfig, MiddleFeatures, MiddlePipeline},
@@ -46,6 +47,8 @@ pub struct TestHarness {
     pub env: TestEnv,
     pub registry: Registry,
     pub engines: HashMap<String, Box<dyn Utter>>,
+    // pub engine: CompileEngine,
+    pub engine: Arc<CompileEngine>,
 }
 
 impl TestHarness {
@@ -56,7 +59,7 @@ impl TestHarness {
         runner.add_stage(self.build_middle());
         runner.add_stage(self.build_backend());
 
-        runner.run();
+        runner.run(&self.engine)?;
 
         Ok(())
     }
@@ -115,19 +118,29 @@ impl TestHarness {
         let context = Arc::new(Context::new());
         let config = Arc::new(RwLock::new(CompileConfig::default()));
         let state = Arc::new(RwLock::new(CompileState::default()));
-        let engine = CompileEngine::new(context.clone(), config.clone(), state.clone());
+
+        // engine owns shared state/config/context (all Arc clones)
+        let engine = Arc::new(CompileEngine::new(
+            context.clone(),
+            config.clone(),
+            state.clone(),
+        ));
+
+        // kernel consumes engine (move happens here)
         let kernel = KernelBuilder::new()
             .context(context.clone())
-            .engine(engine)
-            .diagnostics(diagnostics)
+            .engine(engine.clone())
+            .diagnostics(diagnostics.clone())
             .build();
+
         let env = TestEnv {
-            state,
-            config,
-            context: kernel.context.clone(),
+            state: state.clone(),
+            config: config.clone(),
+            context: context.clone(),
         };
 
         Self {
+            engine,
             kernel,
             env,
             registry: Registry::new(),
@@ -242,8 +255,8 @@ impl TestHarness {
         .with_debug(false)
     }
 
-    pub fn run_stage<T: Stage>(&mut self, stage: T) -> Result<(), ()> {
-        stage.run()
+    pub fn run_stage<T: Stage>(&mut self, stage: T) -> Result<(), CompileError> {
+        stage.run(&self.engine)
     }
 
     pub fn run_pipeline(&self) -> SymbolRegistry {

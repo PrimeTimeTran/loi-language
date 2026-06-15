@@ -21,7 +21,7 @@ pub fn init() -> Kernel {
     let context = Arc::new(Context::new());
     let config = Arc::new(RwLock::new(CompileConfig::default()));
     let state = Arc::new(RwLock::new(CompileState::default()));
-    let engine = CompileEngine::new(context.clone(), config, state);
+    let engine = Arc::new(CompileEngine::new(context.clone(), config, state));
     KernelBuilder::new()
         .context(context)
         .engine(engine)

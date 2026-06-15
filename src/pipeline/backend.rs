@@ -5,8 +5,8 @@ use inkwell::targets::{
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    compiler,
-    compiler::{config::CompileConfig, state::CompileState, types::BuildArtifact},
+    backend::llvm::CodeGenContext,
+    compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     interface::CompileEngineProvider,
     middle::ir::IR,
@@ -21,53 +21,54 @@ use crate::{
 /// - WASM generation
 /// - custom bytecode
 #[derive(Debug)]
+// pub struct BackendPipeline<'ctx> {
 pub struct BackendPipeline {
+    // pub ctx: CodeGenContext<'ctx>,
     pub llvm_context: Mutex<inkwell::context::Context>,
     pub metadata: Metadata,
     pub context: Arc<Context>,
     pub config: Arc<RwLock<CompileConfig>>,
     pub state: Arc<RwLock<CompileState>>,
-
     pub target: BackendTarget,
     pub opt_level: OptimizationLevel,
     pub codegen_config: CodegenConfig,
     pub debug: bool,
 }
 
-impl Pipeline for BackendPipeline {
-    fn name(&self) -> &str {
-        &self.metadata.name
-    }
+// impl Pipeline for BackendPipeline {
+//     fn name(&self) -> &str {
+//         &self.metadata.name
+//     }
 
-    fn compile(&self) -> Result<(), CompileError> {
-        println!(">>> BACKEND RUNNING");
-        let state = self.state.read().unwrap();
-        println!("IR = {:?}", state.current_ir());
-        let state = self.state.read().unwrap();
+//     fn compile(&self) -> Result<(), CompileError> {
+//         println!(">>> BACKEND RUNNING");
+//         let state = self.state.read().unwrap();
+//         println!("IR = {:?}", state.current_ir());
+//         let state = self.state.read().unwrap();
 
-        let ir = state.current_ir().ok_or_else(|| {
-            CompileError::Backend(
-                "Backend requires IR but none was produced by Middle stage".into(),
-            )
-        })?;
+//         let ir = state.current_ir().ok_or_else(|| {
+//             CompileError::Backend(
+//                 "Backend requires IR but none was produced by Middle stage".into(),
+//             )
+//         })?;
 
-        let object = match self.target {
-            BackendTarget::LLVM => self.codegen_llvm(ir)?,
-            BackendTarget::WASM => self.codegen_wasm(ir)?,
-            BackendTarget::Bytecode => {
-                return Err(CompileError::Backend(
-                    "Bytecode backend not implemented".into(),
-                ));
-            }
-        };
+//         let object = match self.target {
+//             BackendTarget::LLVM => self.codegen_llvm(ir)?,
+//             BackendTarget::WASM => self.codegen_wasm(ir)?,
+//             BackendTarget::Bytecode => {
+//                 return Err(CompileError::Backend(
+//                     "Bytecode backend not implemented".into(),
+//                 ));
+//             }
+//         };
 
-        let artifact = BuildArtifact::Object(object);
-        let mut state = self.state.write().unwrap();
-        state.build_cache.current = Some(artifact);
+//         let artifact = BuildArtifact::Object(object);
+//         let mut state = self.state.write().unwrap();
+//         state.build_cache.current = Some(artifact);
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
 
 impl BackendPipeline {
     pub fn new(
@@ -124,7 +125,15 @@ impl BackendPipeline {
         }
     }
 
-    fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
+    // fn compile_ir(&mut self, ir: IR) -> Result<Vec<u8>, CompileError> {
+    //     for op in ir.nodes {
+    //         self.emit(op)?;
+    //     }
+
+    //     self.finalize()
+    // }
+
+    pub fn codegen(&self, ir: IR) -> Result<Vec<u8>, CompileError> {
         use inkwell::OptimizationLevel;
 
         let ctx = self.llvm_context.lock().unwrap();

@@ -24,6 +24,7 @@ use crate::{
 // 2. IR → IR lowering passes (optional transforms)
 // 3. IR → LLVM (backend only)
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runtime<'ctx> {
     pub main: FunctionValue<'ctx>,
     pub entry_block: BasicBlock<'ctx>,
@@ -33,6 +34,7 @@ pub struct Runtime<'ctx> {
     pub fmt_str: PointerValue<'ctx>,
 }
 
+#[derive(Debug)]
 pub struct CodeGenContext<'ctx> {
     pub context: &'ctx Context,
     pub module: Module<'ctx>,

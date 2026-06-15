@@ -203,8 +203,7 @@ impl CompileEngine {
     pub fn run_all(&self) -> Result<(), ()> {
         for stage in &self.stages {
             println!("Running: {}...", stage.name());
-
-            stage.run()?;
+            // stage.run()?;
         }
 
         Ok(())

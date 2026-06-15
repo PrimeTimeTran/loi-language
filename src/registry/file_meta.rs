@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord, Hash)]
 pub struct FileMeta {
     pub id: Uuid,
     pub filename: String,

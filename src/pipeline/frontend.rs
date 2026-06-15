@@ -43,17 +43,17 @@ pub struct FrontendPipeline {
     pub features: FrontendFeatures,
 }
 
-impl Pipeline for FrontendPipeline {
-    fn name(&self) -> &str {
-        &self.metadata.name
-    }
+// impl Pipeline for FrontendPipeline {
+//     fn name(&self) -> &str {
+//         &self.metadata.name
+//     }
 
-    fn compile(&self) -> Result<(), CompileError> {
-        let config_guard = self.config.read().unwrap();
-        println!("Frontend compiling in: {:?}", config_guard.root);
-        Ok(())
-    }
-}
+//     fn compile(&self) -> Result<(), CompileError> {
+//         let config_guard = self.config.read().unwrap();
+//         println!("Frontend compiling in: {:?}", config_guard.root);
+//         Ok(())
+//     }
+// }
 
 impl FrontendPipeline {
     pub fn new(
@@ -191,7 +191,7 @@ impl FrontendPipeline {
 }
 
 impl Stage for FrontendPipeline {
-    fn run(&self) -> Result<(), ()> {
+    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
         let result = self.perform_compilation();
         match result {
             Ok(ast) => {
@@ -202,24 +202,29 @@ impl Stage for FrontendPipeline {
                 Ok(())
             }
             Err(diags) => {
-                let state = self.state.write().unwrap();
+                let state = self.state.read().unwrap();
                 println!("❌ ERROR PATH AST = {:?}", state.ast);
-                println!("${:?}", state.ast);
-                let mut global = self.context.diagnostics.write().map_err(|_| ())?;
 
-                for diag in diags.diagnostics {
-                    global.emit(diag);
-                }
+                // write diagnostics safely
+                {
+                    let mut global =
+                        self.context.diagnostics.write().map_err(|_| {
+                            CompileError::Frontend("failed to lock diagnostics".into())
+                        })?;
 
-                // 🔥 DEBUG: try to persist whatever AST exists
-                if let Ok(mut state) = self.state.write() {
-                    if state.ast.is_none() {
-                        // optional debug fallback
-                        state.ast = None;
+                    for diag in diags.diagnostics {
+                        global.emit(diag);
                     }
                 }
 
-                Err(())
+                // optional debug fallback (no-op unless you want logging)
+                if let Ok(state) = self.state.write() {
+                    if state.ast.is_none() {
+                        println!("⚠️ AST is missing after frontend failure");
+                    }
+                }
+
+                Err(CompileError::Frontend("failure in AST".into()))
             }
         }
     }

@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Kernel {
     pub context: Arc<Context>,
-    pub engine: CompileEngine,
+    pub engine: Arc<CompileEngine>,
     pub logger: Arc<Logger>,
     pub cache: Arc<MemoryCache>,
     pub job_queue: Arc<JobQueue>,
@@ -33,7 +33,7 @@ pub struct Kernel {
 
 pub struct KernelBuilder {
     context: Option<Arc<Context>>,
-    engine: Option<CompileEngine>,
+    engine: Option<Arc<CompileEngine>>,
     logger: Option<Arc<Logger>>,
     cache: Option<Arc<MemoryCache>>,
     job_queue: Option<Arc<JobQueue>>,
@@ -59,7 +59,7 @@ impl KernelBuilder {
         self
     }
 
-    pub fn engine(mut self, engine: CompileEngine) -> Self {
+    pub fn engine(mut self, engine: Arc<CompileEngine>) -> Self {
         self.engine = Some(engine);
         self
     }
