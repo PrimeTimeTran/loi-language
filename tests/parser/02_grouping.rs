@@ -1,6 +1,8 @@
-#[path = "../harness/mod.rs"]
 
-mod common;
+
+mod common {
+    include!("../common/mod.rs");
+}
 use common::helpers::parses;
 
 #[test]

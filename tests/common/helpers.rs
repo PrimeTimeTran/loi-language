@@ -1,4 +1,6 @@
+
 use crate::common::{AssertOpts, MockEngine, TestHarness};
+
 use inkwell::{
     AddressSpace,
     builder::Builder,
@@ -17,7 +19,7 @@ use loi::{
     frontend::{
         ast::{AST, BinOp, DeclKind, Expr, Stmt},
         lexer::{self, lex},
-        parser::{self, parse, parse_source},
+        parser::{self, parse},
     },
     middle::{
         ir::{IROp, IrInstruction, LoweredOp, Op, TypedExpr},
@@ -104,7 +106,6 @@ fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {
 
 pub fn generate_binary_ir(target: &str, left: IRVal, right: IRVal) -> IROp {
     IROp::Binary {
-        target: target.to_string(),
         left,
         op: BinOp::Add,
         right,

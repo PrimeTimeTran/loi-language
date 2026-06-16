@@ -198,8 +198,8 @@ impl TestHarness {
         .with_debug(false)
     }
 
-    pub fn run_stage<T: Stage>(&mut self, stage: T) -> Result<(), CompileError> {
-        stage.run(&self.engine)
+    pub fn run_stage<T: Stage>(&mut self, mut stage: T) -> Result<(), CompileError> {
+        stage.run(&mut self.engine)
     }
 
     pub fn run_pipeline(&self) -> SymbolRegistry {
@@ -216,12 +216,3 @@ impl TestHarness {
         sym
     }
 }
-
-// impl TestHarness {
-//     pub fn run_stage<T, E>(&self, mut stage: T) -> Result<(), E>
-//     where
-//         T: Stage<CompileError = E>,
-//     {
-//         stage.run(self.env.clone())
-//     }
-// }

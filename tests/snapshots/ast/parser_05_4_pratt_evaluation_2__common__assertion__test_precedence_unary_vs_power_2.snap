@@ -1,8 +1,8 @@
 ---
 source: tests/common/assertion.rs
-expression: parse_to_ast(input)
+expression: ast
 ---
-Ok:
+program:
   stmts:
     - ExprStmt:
         expr:
@@ -15,3 +15,18 @@ Ok:
                 op: Neg
                 expr:
                   Var: b
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Binary:
+          left:
+            Var: a
+          op: Power
+          right:
+            Unary:
+              op: Neg
+              expr:
+                Var: b

@@ -1,5 +1,32 @@
 ---
 source: tests/common/assertion.rs
-expression: parse_to_ast(input)
+expression: ast
 ---
-Err: AST missing
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Binary:
+            left:
+              Unary:
+                op: Neg
+                expr:
+                  Var: a
+            op: Power
+            right:
+              Var: b
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Binary:
+          left:
+            Unary:
+              op: Neg
+              expr:
+                Var: a
+          op: Power
+          right:
+            Var: b

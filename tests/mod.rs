@@ -1,3 +1,6 @@
 pub mod common;
-#[path = "z.pulse-testing/mod.rs"]
-pub mod test_setup;
+pub mod lexer;
+pub mod parser;
+// pub mod frontend;
+pub mod llvm;
+pub mod setup;

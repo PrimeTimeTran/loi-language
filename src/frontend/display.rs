@@ -47,7 +47,10 @@ impl fmt::Display for Stmt {
 
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format_prec(f, 0)
+        match self {
+            Expr::Var(name) => write!(f, "identifier({})", name),
+            _ => self.format_prec(f, 0),
+        }
     }
 }
 

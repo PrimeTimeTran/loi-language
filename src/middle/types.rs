@@ -108,6 +108,7 @@ pub enum IRVal {
     Str(String),
     Var(String),
     Temp(String),
+    Unit,
 }
 
 impl IRVal {
@@ -118,6 +119,7 @@ impl IRVal {
             IRVal::Str(_) => Type::Str,
             IRVal::Var(_) => Type::Unknown,
             IRVal::Temp(_) => Type::Unknown,
+            IRVal::Unit => Type::Void,
         }
     }
 }

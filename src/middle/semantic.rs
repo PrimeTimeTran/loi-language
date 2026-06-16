@@ -73,6 +73,10 @@ fn annotate_types(expr: &mut Expr, symbol_table: &HashMap<String, Type>) -> Type
 fn infer_type(expr: &Expr, symbols: &HashMap<String, Type>) -> Result<Type, String> {
     match expr {
         Expr::Number(_) => Ok(Type::F64),
+        Expr::Identifier { name } => symbols
+            .get(name)
+            .cloned()
+            .ok_or_else(|| format!("Undefined variable: {}", name)),
         Expr::Unary { .. } => Ok(Type::F64),
         Expr::Binary { .. } => Ok(Type::F64),
         Expr::Bool(_) => Ok(Type::Bool),
@@ -234,6 +238,7 @@ fn wrap_to_irval(
     _span: Span,
 ) -> Result<IRVal, String> {
     match expr {
+        Expr::Identifier { name } => Ok(IRVal::Str(name)),
         Expr::Number(n) => Ok(IRVal::Number(n)),
         Expr::Bool(b) => Ok(IRVal::Bool(b)),
         Expr::String(s) => Ok(IRVal::Str(s)),

@@ -1,8 +1,11 @@
-#[path = "../harness/mod.rs"]
+
 
 
 // 2. Now you can use it
-use harness::helpers::parses;
+mod common {
+    include!("../common/mod.rs");
+}
+use common::helpers::parses;
 
 #[test]
 fn p01_parses_empty_block() {

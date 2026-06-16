@@ -61,10 +61,14 @@ cargo run
   cargo watch -x 'nextest run --test registry --test file_meta --test-threads 1 --no-fail-fast'
 
 - Run Regex selected
-  cargo watch -x 'nextest run --test \_0\* --test-threads 1 --no-fail-fast'
-  cargo watch -x 'nextest run --test parser\_\_ --test-threads 1 --no-fail-fast'
-  cargo watch -x 'nextest run --test lexer\_\_ --test-threads 1 --no-fail-fast'
+
+```
+  cargo watch -x 'nextest run --test parser_05-2* --test-threads 1 --no-fail-fast'
+  cargo watch -x 'nextest run --test _0* --test-threads 1 --no-fail-fast'
+  cargo watch -x 'nextest run --test parser_* --test-threads 1 --no-fail-fast'
+  cargo watch -x 'nextest run --test lexer_* --test-threads 1 --no-fail-fast'
   cargo nextest run --filter-expr 'test(lexer::)'
+```
 
 # Enable Snapshots
 

@@ -1,0 +1,18 @@
+[experimental]
+setup-scripts = true
+
+[profile.default]
+# fail-fast = false
+failure-output = "immediate"
+
+
+[[profile.default.scripts]]
+filter = 'test(*)'
+setup = 'test-setup'
+
+[scripts.setup.test-setup]
+# Use absolute path to be safe, e.g., /Users/future/KB/project/app/loi/test-setup.sh
+# Redirecting to a file will help you confirm it ran.
+command = "/Users/future/KB/project/app/loi/test-setup.sh"
+
+

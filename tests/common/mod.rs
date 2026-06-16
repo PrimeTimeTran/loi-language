@@ -6,10 +6,7 @@ pub mod lexer;
 pub mod llvm;
 pub mod mock_engine;
 pub mod pipeline;
-#[path = "00-pulse-helper.rs"]
-pub mod pulse_helper;
 pub mod snapshot;
-
 pub use assertion::*;
 pub use harness::*;
 pub use helpers::*;
@@ -23,7 +20,7 @@ pub use snapshot::*;
 use loi::test_utils;
 
 #[test]
-fn ensure_lib_mods_available_in_tests() {
+fn can_use_src_helpers() {
     let env = test_utils::lib_helper();
 
     assert_eq!(env, "Loi", "Loading a ./src/* mod failed");

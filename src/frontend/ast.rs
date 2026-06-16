@@ -91,6 +91,9 @@ impl fmt::Display for HashF64 {
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize)]
 pub enum Expr {
+    Identifier {
+        name: String,
+    },
     Assign {
         left: Box<Expr>,
         right: Box<Expr>,
@@ -299,6 +302,7 @@ impl Expr {
         }
 
         match self {
+            Expr::Identifier { name } => write!(f, "identifier({})", name)?,
             Expr::Number(n) => write!(f, "{}", n)?, // Add ? to propagate the Result
             Expr::Bool(b) => write!(f, "{}", b)?,
             Expr::String(s) => write!(f, "\"{}\"", s)?,
@@ -370,10 +374,21 @@ impl Expr {
     // 3. Declarations (let) are handled specifically if the node is a Stmt
     pub fn to_sexpr(&self) -> String {
         match self {
-            Expr::Number(n) => n.to_string(),
-            Expr::Bool(b) => b.to_string(),
-            Expr::String(s) => format!("\"{}\"", s),
-            Expr::Var(name) => name.clone(),
+            Expr::Var(name) => {
+                format!("identifier({})", name.clone())
+            }
+            Expr::Number(n) => {
+                format!("number({})", n.0)
+            }
+            Expr::Bool(b) => {
+                format!("bool({})", b.to_string())
+            }
+            Expr::Identifier { name } => {
+                format!("bool({})", name.to_string())
+            }
+            Expr::String(s) => {
+                format!("string({})", s)
+            }
             Expr::Array(elements) => {
                 let els: Vec<String> = elements.iter().map(|e| e.to_sexpr()).collect();
                 format!("[{}]", els.join(", "))

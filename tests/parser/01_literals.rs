@@ -1,7 +1,7 @@
-#[path = "../harness/mod.rs"]
-
-
-use harness::helpers::parses;
+mod common {
+    include!("../common/mod.rs");
+}
+use common::helpers::parses;
 
 #[test]
 fn p01_parses_integer() {

@@ -2,6 +2,11 @@ use loi::frontend::lexer::lex;
 use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
+mod common {
+    include!("../common/mod.rs");
+}
+use common::lexer::LexerTestHarness;
+
 #[test]
 fn test_delimiters_snap() {
     LexerTestHarness::from_file("tests/fixtures/lexical/delimiters.loi")

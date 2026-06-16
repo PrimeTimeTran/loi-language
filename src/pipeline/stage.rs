@@ -25,7 +25,7 @@ macro_rules! log_stage {
 }
 
 pub trait Stage: std::fmt::Debug + Send + Sync {
-    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError>;
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError>;
     fn name(&self) -> &str;
 }
 
@@ -34,7 +34,7 @@ impl Stage for FrontendPipeline {
         &self.metadata.name
     }
 
-    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
         log_stage!("FRONTEND", "start");
         let ast = self.perform_compilation()?;
         {
@@ -51,7 +51,7 @@ impl Stage for MiddlePipeline {
         &self.metadata.name
     }
 
-    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
         log_stage!("MIDDLE", "start");
 
         // 1. READ AST FROM ENGINE
@@ -86,7 +86,7 @@ impl Stage for BackendPipeline {
         &self.metadata.name
     }
 
-    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
         log_stage!("BACKEND", "start");
 
         let ir = { engine.state.read().unwrap().current_ir.clone() }

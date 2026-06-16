@@ -1,4 +1,8 @@
-#[path = "../harness/mod.rs"]
+mod common {
+    include!("../common/mod.rs");
+}
+use common::assert_expr;
+
 #[test]
 fn p01_parses_negation() {
     // Current actual output from your to_sexpr logic: (- 123)

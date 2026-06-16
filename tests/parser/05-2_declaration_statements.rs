@@ -1,8 +1,9 @@
-#[path = "../harness/mod.rs"]
-
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
-use crate::harness::helpers::assert_expr;
+mod common {
+    include!("../common/mod.rs");
+}
+use common::assert_expr;
 
 #[test]
 fn p01_mixed_decl_and_expr_assignment() {

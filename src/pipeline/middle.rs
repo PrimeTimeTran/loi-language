@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::backend::symbol::registry::SymbolRegistry;
@@ -8,7 +9,7 @@ use crate::compiler::state::CompileState;
 use crate::context::Context;
 use crate::context::test::TestContext;
 use crate::diagnostics;
-use crate::frontend::ast::{AST, Expr, Stmt};
+use crate::frontend::ast::{AST, AssignOp, Expr, Stmt};
 use crate::interface::CompileEngineProvider;
 use crate::middle::ir::{IR, IROp, TypedExpr};
 use crate::middle::types::{IRVal, LoweredExpr, Span, Type};
@@ -31,6 +32,7 @@ pub struct MiddlePipeline {
     pub ir_config: IRConfig,
     pub features: MiddleFeatures,
     pub temp_counter: std::sync::atomic::AtomicUsize,
+    pub symbols: HashMap<String, SymbolInfo>,
 }
 
 impl MiddlePipeline {
@@ -48,6 +50,7 @@ impl MiddlePipeline {
         state: Arc<RwLock<CompileState>>,
     ) -> Self {
         Self {
+            symbols: HashMap::new(),
             metadata: Metadata {
                 name: name.to_string(),
                 version: "1.0.0".to_string(),
@@ -71,8 +74,15 @@ impl MiddlePipeline {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SymbolInfo {
+    is_mutable: bool,
+    is_initialized: bool,
+    declared_at: Option<Span>,
+}
+
 impl MiddlePipeline {
-    fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
         let ast = {
             let state = engine.state.read().unwrap();
             state.current_ast()
@@ -87,13 +97,14 @@ impl MiddlePipeline {
         Ok(())
     }
 
-    pub fn lower_ast(&self, ast: AST) -> Result<Vec<IROp>, CompileError> {
+    pub fn lower_ast(&mut self, ast: AST) -> Result<Vec<IROp>, CompileError> {
         ast.stmts
             .into_iter()
             .map(|stmt| self.lower_stmt(stmt))
             .collect::<Result<Vec<_>, _>>()
     }
     pub fn lower_expr(&self, expr: Expr) -> Result<LoweredExpr, CompileError> {
+        println!("lower_expr: {:?}", expr);
         match expr {
             Expr::Number(_) | Expr::Bool(_) | Expr::String(_) | Expr::Var(_) => {
                 Ok(LoweredExpr::Value(lower_atomic(expr)?))
@@ -106,22 +117,29 @@ impl MiddlePipeline {
             _ => Err(CompileError::Middle("unsupported complex expr".into())),
         }
     }
-    pub fn lower_expr_stmt(&self, expr: Expr) -> Result<IROp, CompileError> {
-        let lowered = self.lower_expr(expr)?;
+    pub fn lower_expr_stmt(&mut self, expr: Expr) -> Result<IROp, CompileError> {
+        println!("lower_expr_stmt: {:?}", expr);
+        match expr {
+            Expr::Assign { left, right, op } => self.handle_assignment(*left, *right, op, None),
 
-        match lowered {
-            LoweredExpr::Value(v) => Ok(IROp::Expr { value: v }),
+            other => {
+                let lowered = self.lower_expr(other)?;
 
-            LoweredExpr::Op(op) => {
-                let temp = self.emit_temp();
+                match lowered {
+                    LoweredExpr::Value(v) => Ok(IROp::Expr { value: v }),
 
-                Ok(IROp::Expr {
-                    value: IRVal::Var(temp),
-                })
+                    LoweredExpr::Op(_) => {
+                        let tmp = self.emit_temp();
+                        Ok(IROp::Expr {
+                            value: IRVal::Var(tmp),
+                        })
+                    }
+                }
             }
         }
     }
-    pub fn lower_stmt(&self, stmt: Stmt) -> Result<IROp, CompileError> {
+    pub fn lower_stmt(&mut self, stmt: Stmt) -> Result<IROp, CompileError> {
+        println!("lower_stmt: {:?}", stmt);
         match stmt {
             Stmt::ExprStmt { expr } => self.lower_expr_stmt(expr),
 
@@ -146,14 +164,18 @@ impl MiddlePipeline {
                 }),
 
                 LoweredExpr::Op(op) => {
-                    let temp = self.emit_temp();
+                    let ir = self.lower_op(op)?;
 
-                    Ok(IROp::Declare {
-                        name,
-                        value: IRVal::Var(temp),
-                        mutable: false,
-                        dynamic: false,
-                    })
+                    match ir {
+                        IROp::Assign { name: _, value } => Ok(IROp::Declare {
+                            name,
+                            value,
+                            mutable: false,
+                            dynamic: false,
+                        }),
+
+                        _ => Err(CompileError::Middle("unsupported op in let".into())),
+                    }
                 }
             },
 
@@ -161,6 +183,139 @@ impl MiddlePipeline {
                 "Unsupported statement: {:?}",
                 stmt
             ))),
+        }
+    }
+    fn lower_op(&mut self, op: IROp) -> Result<IROp, CompileError> {
+        match op {
+            IROp::Assign { name, value } => {
+                let value = self.expr_to_irval_from_value(value)?;
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: true,
+                        is_initialized: true,
+                        declared_at: None,
+                    },
+                );
+
+                Ok(IROp::Assign { name, value })
+            }
+
+            IROp::Declare {
+                name,
+                value,
+                mutable,
+                dynamic,
+            } => {
+                let value = self.expr_to_irval_from_value(value)?;
+
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: mutable,
+                        is_initialized: true,
+                        declared_at: None,
+                    },
+                );
+
+                Ok(IROp::Declare {
+                    name,
+                    value,
+                    mutable,
+                    dynamic,
+                })
+            }
+
+            other => Ok(other),
+        }
+    }
+    fn expr_to_irval_from_value(&self, val: IRVal) -> Result<IRVal, CompileError> {
+        Ok(val)
+    }
+    fn handle_assignment(
+        &mut self,
+        left: Expr,
+        right: Expr,
+        op: AssignOp,
+        span: Option<Span>,
+    ) -> Result<IROp, CompileError> {
+        let name = match left {
+            Expr::Var(name) => name,
+            _ => return Err(CompileError::Middle("invalid assignment target".into())),
+        };
+
+        match op {
+            AssignOp::Assign => {
+                let value = self.expr_to_irval(right)?;
+                if self.symbols.contains_key(&name) {
+                    Ok(IROp::Assign { name, value })
+                } else {
+                    self.symbols.insert(
+                        name.clone(),
+                        SymbolInfo {
+                            is_mutable: true,
+                            is_initialized: true,
+                            declared_at: span,
+                        },
+                    );
+
+                    Ok(IROp::Declare {
+                        name,
+                        value,
+                        mutable: true,
+                        dynamic: false,
+                    })
+                }
+            }
+
+            AssignOp::Immutable => {
+                let value = self.expr_to_irval(right)?;
+
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: false,
+                        is_initialized: true,
+                        declared_at: span,
+                    },
+                );
+
+                Ok(IROp::Declare {
+                    name,
+                    value,
+                    mutable: false,
+                    dynamic: false,
+                })
+            }
+
+            AssignOp::Dynamic => {
+                let value = self.expr_to_irval(right)?;
+
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: true,
+                        is_initialized: true,
+                        declared_at: span,
+                    },
+                );
+
+                Ok(IROp::Declare {
+                    name,
+                    value,
+                    mutable: true,
+                    dynamic: true,
+                })
+            }
+        }
+    }
+    fn expr_to_irval(&self, expr: Expr) -> Result<IRVal, CompileError> {
+        match self.lower_expr(expr)? {
+            LoweredExpr::Value(v) => Ok(v),
+            LoweredExpr::Op(_) => {
+                let tmp = self.emit_temp();
+                Ok(IRVal::Var(tmp))
+            }
         }
     }
 
@@ -229,7 +384,6 @@ pub fn lower_expr_as_op(expr: Expr) -> Result<IROp, CompileError> {
             let r = lower_expr_as_value(*right)?;
 
             Ok(IROp::Binary {
-                target: "_tmp".into(),
                 left: l,
                 op,
                 right: r,

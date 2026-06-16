@@ -16,8 +16,8 @@ impl PipelineRunner {
         self.stages.push(Box::new(stage));
     }
 
-    pub fn run(&self, engine: &CompileEngine) -> Result<(), CompileError> {
-        for stage in &self.stages {
+    pub fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
+        for stage in &mut self.stages {
             stage.run(engine).map_err(|e| CompileError::Stage {
                 stage: stage.name().to_string(),
                 source: Box::new(e),

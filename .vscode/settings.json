@@ -3,13 +3,22 @@
     "**/target": true,
     ".vscode": true,
     "Cargo.lock": true,
+    ".config": true,
+    
+    "targets": true,
+    // "output": true,
+    "tests/fixtures": true,
     
     "": "",
     "KEEP.end": true
   },
   "search.exclude": {
+    ".config": false,
     ".vscode": false,
-    "": "",
+    "output": false,
+    "targets": false,
+    "tests/fixtures": false,
+
     "KEEP.end": true
   },
 }

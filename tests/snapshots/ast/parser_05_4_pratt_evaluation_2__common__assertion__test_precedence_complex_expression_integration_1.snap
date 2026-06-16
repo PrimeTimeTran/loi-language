@@ -1,5 +1,88 @@
 ---
 source: tests/common/assertion.rs
-expression: parse_to_ast(input)
+expression: ast
 ---
-Err: AST missing
+program:
+  stmts:
+    - Let:
+        name: a
+        kind: MutableStatic
+        value:
+          Binary:
+            left:
+              Binary:
+                left:
+                  Binary:
+                    left:
+                      Binary:
+                        left:
+                          Binary:
+                            left:
+                              Unary:
+                                op: Neg
+                                expr:
+                                  Call:
+                                    callee:
+                                      Member:
+                                        target:
+                                          Var: b
+                                        field: c
+                                    args: []
+                            op: Power
+                            right:
+                              Var: d
+                        op: Mul
+                        right:
+                          Var: e
+                    op: Add
+                    right:
+                      Var: f
+                op: Eq
+                right:
+                  Var: g
+            op: And
+            right:
+              Var: h
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Let:
+      name: a
+      kind: MutableStatic
+      value:
+        Binary:
+          left:
+            Binary:
+              left:
+                Binary:
+                  left:
+                    Binary:
+                      left:
+                        Binary:
+                          left:
+                            Unary:
+                              op: Neg
+                              expr:
+                                Call:
+                                  callee:
+                                    Member:
+                                      target:
+                                        Var: b
+                                      field: c
+                                  args: []
+                          op: Power
+                          right:
+                            Var: d
+                      op: Mul
+                      right:
+                        Var: e
+                  op: Add
+                  right:
+                    Var: f
+              op: Eq
+              right:
+                Var: g
+          op: And
+          right:
+            Var: h

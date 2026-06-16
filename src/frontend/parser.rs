@@ -19,12 +19,13 @@ impl Parser {
     pub fn new() -> Self {
         Self
     }
+
     pub fn parse(
         &mut self,
         mut tokens: TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<AST, DiagnosticStore> {
-        parse(&mut tokens, diagnostics)
+        parse_program(&mut tokens, diagnostics)
     }
 
     pub fn parse_incremental(
@@ -36,49 +37,39 @@ impl Parser {
         parse_incremental(prev, tokens, diagnostics)
     }
 }
-
-pub fn parse(
+pub fn parse_program(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
 ) -> Result<AST, DiagnosticStore> {
     let mut stmts = Vec::new();
-    println!("PARSE PARSE START");
 
-    while let Some(tok) = tokens.peek() {
-        if matches!(tok, Token::EOF) {
-            break;
-        }
-
-        match parse_stmt(tokens, diagnostics) {
-            Ok(stmt) => {
-                stmts.push(stmt);
-            }
-            Err(_) => {
-                let fatal = diagnostics.emit(Diagnostic::error(
-                    "Failed to parse statement",
-                    Span::default(),
-                ));
-
-                if fatal {
+    while let Some(token) = tokens.peek() {
+        match tokens.peek() {
+            Some(Token::EOF) => break,
+            Some(_) => match parse_stmt(tokens, diagnostics) {
+                Ok(stmt) => stmts.push(stmt),
+                Err(e) => {
+                    diagnostics.emit(Diagnostic::error(
+                        format!("Failed to parse statement: {}", e),
+                        Span::default(),
+                    ));
                     return Err(diagnostics.clone());
                 }
-
-                tokens.bump();
-            }
+            },
+            None => break,
         }
     }
-    // LEAVE FOR CLI/REPL
-    // let last_expr = stmts.iter().rev().find_map(|stmt| {
-    //     if let Stmt::ExprStmt { expr } = stmt {
-    //         Some(expr.clone())
-    //     } else {
-    //         None
-    //     }
-    // });
+
+    println!("FINAL STMTS: {:?}", stmts);
 
     Ok(AST::new(stmts))
 }
-
+pub fn parse(
+    tokens: &mut TokenStream,
+    diagnostics: &mut DiagnosticStore,
+) -> Result<AST, DiagnosticStore> {
+    return parse_program(tokens, diagnostics);
+}
 pub fn parse_incremental(
     prev: &AST,
     tokens: &mut TokenStream,
@@ -127,66 +118,59 @@ pub fn parse_incremental(
 
     Ok(AST::new(stmts))
 }
-
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
-    println!("parse_stmt at: {:?}", tokens.peek());
+    println!("PARSE STMT START");
+    println!("PEEK AT STMT START: {:?}", tokens.peek());
 
     let stmt = match tokens.peek() {
+        Some(Token::Let) => parse_let(tokens, diagnostics)?,
+        Some(Token::If) => control::parse_if(tokens, diagnostics)?,
+        Some(Token::While) => control::parse_while(tokens, diagnostics)?,
+        Some(Token::Do) => control::parse_do_while(tokens, diagnostics)?,
+        Some(Token::Return) => control::parse_return(tokens, diagnostics)?,
+        Some(Token::Function) => control::parse_function(tokens, diagnostics)?,
         Some(Token::Print) => {
-            println!("matched print");
             tokens.bump();
-
             Stmt::Print {
                 expr: parse_expr(tokens, diagnostics)?,
             }
         }
-
-        Some(Token::Let) => {
-            return parse_let(tokens, diagnostics);
-        }
-
-        Some(Token::If) => return control::parse_if(tokens, diagnostics),
-        Some(Token::While) => return control::parse_while(tokens, diagnostics),
-        Some(Token::Do) => return control::parse_do_while(tokens, diagnostics),
-        Some(Token::Return) => return control::parse_return(tokens, diagnostics),
-        Some(Token::Function) => return control::parse_function(tokens, diagnostics),
-
         Some(Token::LBrace) => {
-            println!("parse l brace");
             tokens.bump();
             let body = control::parse_block(tokens, diagnostics)?;
             Stmt::Block { body }
         }
 
         _ => {
-            println!("expression statement fallback");
-
             let expr = parse_assignment(tokens, None, diagnostics)?;
 
-            match expr {
-                Expr::Assign { left, right, op } => {
+            let stmt = match expr {
+                Expr::Assign { left, right, .. } if is_simple_var(&left) => {
+                    println!("STMT CONVERT LEFT: {:?}", left);
                     if let Expr::Var(name) = *left {
-                        return Ok(Stmt::Let {
+                        Stmt::Let {
                             name,
-                            kind: DeclKind::MutableStatic, // or your default
-                            value: *right,
-                        });
-                    }
-
-                    Stmt::ExprStmt {
-                        expr: Expr::Assign { left, right, op },
+                            kind: DeclKind::MutableStatic,
+                            value: flatten_assign(*right),
+                        }
+                    } else {
+                        unreachable!()
                     }
                 }
 
                 other => Stmt::ExprStmt { expr: other },
-            }
+            };
+
+            stmt
         }
     };
 
-    // ✅ single, centralized semicolon handling
+    // semicolon handling (ONLY ONCE)
     if matches!(tokens.peek(), Some(Token::Semicolon)) {
         tokens.bump();
     }
+
+    println!("STMT PUSHED: {:?}", stmt);
 
     Ok(stmt)
 }
@@ -202,37 +186,36 @@ fn parse_assignment(
         Some(expr) => expr,
         None => parse_or(tokens, diagnostics)?,
     };
-    // if matches!(tokens.peek(), Some(Token::Semicolon)) {
-    //     return Ok(left);
-    // }
-    if let Some(Token::Assign | Token::Immutable | Token::Dynamic) = tokens.peek() {
-        let op = tokens.next().unwrap(); // or tokens.bump()
 
-        let assign_op = match op {
-            Token::Assign => AssignOp::Assign,
-            Token::Immutable => AssignOp::Immutable,
-            Token::Dynamic => AssignOp::Dynamic,
-            _ => unreachable!(),
-        };
+    println!("ASSIGN LEFT: {:?}", left);
 
-        let right = parse_assignment(tokens, None, diagnostics)?;
+    let op = match tokens.peek() {
+        Some(Token::Assign | Token::Immutable | Token::Dynamic) => tokens.next().unwrap(),
+        _ => return Ok(left),
+    };
 
-        if !is_assignable(&left) {
-            diagnostics.emit(Diagnostic::error(
-                "Invalid assignment target",
-                Span::default(),
-            ));
+    let assign_op = match op {
+        Token::Assign => AssignOp::Assign,
+        Token::Immutable => AssignOp::Immutable,
+        Token::Dynamic => AssignOp::Dynamic,
+        _ => unreachable!(),
+    };
 
-            return Err("Invalid assignment target".into());
-        }
-
-        return Ok(Expr::Assign {
-            left: Box::new(left),
-            right: Box::new(right),
-            op: assign_op,
-        });
+    if !is_assignable(&left) {
+        diagnostics.emit(Diagnostic::error(
+            "Invalid assignment target",
+            Span::default(),
+        ));
+        return Err("Invalid assignment target".into());
     }
-    Ok(left)
+
+    let right = parse_assignment(tokens, None, diagnostics)?;
+
+    Ok(Expr::Assign {
+        left: Box::new(left),
+        right: Box::new(right),
+        op: assign_op,
+    })
 }
 
 pub fn parse_let(
@@ -933,22 +916,6 @@ mod control {
     }
 }
 
-pub fn parse_source(input: &str) -> Result<AST, String> {
-    let mut diagnostics = DiagnosticStore::default();
-
-    let tokens = lex(input).map_err(|e| e.to_string())?;
-
-    let mut stream = TokenStream::new(tokens);
-
-    let ast = parse(&mut stream, &mut diagnostics).map_err(|_| "Parse error".to_string())?;
-
-    // if !diagnostics.is_empty() {
-    //     return Err("Diagnostics emitted during parse".into());
-    // }
-
-    Ok(ast)
-}
-
 fn is_assignable(expr: &Expr) -> bool {
     matches!(
         expr,
@@ -990,6 +957,21 @@ where
     }
 }
 
+fn is_simple_var(expr: &Expr) -> bool {
+    matches!(expr, Expr::Var(_))
+}
+fn flatten_assign(expr: Expr) -> Expr {
+    match expr {
+        Expr::Assign { left, right, op } => {
+            Expr::Assign {
+                left,
+                right: Box::new(flatten_assign(*right)), // 👈 recursive fix
+                op,
+            }
+        }
+        other => other,
+    }
+}
 // #[test]
 // fn parse_simple_program() {
 //     let tokens = lex("x = 1 + 2;").unwrap();

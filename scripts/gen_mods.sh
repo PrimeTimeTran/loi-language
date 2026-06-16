@@ -9,7 +9,7 @@ for dir in "$@"; do
             mod_name=$(echo "$filename" | cut -d'_' -f2- | sed 's/\.rs$//' | sed 's/-/_/g')
             {
                 echo "#[path = \"$filename\"]"
-                echo "pub mod $mod_name;"
+                echo "pub mod parser_$mod_name;"
                 echo ""
             } >> "$dir/mod.rs"
         done

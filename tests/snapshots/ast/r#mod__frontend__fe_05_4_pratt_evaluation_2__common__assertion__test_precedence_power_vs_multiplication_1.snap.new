@@ -1,0 +1,37 @@
+---
+source: tests/common/assertion.rs
+assertion_line: 83
+expression: ast
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Binary:
+            left:
+              Binary:
+                left:
+                  Var: a
+                op: Power
+                right:
+                  Var: b
+            op: Mul
+            right:
+              Var: c
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Binary:
+          left:
+            Binary:
+              left:
+                Var: a
+              op: Power
+              right:
+                Var: b
+          op: Mul
+          right:
+            Var: c

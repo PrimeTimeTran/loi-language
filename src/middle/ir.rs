@@ -111,6 +111,9 @@ pub enum LoweredOp {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum IROp {
+    ExprStmt {
+        expr: IRVal,
+    },
     Temp {
         value: IRVal,
     },
@@ -151,7 +154,6 @@ pub enum IROp {
     },
     Nop,
     Binary {
-        target: String,
         left: IRVal,
         op: BinOp,
         right: IRVal,
@@ -214,9 +216,7 @@ pub enum IROp {
         iterable: IRVal,
         body: Vec<IROp>,
     },
-    ExprStmt {
-        expr: IRVal,
-    },
+
     ControlFlow,
 
     Lowered(LoweredOp),
