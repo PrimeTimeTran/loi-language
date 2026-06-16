@@ -1,6 +1,6 @@
 use loi::pipeline::frontend::FrontendPipeline;
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::harness::TestHarness;
 

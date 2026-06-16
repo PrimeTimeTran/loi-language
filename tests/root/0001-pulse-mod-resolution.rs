@@ -1,6 +1,6 @@
 // tests/0001-pulse-mod-resolution.rs
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 
 #[test]

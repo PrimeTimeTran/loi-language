@@ -1,7 +1,7 @@
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::assert_expr;
 

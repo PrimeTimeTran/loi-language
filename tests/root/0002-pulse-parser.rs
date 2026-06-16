@@ -5,7 +5,7 @@ use loi::frontend::{
 };
 
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::{SNAP_PARSER, assert_expr, parse_to_ast};
 

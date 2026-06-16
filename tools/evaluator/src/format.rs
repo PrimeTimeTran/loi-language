@@ -1,10 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 use syn::visit::{self, Visit};
 
-use crate::{
-    language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind},
-    ui::{render_enum, render_struct},
-};
+use crate::language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
 
 #[derive(Debug, Clone)]
 pub enum LineStyle {
@@ -131,7 +128,6 @@ pub struct EnumDenseConfig {
     pub variants: ParamFormat,
 }
 
-// 2. DenseConfig: The Layout Engine
 #[derive(Debug, Clone)]
 pub struct DenseConfig {
     pub enabled: bool,

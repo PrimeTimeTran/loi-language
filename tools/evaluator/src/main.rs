@@ -10,8 +10,8 @@ use walkdir::WalkDir;
 use evaluator::{
     config::Config,
     ui::{
-        format_output, render_enum, render_function, render_header, render_header_only,
-        render_indent, render_struct,
+        format_output, render_blocks, render_header, render_header_only, render_indent,
+        render_sym_item,
     },
 };
 
@@ -45,7 +45,6 @@ impl Evaluator {
             output,
         }
     }
-
     fn evaluate_fs(&mut self) {
         let all_files = self.clone().build_fs();
         let mut populated_files = Vec::new();
@@ -85,48 +84,9 @@ impl Evaluator {
         let header = render_header(&rel, file_depth, &self.config)
             .trim_end()
             .to_string();
-        let body = self.render_blocks(groups, &sym_indent);
+        let body = render_blocks(groups, &sym_indent);
 
         format!("{}\n{}", header, body)
-    }
-    fn render_sym_item<'a>(
-        &self,
-        item: &'a Item,
-        ast: &'a File,
-        sym_indent: &str,
-    ) -> Option<(&'static str, String)> {
-        match item {
-            Item::Struct(s) => Some((
-                "STRUCTS",
-                render_struct(s, &self.config, sym_indent.to_string(), &ast.items)
-                    .trim_end()
-                    .to_string(),
-            )),
-            Item::Enum(e) => Some((
-                "ENUMS",
-                render_enum(e, &self.config, sym_indent.to_string())
-                    .trim_end()
-                    .to_string(),
-            )),
-            Item::Fn(f) => Some((
-                "FUNCTIONS",
-                render_function(f, &self.config, sym_indent.to_string())
-                    .trim_end()
-                    .to_string(),
-            )),
-            _ => None,
-        }
-    }
-    fn render_blocks(
-        &self,
-        groups: BTreeMap<&'static str, Vec<String>>,
-        sym_indent: &str,
-    ) -> String {
-        groups
-            .into_iter()
-            .map(|(label, items)| format!("{}{}:\n{}", sym_indent, label, items.join("\n")))
-            .collect::<Vec<_>>()
-            .join("\n\n")
     }
 
     fn get_path_metadata(&self, path: &Path) -> (PathBuf, usize, String) {
@@ -143,7 +103,9 @@ impl Evaluator {
         let mut groups: BTreeMap<&'static str, Vec<String>> = BTreeMap::new();
 
         for item in &ast.items {
-            if let Some((label, rendered)) = self.render_sym_item(item, ast, sym_indent) {
+            if let Some((label, rendered)) =
+                render_sym_item(self.config.clone(), item, ast, sym_indent)
+            {
                 groups.entry(label).or_default().push(rendered);
             }
         }
@@ -153,7 +115,6 @@ impl Evaluator {
         }
         groups
     }
-
     fn build_fs(&self) -> Vec<PathBuf> {
         let root = &self.root;
         let mut all_files = self.collect_files(root);
@@ -183,15 +144,12 @@ impl Evaluator {
     }
     fn collect_files(&self, root: &Path) -> Vec<PathBuf> {
         let mut files = vec![];
-
         for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
-
             if path.is_file() && path.extension().map(|e| e == "rs").unwrap_or(false) {
                 files.push(path.to_path_buf());
             }
         }
-
         files.sort_by(|a, b| a.to_string_lossy().cmp(&b.to_string_lossy()));
         files
     }

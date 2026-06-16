@@ -1,6 +1,5 @@
 ---
 source: tests/common/assertion.rs
-assertion_line: 83
 expression: ast
 ---
 program:

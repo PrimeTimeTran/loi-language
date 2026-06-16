@@ -1,5 +1,5 @@
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::TestHarness;
 use loi::{

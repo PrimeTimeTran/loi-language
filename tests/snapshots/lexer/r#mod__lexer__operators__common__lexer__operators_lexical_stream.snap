@@ -1,0 +1,21 @@
+---
+source: tests/common/lexer.rs
+expression: self.tokens
+---
+[
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    And,
+    Or,
+    Not,
+    Assign,
+    EOF,
+]

@@ -14,25 +14,35 @@ path = "src/lib.rs"
 
 [features]
 default = []
-# snapshotting = ["insta"]
 snapshotting = []
+
+[[bench]]
+name = "lexer"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
 
 [patch.crates-io]
 inkwell = { path = "../inkwell-patched" }
 
 [dependencies]
-inkwell = { version = "0.4", features = ["llvm17-0"] }
-derivative = "2.2"
-syn = { version = "2", features = ["full", "visit"] }
+uuid = { version = "1", features = ["v4"] }
 insta = { version = "1", features = ["yaml"] }
 clap = { version = "4", features = ["derive"] }
+miette = { version = "7", features = ["fancy"] }
+serde = { version = "1", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
+inkwell = { version = "0.4", features = ["llvm17-0"] }
+syn = { version = "2", features = ["full", "visit"] }
+derivative = "2.2"
 console = "0.15"
 indicatif = "0.17"
 owo-colors = "4"
 dialoguer = "0.11"
 anyhow = "1"
 thiserror = "1"
-miette = { version = "7", features = ["fancy"] }
 ariadne = "0.5"
 logos = "0.14"
 chumsky = "0.10"
@@ -45,7 +55,7 @@ smallvec = "1"
 bincode = "1"
 
 notify = "6"
-serde = { version = "1", features = ["derive"] }
+
 ignore = "0.4"
 walkdir = "2"
 tracing = "0.1"
@@ -60,8 +70,7 @@ clearscreen = "4.0.6"
 rustyline = "18.0.0"
 dyn-clone = "1.0.20"
 dirs = "6.0.0"
-strum = { version = "0.26", features = ["derive"] }
-uuid = { version = "1", features = ["v4"] }
+
 tower-lsp = "0.20.0"
 regex = "1.12.4"
 either = "1.16.0"
@@ -71,12 +80,4 @@ criterion = "0.5"
 
 pretty_assertions = "1"
 tempfile = "3"
-
-[[bench]]
-name = "lexer"
-harness = false
-
-[[bench]]
-name = "parser"
-harness = false
 

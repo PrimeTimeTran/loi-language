@@ -1,6 +1,6 @@
 
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::{assert_expr, assert_expr_with_ops, fails, parses};
 

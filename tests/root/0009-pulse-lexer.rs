@@ -3,7 +3,7 @@ use loi::frontend::token::Token;
 use std::{fs, path::Path};
 
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::snapshot::SNAP_LEXER;
 

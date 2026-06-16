@@ -1,5 +1,5 @@
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::helpers::{file, get_test_root, setup_test_context};
 

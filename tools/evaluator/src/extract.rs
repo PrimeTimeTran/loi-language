@@ -1,7 +1,6 @@
 use crate::{
     format::{CodeBlockConfig, DenseConfig, HeaderFormat, OutputConfig, ParamFormat, PathFormat},
     language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind},
-    ui::{render_enum, render_struct},
 };
 use clap::Parser;
 use std::collections::HashSet;

@@ -1,7 +1,7 @@
 use inkwell::context::Context;
 
 mod common {
-    include!("../common/mod.rs");
+    include!("../00_common/mod.rs");
 }
 use common::helpers::compile_and_lower;
 
