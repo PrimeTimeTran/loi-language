@@ -142,7 +142,7 @@ impl Config {
 impl Default for RenderPolicy {
     fn default() -> Self {
         Self {
-            mode: ViewMode::System,
+            mode: ViewMode::SystemFlowDetailed,
             include_params: true,
             include_functions: true,
             include_properties: true,

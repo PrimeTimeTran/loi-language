@@ -282,3 +282,15 @@ fn collect_fields(s: &syn::ItemStruct, policy: &RenderPolicy) -> Vec<String> {
         _ => vec![],
     }
 }
+
+pub fn render_header_only(path: &Path, root: &Path, config: &Config) -> String {
+    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let rel = abs.strip_prefix(root).unwrap_or(&abs);
+    let file_depth = rel.parent().map(|p| p.components().count()).unwrap_or(0);
+
+    render_header(rel, file_depth, config)
+}
+
+pub fn render_indent(level: usize) -> String {
+    "  ".repeat(level)
+}

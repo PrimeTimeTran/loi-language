@@ -1,61 +1,167 @@
---- # init.rs
-FUNCTIONS:
-fn init() -> Kernel
+--- ## backend/symbol/registry.rs
+    ENUMS:
+    enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
 
---- # kernel.rs
-STRUCTS:
-struct Kernel
-  PROPERTIES:
-  context: Arc < Context >, engine: Arc < CompileEngine >, logger: Arc < Logger >, cache: Arc < MemoryCache >, job_queue: Arc < JobQueue >, scheduler: TaskScheduler, diagnostics: Arc < RwLock < DiagnosticStore > >
-struct KernelBuilder
-  PROPERTIES:
-  context: Option < Arc < Context > >, engine: Option < Arc < CompileEngine > >, logger: Option < Arc < Logger > >, cache: Option < Arc < MemoryCache > >, job_queue: Option < Arc < JobQueue > >, scheduler: Option < TaskScheduler >, diagnostics: Option < Arc < RwLock < DiagnosticStore > > >
+    STRUCTS:
+    struct Symbol
+      PROPERTIES:
+      name: String, kind: SymbolKind, value: String, file: FileMeta, origin: String, metadata: HashMap < String , String >
+    struct SymbolId
+      PROPERTIES:
+      name: String, origin: String
+    struct SymbolRegistry
+      PROPERTIES:
+      table: HashMap < SymbolId , Symbol >, warnings: Vec < String >
 
-  METHODS:
-  fn new() -> Self
-  fn context(
-      self,
-      context: Arc < Context >
-  )
-      -> Self
-  fn engine(
-      self,
-      engine: Arc < CompileEngine >
-  )
-      -> Self
-  fn logger(
-      self,
-      logger: Arc < Logger >
-  )
-      -> Self
-  fn cache(
-      self,
-      cache: Arc < MemoryCache >
-  )
-      -> Self
-  fn job_queue(
-      self,
-      queue: Arc < JobQueue >
-  )
-      -> Self
-  fn scheduler(
-      self,
-      scheduler: TaskScheduler
-  )
-      -> Self
-  fn diagnostics(
-      self,
-      diagnostics: Arc < RwLock < DiagnosticStore > >
-  )
-      -> Self
-  fn build(
-      self
-  )
-      -> Kernel
+      METHODS:
+      fn new() -> Self
+      fn build(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+      fn lookup(
+          self,
+          name: & str,
+          origin: & str
+      )
+          -> Option < & Symbol >
+      fn reset(
+          self
+      )
+      fn build_step(
+          self,
+          stack: & FileStack,
+          engine: & dyn Utter
+      )
+      fn build_all(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+      fn build_incremental(
+          self,
+          stack: & FileStack,
+          engine: & dyn Utter
+      )
+      fn build_with_warnings(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+          -> Vec < String >
+      fn add_symbols(
+          self,
+          symbols: Vec < Symbol >,
+          source_file: & str
+      )
 
---- # main.rs
-FUNCTIONS:
-fn main()
+--- ## backend/utter/handler.rs
+    ENUMS:
+    enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
+
+    STRUCTS:
+    struct GenericHandler
+      PROPERTIES:
+      target: RenderTarget
+
+      METHODS:
+      fn render_ir(
+          self,
+          ir: & IR
+      )
+          -> String
+      fn handle(
+          self,
+          file: & FileMeta,
+          utter: & dyn Utter,
+          symbols: & SymbolRegistry
+      )
+          -> Result < IR , String >
+      fn emit(
+          self,
+          ir: & IR
+      )
+          -> Result < String , String >
+
+--- ## backend/utter/registry.rs
+    STRUCTS:
+    struct UtterRegistry
+      PROPERTIES:
+      utters: HashMap < String , Box < dyn Utter > >, handlers: HashMap < String , Box < dyn Handler > >
+
+      METHODS:
+      fn default() -> Self
+      fn eq(
+          self,
+          other: & Self
+      )
+          -> bool
+      fn new() -> Self
+      fn get_utter(
+          self,
+          capability: & str
+      )
+          -> Option < & dyn Utter >
+
+--- ## backend/utter/utter.rs
+    FUNCTIONS:
+    fn get_language_definitions() -> Vec < GenericUtter >
+
+    STRUCTS:
+    struct GenericUtter
+      PROPERTIES:
+      name: String, config: LanguageConfig
+
+      METHODS:
+      fn new(
+          config: LanguageConfig
+      )
+          -> Self
+      fn fmt(
+          self,
+          f: & mut std :: fmt :: Formatter < '_ >
+      )
+          -> std :: fmt :: Result
+      fn name(
+          self
+      )
+          -> & str
+      fn flags(
+          self
+      )
+          -> UtterFlags
+      fn to_ir(
+          self,
+          metadata: & FileMeta,
+          symbols: & SymbolRegistry
+      )
+          -> Result < IR , String >
+      fn get_exported_symbols(
+          self,
+          metadata: & FileMeta
+      )
+          -> Vec < Symbol >
+      fn as_any(
+          self
+      )
+          -> & dyn Any
+      fn as_any_mut(
+          self
+      )
+          -> & mut dyn Any
+    struct LanguageConfig
+      PROPERTIES:
+      name: String, flags: UtterFlags, symbol_patterns: Vec < (& 'static str , SymbolKind) >, to_ir: Option < ToIrFn >
+
+      METHODS:
+      fn default() -> Self
+    struct UtterFlags
+      PROPERTIES:
+      browser_dom: bool, allow_network: bool, fs_access: bool, db_access: bool
+
+      METHODS:
+      fn default() -> Self
 
 --- # backend/link_with_clang.rs
   FUNCTIONS:
@@ -66,24 +172,25 @@ fn main()
       -> Result < () , String >
 
 --- # backend/llvm.rs
-  STRUCTS:
-  struct CodeGenContext
-    PROPERTIES:
-    context: & 'ctx Context, module: Module < 'ctx >, builder: Builder < 'ctx >, runtime: Runtime < 'ctx >, env: HashMap < String , PointerValue < 'ctx > >, counter: usize
-  struct LLVM
-    PROPERTIES:
-    context: CodeGenContext < 'ctx >
-  struct Runtime
-    PROPERTIES:
-    main: FunctionValue < 'ctx >, entry_block: BasicBlock < 'ctx >, printf: FunctionValue < 'ctx >, fmt_f64: PointerValue < 'ctx >, fmt_i32: PointerValue < 'ctx >, fmt_str: PointerValue < 'ctx >
-
   FUNCTIONS:
+  fn codegen_binary(
+      context: & mut CodeGenContext < 'ctx >,
+      left: IRVal,
+      op: BinOp,
+      right: IRVal
+  )
+      -> Result < BasicValueEnum < 'ctx > , String >
   fn codegen_expr(
       expr: & Expr,
       ty: & Type,
       context: & mut CodeGenContext < 'ctx >
   )
       -> BasicValueEnum < 'ctx >
+  fn codegen_ir_op(
+      context: & mut CodeGenContext < 'ctx >,
+      op: IROp
+  )
+      -> Result < () , String >
   fn codegen_ir_value(
       val: IRVal,
       ctx: & mut CodeGenContext < 'ctx >
@@ -99,10 +206,15 @@ fn main()
   )
       -> Result < Vec < IROp > , CompileError >
   fn lower_expr_to_ir(
-      context: & mut CodeGenContext < 'ctx >,
-      op: IROp
+      expr: Expr
   )
-      -> Result < () , String >
+      -> Result < Vec < IROp > , CompileError >
+  fn lower_expr_to_ir_inner(
+      expr: Expr,
+      ops: & mut Vec < IROp >,
+      temp_counter: & mut usize
+  )
+      -> Result < IRVal , CompileError >
   fn lower_expr_to_ir_value(
       expr: & Expr
   )
@@ -111,12 +223,30 @@ fn main()
       expr: & TypedExpr
   )
       -> IRVal
+  fn new_temp(
+      counter: & mut usize
+  )
+      -> IRVal
+
+  STRUCTS:
+  struct CodeGenContext
+    PROPERTIES:
+    context: & 'ctx Context, module: Module < 'ctx >, builder: Builder < 'ctx >, runtime: Runtime < 'ctx >, env: HashMap < String , PointerValue < 'ctx > >, last_value: Option < BasicValueEnum < 'ctx > >, counter: usize
+  struct LLVM
+    PROPERTIES:
+    context: CodeGenContext < 'ctx >
+  struct Runtime
+    PROPERTIES:
+    main: FunctionValue < 'ctx >, entry_block: BasicBlock < 'ctx >, printf: FunctionValue < 'ctx >, fmt_f64: PointerValue < 'ctx >, fmt_i32: PointerValue < 'ctx >, fmt_str: PointerValue < 'ctx >
 
 --- # build/args.rs
   ENUMS:
   enum BuildTarget { ByName(_0: String), ByIndex(_0: usize) }
 
 --- # build/artifact.rs
+  ENUMS:
+  enum ArtifactKind { Web, Loi }
+
   STRUCTS:
   struct Artifact
     PROPERTIES:
@@ -124,9 +254,6 @@ fn main()
   struct CompiledArtifact
     PROPERTIES:
     ir: IR, bundle: Vec < Artifact >
-
-  ENUMS:
-  enum ArtifactKind { Web, Loi }
 
 --- # build/asset_optimizer.rs
   STRUCTS:
@@ -236,6 +363,10 @@ fn main()
     watch: bool, input: Option < PathBuf >, output: Option < PathBuf >, concurrency: Option < usize >
 
 --- # cli/command.rs
+  ENUMS:
+  enum Command { Mode(_0: String), List(_0: ListFilter), Tree, History(_0: Option < String >), CapabilityMap, Diff(_0: String, _1: String), Build(_0: BuildTarget), BuildAll(_0: BuildAllArgs), View(_0: ViewArgs), Clear, Help, Exit }
+  enum SortOrder { Asc, Desc }
+
   STRUCTS:
   struct BuildAllArgs
     PROPERTIES:
@@ -252,10 +383,6 @@ fn main()
   struct ViewFlags
     PROPERTIES:
     name: Option < String >, number: Option < i32 >, sort: Option < SortOrder >
-
-  ENUMS:
-  enum Command { Mode(_0: String), List(_0: ListFilter), Tree, History(_0: Option < String >), CapabilityMap, Diff(_0: String, _1: String), Build(_0: BuildTarget), BuildAll(_0: BuildAllArgs), View(_0: ViewArgs), Clear, Help, Exit }
-  enum SortOrder { Asc, Desc }
 
 --- # cli/controller.rs
   STRUCTS:
@@ -296,6 +423,9 @@ fn main()
     )
 
 --- # cli/display.rs
+  ENUMS:
+  enum ListFilter { Active, Archived, All }
+
   STRUCTS:
   struct FileView
     PROPERTIES:
@@ -365,9 +495,6 @@ fn main()
     )
         -> String
 
-  ENUMS:
-  enum ListFilter { Active, Archived, All }
-
 --- # compiler/addon.rs
   STRUCTS:
   struct BackendRegistry
@@ -432,10 +559,15 @@ fn main()
       -> Result < () , Vec < Error > >
 
 --- # compiler/config.rs
+  ENUMS:
+  enum CompileStage { Parse, Analyze, Lower, Backend }
+  enum CompileTarget { Build, Jit, IR, Codegen }
+  enum ConfigSource { Defaults, File(_0: PathBuf), Cli(_0: CliArgs), ReplOverrides }
+
   STRUCTS:
   struct CompileConfig
     PROPERTIES:
-    root: PathBuf, name: String, input: PathBuf, output: PathBuf, watch: bool, concurrency: usize
+    root: PathBuf, name: String, input: PathBuf, output: PathBuf, watch: bool, concurrency: usize, target: CompileTarget, stage: CompileStage
 
     METHODS:
     fn from(
@@ -445,7 +577,7 @@ fn main()
     fn default() -> Self
   struct Config
     PROPERTIES:
-    root: Arc < RwLock < PathBuf > >, name: Arc < RwLock < String > >, input: Option < PathBuf >, output: Option < PathBuf >, watch: Option < bool >, concurrency: Option < usize >
+    target: CompileTarget, stage: CompileStage, root: PathBuf, name: String, input: Option < PathBuf >, output: Option < PathBuf >, watch: bool, concurrency: usize
 
     METHODS:
     fn default() -> Self
@@ -457,7 +589,7 @@ fn main()
         -> Config
     fn merge(
         base: Config,
-        override_cfg: Config
+        overlay: Config
     )
         -> Config
     fn load_file(
@@ -468,11 +600,16 @@ fn main()
         _args: Vec < String >
     )
         -> Config
-
-  ENUMS:
-  enum ConfigSource { Defaults, File(_0: PathBuf), Cli(_0: CliArgs), ReplOverrides }
+    fn from_cli(
+        base: & Config,
+        cli: CliArgs
+    )
+        -> Config
 
 --- # compiler/diagnostic.rs
+  ENUMS:
+  enum Severity { Info, Warning, Error, Hint }
+
   STRUCTS:
   struct CompilerEventBus
   struct Diagnostic
@@ -512,11 +649,23 @@ fn main()
         code: impl Into < String >
     )
         -> Self
+  struct DiagnosticError
+    METHODS:
+    fn fmt(
+        self,
+        f: & mut fmt :: Formatter < '_ >
+    )
+        -> fmt :: Result
   struct DiagnosticStore
     PROPERTIES:
     halt_on_error: bool, error_count: usize, diagnostics: VecDeque < Diagnostic >
 
     METHODS:
+    fn to_compile_error(
+        self,
+        stage: & str
+    )
+        -> CompileError
     fn emit(
         self,
         diag: Diagnostic
@@ -525,7 +674,7 @@ fn main()
     fn check_halt(
         self
     )
-        -> Result < () , String >
+        -> Result < () , CompileError >
     fn new(
         halt_on_error: bool
     )
@@ -555,9 +704,6 @@ fn main()
     METHODS:
     fn new() -> Self
 
-  ENUMS:
-  enum Severity { Info, Warning, Error, Hint }
-
 --- # compiler/engine.rs
   STRUCTS:
   struct CompileEngine
@@ -565,6 +711,21 @@ fn main()
     state: Arc < RwLock < CompileState > >, config: Arc < RwLock < CompileConfig > >, stages: Vec < Box < dyn Stage > >
 
     METHODS:
+    fn parse(
+        self
+    )
+    fn analyze(
+        self
+    )
+    fn lower(
+        self
+    )
+    fn backend(
+        self
+    )
+    fn build(
+        self
+    )
     fn run_all(
         self
     )
@@ -578,6 +739,11 @@ fn main()
     fn default() -> Self
 
 --- # compiler/env.rs
+  ENUMS:
+  enum Mode { Batch, Interactive, Watch }
+  enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
+  enum TargetOS { Linux, MacOS, Windows, Unknown }
+
   STRUCTS:
   struct Env
     PROPERTIES:
@@ -604,14 +770,9 @@ fn main()
     METHODS:
     fn default() -> Self
 
-  ENUMS:
-  enum Mode { Batch, Interactive, Watch }
-  enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
-  enum TargetOS { Linux, MacOS, Windows, Unknown }
-
 --- # compiler/error.rs
   ENUMS:
-  enum Error { Io(_0: std :: io :: Error), Lexer(_0: String), Parser(_0: String), Analysis(_0: String), Backend(_0: String) }
+  enum Error { Io(_0: String), Lexer(_0: String), Parser(_0: String), Analysis(_0: String), Backend(_0: String) }
 
 --- # compiler/execution.rs
   STRUCTS:
@@ -692,13 +853,17 @@ fn main()
     )
   struct CompileState
     PROPERTIES:
-    source: Option < String >, ast: Option < AST >, registry: Registry, file_graph: FileGraph, dependency_graph: DependencyGraph, symbols: SymbolRegistry, symbol_index: SymbolIndex, ir: Option < IR >, ir_cache: IRCache, lowered_cache: LoweredCache, dirty_files: HashSet < Uuid >, dirty_symbols: HashSet < SymbolId >, content_hashes: HashMap < PathBuf , u64 >, build_cache: BuildCache, compiler_version: String, ir_version: u32
+    registry: Registry, file_graph: FileGraph, dependency_graph: DependencyGraph, symbols: SymbolRegistry, symbol_index: SymbolIndex, dirty_files: HashSet < Uuid >, dirty_symbols: HashSet < SymbolId >, content_hashes: HashMap < PathBuf , u64 >, source: Option < String >, current_ast: Option < AST >, current_ir: Option < IR >, current_lowered_ir: Option < LoweredIR >, current_artifact: Option < BuildArtifact >, caches: CompilerCaches, compiler_version: String, ir_version: u32
 
     METHODS:
     fn current_ir(
         self
     )
         -> Option < IR >
+    fn current_ast(
+        self
+    )
+        -> Option < AST >
     fn current_lowered_ir(
         self
     )
@@ -712,6 +877,9 @@ fn main()
     )
         -> bool
     fn default() -> Self
+  struct CompilerCaches
+    PROPERTIES:
+    build: BuildCache, lowered: LoweredCache
   struct DependencyGraph
     PROPERTIES:
     forward: HashMap < SymbolId , HashSet < SymbolId > >, reverse: HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache: HashMap < SymbolId , HashSet < SymbolId > >, cycles: Vec < Vec < SymbolId > >
@@ -784,6 +952,20 @@ fn main()
     fn new() -> Self
 
 --- # development/server.rs
+  ENUMS:
+  enum Command { Build(_0: BuildCommand), Rebuild(_0: RebuildCommand), Clean(_0: CleanCommand), Inspect(_0: InspectCommand), Exit }
+  enum Event { FileChanged(_0: FileChangedEvent), Command(_0: CommandEvent) }
+  enum FileChangeKind { Created, Modified, Deleted }
+
+  FUNCTIONS:
+  fn start(
+      kernel: Kernel
+  )
+  fn start_server(
+      kernel: Kernel,
+      config: CompileConfig
+  )
+
   STRUCTS:
   struct BuildCommand
   struct CleanCommand
@@ -824,20 +1006,6 @@ fn main()
   struct RebuildCommand
   struct Repl
 
-  ENUMS:
-  enum Command { Build(_0: BuildCommand), Rebuild(_0: RebuildCommand), Clean(_0: CleanCommand), Inspect(_0: InspectCommand), Exit }
-  enum Event { FileChanged(_0: FileChangedEvent), Command(_0: CommandEvent) }
-  enum FileChangeKind { Created, Modified, Deleted }
-
-  FUNCTIONS:
-  fn start(
-      kernel: Kernel
-  )
-  fn start_server(
-      kernel: Kernel,
-      config: CompileConfig
-  )
-
 --- # development/watcher.rs
   STRUCTS:
   struct ChangeDetector
@@ -872,6 +1040,14 @@ fn main()
   fn diagnostics()
 
 --- # frontend/ast.rs
+  ENUMS:
+  enum AssignOp { Assign, Immutable, Dynamic }
+  enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
+  enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
+  enum Expr { Identifier(name: String), Assign(left: Box < Expr >, right: Box < Expr >, op: AssignOp), Number(_0: HashF64), Unary(op: UnOp, expr: Box < Expr >), Binary(left: Box < Expr >, op: BinOp, right: Box < Expr >), Bool(_0: bool), String(_0: String), Var(_0: String), Array(_0: Vec < Expr >), Call(callee: Box < Expr >, args: Vec < Expr >), Index(target: Box < Expr >, index: Box < Expr >), Member(target: Box < Expr >, field: String) }
+  enum Stmt { Let(name: String, kind: DeclKind, value: Expr), Print(expr: Expr), ExprStmt(expr: Expr), Function(name: String, params: Vec < String >, body: Vec < Stmt >), Return(value: Option < Expr >), If(condition: Expr, then_branch: Vec < Stmt >, else_branch: Option < Vec < Stmt > >), While(condition: Expr, body: Vec < Stmt >), Loop(body: Vec < Stmt >), For(iterator: String, iterable: Expr, body: Vec < Stmt >), DoWhile(body: Vec < Stmt >, condition: Expr), Block(body: Vec < Stmt >) }
+  enum UnOp { Neg, Not, AddrOf }
+
   STRUCTS:
   struct AST
     PROPERTIES:
@@ -913,14 +1089,6 @@ fn main()
         -> Self
     fn default() -> Self
 
-  ENUMS:
-  enum AssignOp { Assign, Immutable, Dynamic }
-  enum BinOp { Add, Sub, Mul, Div, Eq, Neq, Lt, Gt, And, Or, Assign, Mod, Power }
-  enum DeclKind { MutableStatic, ImmutableStatic, Dynamic }
-  enum Expr { Number(_0: HashF64), Unary(op: UnOp, expr: Box < Expr >), Binary(left: Box < Expr >, op: BinOp, right: Box < Expr >), Assign(left: Box < Expr >, right: Box < Expr >, op: AssignOp), Bool(_0: bool), String(_0: String), Var(_0: String), Array(_0: Vec < Expr >), Call(callee: Box < Expr >, args: Vec < Expr >), Index(target: Box < Expr >, index: Box < Expr >), Member(target: Box < Expr >, field: String) }
-  enum Stmt { Let(name: String, kind: DeclKind, value: Expr), Print(expr: Expr), ExprStmt(expr: Expr), Function(name: String, params: Vec < String >, body: Vec < Stmt >), Return(value: Option < Expr >), If(condition: Expr, then_branch: Vec < Stmt >, else_branch: Option < Vec < Stmt > >), While(condition: Expr, body: Vec < Stmt >), Loop(body: Vec < Stmt >), For(iterator: String, iterable: Expr, body: Vec < Stmt >), DoWhile(body: Vec < Stmt >, condition: Expr), Block(body: Vec < Stmt >) }
-  enum UnOp { Neg, Not, AddrOf }
-
 --- # frontend/lexer.rs
   FUNCTIONS:
   fn find_comment_end(
@@ -937,31 +1105,21 @@ fn main()
       -> Result < f64 , String >
 
 --- # frontend/parser.rs
-  STRUCTS:
-  struct Parser
-    METHODS:
-    fn new() -> Self
-    fn parse(
-        self,
-        tokens: TokenStream,
-        diagnostics: & mut DiagnosticStore
-    )
-        -> Result < AST , DiagnosticStore >
-    fn parse_incremental(
-        self,
-        prev: & AST,
-        tokens: & mut TokenStream,
-        diagnostics: & mut DiagnosticStore
-    )
-        -> Result < AST , DiagnosticStore >
-
   FUNCTIONS:
+  fn flatten_assign(
+      expr: Expr
+  )
+      -> Expr
   fn is_assignable(
       expr: & Expr
   )
       -> bool
   fn is_expr_start(
       tok: Option < & Token >
+  )
+      -> bool
+  fn is_simple_var(
+      expr: & Expr
   )
       -> bool
   fn kind_from_token(
@@ -1055,10 +1213,11 @@ fn main()
       diagnostics: & mut DiagnosticStore
   )
       -> Result < Expr , String >
-  fn parse_source(
-      input: & str
+  fn parse_program(
+      tokens: & mut TokenStream,
+      diagnostics: & mut DiagnosticStore
   )
-      -> Result < AST , String >
+      -> Result < AST , DiagnosticStore >
   fn parse_stmt(
       tokens: & mut TokenStream,
       diagnostics: & mut DiagnosticStore
@@ -1069,6 +1228,24 @@ fn main()
       diagnostics: & mut DiagnosticStore
   )
       -> Result < Expr , String >
+
+  STRUCTS:
+  struct Parser
+    METHODS:
+    fn new() -> Self
+    fn parse(
+        self,
+        tokens: TokenStream,
+        diagnostics: & mut DiagnosticStore
+    )
+        -> Result < AST , DiagnosticStore >
+    fn parse_incremental(
+        self,
+        prev: & AST,
+        tokens: & mut TokenStream,
+        diagnostics: & mut DiagnosticStore
+    )
+        -> Result < AST , DiagnosticStore >
 
 --- # frontend/token.rs
   ENUMS:
@@ -1113,37 +1290,8 @@ fn main()
     tokens: Vec < Token >, pos: usize
 
 --- # middle/ir.rs
-  STRUCTS:
-  struct IR
-    PROPERTIES:
-    raw: String, nodes: Vec < IROp >, symbols: HashMap < String , Symbol >, metadata: HashMap < String , String >
-
-    METHODS:
-    fn default() -> Self
-    fn fmt(
-        self,
-        f: & mut fmt :: Formatter < '_ >
-    )
-        -> fmt :: Result
-    fn new() -> Self
-    fn raw(
-        content: impl Into < String >
-    )
-        -> Self
-    fn structured() -> Self
-    fn is_raw(
-        self
-    )
-        -> bool
-  struct RegionBlock
-    PROPERTIES:
-    kind: RegionKind, source: String, output: Option < Vec < u8 > >, mode: RegionMode
-  struct TypedExpr
-    PROPERTIES:
-    expr: Expr, ty: Type, span: Span
-
   ENUMS:
-  enum IROp { Return(value: Option < IRVal >), Declare(name: String, value: IRVal, mutable: bool, dynamic: bool), Nop, Binary(target: String, left: IRVal, op: BinOp, right: IRVal), Module(body: Vec < IROp >), Function(name: String, params: Vec < (String , Type) >, body: Vec < IROp >, return_type: Type), Block(body: Vec < IROp >), Assign(name: String, value: IRVal), Load(name: String), If(condition: IRVal, then_branch: Vec < IROp >, else_branch: Vec < IROp >, scope_id: usize), Call(name: String, args: Vec < IRVal >), Print(value: IRVal), ExternalCall(namespace: String, function: String, args: Vec < IRVal >), ModuleScope(name: String, body: Vec < IROp >), While(condition: IRVal, body: Vec < IROp >), DoWhile(body: Vec < IROp >, condition: IRVal), Loop(body: Vec < IROp >), For(iterator: String, iterable: IRVal, body: Vec < IROp >), ExprStmt(expr: IRVal), ControlFlow, Lowered(_0: LoweredOp) }
+  enum IROp { ExprStmt(expr: IRVal), Temp(value: IRVal), Unary(op: UnOp, value: IRVal), Array(values: Vec < IRVal >), Assign(name: String, value: IRVal), Expr(value: IRVal), Print(value: IRVal), Declare(name: String, value: IRVal, mutable: bool, dynamic: bool), Return(value: Option < IRVal >), Nop, Binary(left: IRVal, op: BinOp, right: IRVal), Module(body: Vec < IROp >), Function(name: String, params: Vec < (String , Type) >, body: Vec < IROp >, return_type: Type), Block(body: Vec < IROp >), Load(name: String), If(condition: IRVal, then_branch: Vec < IROp >, else_branch: Vec < IROp >, scope_id: usize), Call(name: String, args: Vec < IRVal >), ExternalCall(namespace: String, function: String, args: Vec < IRVal >), ModuleScope(name: String, body: Vec < IROp >), While(condition: IRVal, body: Vec < IROp >), DoWhile(body: Vec < IROp >, condition: IRVal), Loop(body: Vec < IROp >), For(iterator: String, iterable: IRVal, body: Vec < IROp >), ControlFlow, Lowered(_0: LoweredOp) }
   enum LoweredOp { Binary(target: String, left: String, op: Op, right: String), Move(target: String, source: String), Label(_0: String), Jump(_0: String), JumpIf(condition: String, label: String), Nop }
   enum Op { Add, Sub, Mul, Div, Cmp, Neg }
   enum RegionKind { Native, JavaScript, TypeScript, JSX, SQL, Python, Shader, Unknown(_0: String) }
@@ -1159,24 +1307,63 @@ fn main()
   )
       -> TypedExpr
 
---- # middle/semantic.rs
   STRUCTS:
-  struct SemanticAnalyzer
+  struct BasicBlock
     PROPERTIES:
-    symbols: HashMap < String , Type >, scope_counter: AtomicUsize
+    ops: Vec < IROp >
+  struct FunctionIR
+    PROPERTIES:
+    name: String, blocks: Vec < BasicBlock >
+  struct IR
+    PROPERTIES:
+    raw: String, nodes: Vec < IROp >, symbols: HashMap < String , Symbol >, metadata: HashMap < String , String >, ops: Vec < IROp >, modules: Vec < ModuleIR >, functions: Vec < FunctionIR >
 
     METHODS:
+    fn fmt(
+        self,
+        f: & mut fmt :: Formatter < '_ >
+    )
+        -> fmt :: Result
     fn new() -> Self
-    fn analyze(
-        ast: AST
+    fn from_module(
+        module: ModuleIR
     )
-        -> Result < Vec < IROp > , String >
-    fn analyze_block(
-        block: Vec < Stmt >,
-        symbols: & mut HashMap < String , Type >
+        -> Self
+    fn from_ops(
+        ops: Vec < IROp >
     )
-        -> Result < Vec < IROp > , String >
+        -> Self
+    fn with_metadata(
+        self,
+        key: impl Into < String >,
+        value: impl Into < String >
+    )
+        -> Self
+    fn raw(
+        content: impl Into < String >
+    )
+        -> Self
+    fn default() -> Self
+    fn new_from_ops(
+        ops: Vec < IROp >
+    )
+        -> Self
+    fn with_stage(
+        self,
+        stage: & str
+    )
+        -> Self
+  struct ModuleIR
+    PROPERTIES:
+    name: String, functions: Vec < FunctionIR >, globals: Vec < IROp >, exports: Vec < String >
+  struct RegionBlock
+    PROPERTIES:
+    kind: RegionKind, source: String, output: Option < Vec < u8 > >, mode: RegionMode
+  struct TypedExpr
+    PROPERTIES:
+    expr: Expr, ty: Type, span: Span
 
+--- # middle/semantic.rs
   FUNCTIONS:
   fn analyze(
       ast: AST
@@ -1219,7 +1406,31 @@ fn main()
   )
       -> Result < TypedExpr , String >
 
+  STRUCTS:
+  struct SemanticAnalyzer
+    PROPERTIES:
+    symbols: HashMap < String , Type >, scope_counter: AtomicUsize
+
+    METHODS:
+    fn new() -> Self
+    fn analyze(
+        ast: AST
+    )
+        -> Result < Vec < IROp > , String >
+    fn analyze_block(
+        block: Vec < Stmt >,
+        symbols: & mut HashMap < String , Type >
+    )
+        -> Result < Vec < IROp > , String >
+
 --- # middle/types.rs
+  ENUMS:
+  enum IRVal { Number(_0: HashF64), Bool(_0: bool), Str(_0: String), Var(_0: String), Temp(_0: String), Unit }
+  enum LoweredExpr { Value(_0: IRVal), Op(_0: IROp) }
+  enum ModuleItem { Function(_0: Function), Struct(_0: Struct), Enum(_0: Enum), Const(_0: Stmt), Use(_0: Import) }
+  enum TopLevelItem { Module(_0: Module), Function(_0: Function), Struct(_0: Struct), Enum(_0: Enum), Const(_0: Stmt), Use(_0: Import), Stmt(_0: Stmt) }
+  enum Type { I32, F64, Bool, Str, Void, Ptr(_0: Box < Type >), Array(_0: Box < Type >), Return, Unknown }
+
   STRUCTS:
   struct Block
     PROPERTIES:
@@ -1252,13 +1463,11 @@ fn main()
     PROPERTIES:
     name: String, fields: Vec < Type >
 
-  ENUMS:
-  enum IRVal { Number(_0: HashF64), Bool(_0: bool), Str(_0: String), Var(_0: String) }
-  enum ModuleItem { Function(_0: Function), Struct(_0: Struct), Enum(_0: Enum), Const(_0: Stmt), Use(_0: Import) }
-  enum TopLevelItem { Module(_0: Module), Function(_0: Function), Struct(_0: Struct), Enum(_0: Enum), Const(_0: Stmt), Use(_0: Import), Stmt(_0: Stmt) }
-  enum Type { I32, F64, Bool, Str, Void, Ptr(_0: Box < Type >), Array(_0: Box < Type >), Return, Unknown }
-
 --- # pipeline/backend.rs
+  ENUMS:
+  enum BackendTarget { Bytecode, LLVM, WASM }
+  enum OptimizationLevel { None, Basic, Aggressive }
+
   STRUCTS:
   struct BackendPipeline
     PROPERTIES:
@@ -1346,10 +1555,6 @@ fn main()
     PROPERTIES:
     emit_debug_info: bool, inline_functions: bool, vectorize: bool
 
-  ENUMS:
-  enum BackendTarget { Bytecode, LLVM, WASM }
-  enum OptimizationLevel { None, Basic, Aggressive }
-
 --- # pipeline/frontend.rs
   STRUCTS:
   struct FrontendFeatures
@@ -1382,18 +1587,23 @@ fn main()
         self
     )
         -> Result < AST , DiagnosticStore >
-    fn run(
-        self,
-        engine: & CompileEngine
-    )
-        -> Result < () , CompileError >
-    fn name(
-        self
-    )
-        -> & str
     fn default() -> Self
 
 --- # pipeline/middle.rs
+  FUNCTIONS:
+  fn lower_atomic(
+      expr: Expr
+  )
+      -> Result < IRVal , CompileError >
+  fn lower_expr_as_op(
+      expr: Expr
+  )
+      -> Result < IROp , CompileError >
+  fn lower_expr_as_value(
+      expr: Expr
+  )
+      -> Result < IRVal , CompileError >
+
   STRUCTS:
   struct IRConfig
     PROPERTIES:
@@ -1403,7 +1613,7 @@ fn main()
     enable_type_checking: bool, enable_macro_expansion: bool, enable_dead_code_analysis: bool
   struct MiddlePipeline
     PROPERTIES:
-    metadata: Metadata, context: Arc < Context >, config: Arc < RwLock < CompileConfig > >, state: Arc < RwLock < CompileState > >, ir_config: IRConfig, features: MiddleFeatures
+    metadata: Metadata, context: Arc < Context >, config: Arc < RwLock < CompileConfig > >, state: Arc < RwLock < CompileState > >, ir_config: IRConfig, features: MiddleFeatures, temp_counter: std :: sync :: atomic :: AtomicUsize, symbols: HashMap < String , SymbolInfo >
 
     METHODS:
     fn new(
@@ -1434,18 +1644,70 @@ fn main()
         engine: & CompileEngine
     )
         -> Result < () , CompileError >
-    fn resolve_symbols(
-        self,
-        _ast: & AST
-    )
     fn lower_ast(
         self,
         ast: AST
     )
-        -> Vec < IROp >
+        -> Result < Vec < IROp > , CompileError >
+    fn lower_expr(
+        self,
+        expr: Expr
+    )
+        -> Result < LoweredExpr , CompileError >
+    fn lower_expr_stmt(
+        self,
+        expr: Expr
+    )
+        -> Result < IROp , CompileError >
+    fn lower_stmt(
+        self,
+        stmt: Stmt
+    )
+        -> Result < IROp , CompileError >
+    fn lower_op(
+        self,
+        op: IROp
+    )
+        -> Result < IROp , CompileError >
+    fn expr_to_irval_from_value(
+        self,
+        val: IRVal
+    )
+        -> Result < IRVal , CompileError >
+    fn handle_assignment(
+        self,
+        left: Expr,
+        right: Expr,
+        op: AssignOp,
+        span: Option < Span >
+    )
+        -> Result < IROp , CompileError >
+    fn expr_to_irval(
+        self,
+        expr: Expr
+    )
+        -> Result < IRVal , CompileError >
+    fn name(
+        self
+    )
+        -> & str
+    fn resolve_symbols(
+        self,
+        _ast: & AST
+    )
+    fn emit_temp(
+        self
+    )
+        -> String
     fn default() -> Self
+  struct SymbolInfo
+    PROPERTIES:
+    is_mutable: bool, is_initialized: bool, declared_at: Option < Span >
 
 --- # pipeline/mod.rs
+  ENUMS:
+  enum CompileError { Frontend(_0: String), Middle(_0: String), Backend(_0: String), Stage(stage: String, source: Box < dyn std :: error :: Error >) }
+
   STRUCTS:
   struct Metadata
     PROPERTIES:
@@ -1453,9 +1715,6 @@ fn main()
 
     METHODS:
     fn default() -> Self
-
-  ENUMS:
-  enum CompileError { Frontend(_0: String), Middle(_0: String), Backend(_0: String), Stage(stage: String, source: Box < dyn std :: error :: Error >) }
 
 --- # pipeline/runner.rs
   STRUCTS:
@@ -1651,189 +1910,86 @@ fn main()
         self
     )
 
---- ## backend/symbol/registry.rs
-    STRUCTS:
-    struct Symbol
-      PROPERTIES:
-      name: String, kind: SymbolKind, value: String, file: FileMeta, origin: String, metadata: HashMap < String , String >
-    struct SymbolId
-      PROPERTIES:
-      name: String, origin: String
-    struct SymbolRegistry
-      PROPERTIES:
-      table: HashMap < SymbolId , Symbol >, warnings: Vec < String >
+--- # init.rs
+FUNCTIONS:
+fn init() -> Kernel
 
-      METHODS:
-      fn new() -> Self
-      fn build(
-          self,
-          registry: & Registry,
-          engines: & HashMap < String , Box < dyn Utter > >
-      )
-      fn lookup(
-          self,
-          name: & str,
-          origin: & str
-      )
-          -> Option < & Symbol >
-      fn reset(
-          self
-      )
-      fn build_step(
-          self,
-          stack: & FileStack,
-          engine: & dyn Utter
-      )
-      fn build_all(
-          self,
-          registry: & Registry,
-          engines: & HashMap < String , Box < dyn Utter > >
-      )
-      fn build_incremental(
-          self,
-          stack: & FileStack,
-          engine: & dyn Utter
-      )
-      fn build_with_warnings(
-          self,
-          registry: & Registry,
-          engines: & HashMap < String , Box < dyn Utter > >
-      )
-          -> Vec < String >
-      fn add_symbols(
-          self,
-          symbols: Vec < Symbol >,
-          source_file: & str
-      )
+--- # kernel.rs
+STRUCTS:
+struct Kernel
+  PROPERTIES:
+  context: Arc < Context >, engine: Arc < CompileEngine >, logger: Arc < Logger >, cache: Arc < MemoryCache >, job_queue: Arc < JobQueue >, scheduler: TaskScheduler, diagnostics: Arc < RwLock < DiagnosticStore > >
+struct KernelBuilder
+  PROPERTIES:
+  context: Option < Arc < Context > >, engine: Option < Arc < CompileEngine > >, logger: Option < Arc < Logger > >, cache: Option < Arc < MemoryCache > >, job_queue: Option < Arc < JobQueue > >, scheduler: Option < TaskScheduler >, diagnostics: Option < Arc < RwLock < DiagnosticStore > > >
 
-    ENUMS:
-    enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
+  METHODS:
+  fn new() -> Self
+  fn context(
+      self,
+      context: Arc < Context >
+  )
+      -> Self
+  fn engine(
+      self,
+      engine: Arc < CompileEngine >
+  )
+      -> Self
+  fn logger(
+      self,
+      logger: Arc < Logger >
+  )
+      -> Self
+  fn cache(
+      self,
+      cache: Arc < MemoryCache >
+  )
+      -> Self
+  fn job_queue(
+      self,
+      queue: Arc < JobQueue >
+  )
+      -> Self
+  fn scheduler(
+      self,
+      scheduler: TaskScheduler
+  )
+      -> Self
+  fn diagnostics(
+      self,
+      diagnostics: Arc < RwLock < DiagnosticStore > >
+  )
+      -> Self
+  fn build(
+      self
+  )
+      -> Kernel
+struct KernelContext
+  PROPERTIES:
+  context: Arc < Context >, logger: Arc < Logger >, cache: Arc < MemoryCache >, job_queue: Arc < JobQueue >, scheduler: Arc < TaskScheduler >, diagnostics: Arc < DiagnosticStore >
 
---- ## backend/utter/handler.rs
-    STRUCTS:
-    struct GenericHandler
-      PROPERTIES:
-      target: RenderTarget
-
-      METHODS:
-      fn render_ir(
-          self,
-          ir: & IR
-      )
-          -> String
-      fn handle(
-          self,
-          file: & FileMeta,
-          utter: & dyn Utter,
-          symbols: & SymbolRegistry
-      )
-          -> Result < IR , String >
-      fn emit(
-          self,
-          ir: & IR
-      )
-          -> Result < String , String >
-
-    ENUMS:
-    enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
-
---- ## backend/utter/registry.rs
-    STRUCTS:
-    struct UtterRegistry
-      PROPERTIES:
-      utters: HashMap < String , Box < dyn Utter > >, handlers: HashMap < String , Box < dyn Handler > >
-
-      METHODS:
-      fn default() -> Self
-      fn eq(
-          self,
-          other: & Self
-      )
-          -> bool
-      fn new() -> Self
-      fn get_utter(
-          self,
-          capability: & str
-      )
-          -> Option < & dyn Utter >
-
---- ## backend/utter/utter.rs
-    STRUCTS:
-    struct GenericUtter
-      PROPERTIES:
-      name: String, config: LanguageConfig
-
-      METHODS:
-      fn new(
-          config: LanguageConfig
-      )
-          -> Self
-      fn fmt(
-          self,
-          f: & mut std :: fmt :: Formatter < '_ >
-      )
-          -> std :: fmt :: Result
-      fn name(
-          self
-      )
-          -> & str
-      fn flags(
-          self
-      )
-          -> UtterFlags
-      fn to_ir(
-          self,
-          metadata: & FileMeta,
-          symbols: & SymbolRegistry
-      )
-          -> Result < IR , String >
-      fn get_exported_symbols(
-          self,
-          metadata: & FileMeta
-      )
-          -> Vec < Symbol >
-      fn as_any(
-          self
-      )
-          -> & dyn Any
-      fn as_any_mut(
-          self
-      )
-          -> & mut dyn Any
-    struct LanguageConfig
-      PROPERTIES:
-      name: String, flags: UtterFlags, symbol_patterns: Vec < (& 'static str , SymbolKind) >, to_ir: Option < ToIrFn >
-
-      METHODS:
-      fn default() -> Self
-    struct UtterFlags
-      PROPERTIES:
-      browser_dom: bool, allow_network: bool, fs_access: bool, db_access: bool
-
-      METHODS:
-      fn default() -> Self
-
-    FUNCTIONS:
-    fn get_language_definitions() -> Vec < GenericUtter >
+--- # main.rs
+FUNCTIONS:
+fn main()
 
 --- # EMPTY FILES
-/Users/future/KB/project/app/loi/src/lib.rs
-/Users/future/KB/project/app/loi/src/backend/mod.rs
-/Users/future/KB/project/app/loi/src/build/mod.rs
-/Users/future/KB/project/app/loi/src/cli/mod.rs
-/Users/future/KB/project/app/loi/src/context/mod.rs
-/Users/future/KB/project/app/loi/src/development/mod.rs
-/Users/future/KB/project/app/loi/src/frontend/display.rs
-/Users/future/KB/project/app/loi/src/frontend/mod.rs
-/Users/future/KB/project/app/loi/src/interface/engine_provider.rs
-/Users/future/KB/project/app/loi/src/interface/fs.rs
-/Users/future/KB/project/app/loi/src/interface/mod.rs
-/Users/future/KB/project/app/loi/src/middle/mod.rs
-/Users/future/KB/project/app/loi/src/middle/optimize.rs
-/Users/future/KB/project/app/loi/src/pipeline/stage.rs
-/Users/future/KB/project/app/loi/src/registry/display.rs
-/Users/future/KB/project/app/loi/src/registry/mod.rs
-/Users/future/KB/project/app/loi/src/registry/test_utils.rs
-/Users/future/KB/project/app/loi/src/ui/mod.rs
-/Users/future/KB/project/app/loi/src/backend/symbol/mod.rs
-/Users/future/KB/project/app/loi/src/backend/utter/mod.rs
+  /Users/future/KB/project/app/loi/src/backend/symbol/mod.rs
+  /Users/future/KB/project/app/loi/src/backend/utter/mod.rs
+  /Users/future/KB/project/app/loi/src/backend/mod.rs
+  /Users/future/KB/project/app/loi/src/build/mod.rs
+  /Users/future/KB/project/app/loi/src/cli/mod.rs
+  /Users/future/KB/project/app/loi/src/context/mod.rs
+  /Users/future/KB/project/app/loi/src/development/mod.rs
+  /Users/future/KB/project/app/loi/src/frontend/display.rs
+  /Users/future/KB/project/app/loi/src/frontend/mod.rs
+  /Users/future/KB/project/app/loi/src/interface/engine_provider.rs
+  /Users/future/KB/project/app/loi/src/interface/fs.rs
+  /Users/future/KB/project/app/loi/src/interface/mod.rs
+  /Users/future/KB/project/app/loi/src/middle/mod.rs
+  /Users/future/KB/project/app/loi/src/middle/optimize.rs
+  /Users/future/KB/project/app/loi/src/pipeline/stage.rs
+  /Users/future/KB/project/app/loi/src/registry/display.rs
+  /Users/future/KB/project/app/loi/src/registry/mod.rs
+  /Users/future/KB/project/app/loi/src/registry/test_utils.rs
+  /Users/future/KB/project/app/loi/src/ui/mod.rs
+  /Users/future/KB/project/app/loi/src/lib.rs
