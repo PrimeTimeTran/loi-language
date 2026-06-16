@@ -168,8 +168,6 @@ pub struct LoweredIR {
     pub nodes: Vec<IROp>,
 }
 
-
-
 /// Final backend output
 // CompilerState is the *mutable brain* of the compiler.
 //
@@ -235,7 +233,7 @@ pub struct CompileState {
     pub source: Option<String>,
 
     /// Parsed syntax tree from current source.
-    pub ast: Option<AST>,
+    pub current_ast: Option<AST>,
 
     /// Current intermediate representation.
     /// Produced by frontend/middle pipeline.
@@ -299,6 +297,9 @@ impl CompileState {
     pub fn current_ir(&self) -> Option<IR> {
         self.current_ir.clone()
     }
+    pub fn current_ast(&self) -> Option<AST> {
+        self.current_ast.clone()
+    }
     pub fn current_lowered_ir(&self) -> Option<LoweredIR> {
         self.current_lowered_ir.clone()
     }
@@ -324,7 +325,7 @@ impl Default for CompileState {
             content_hashes: HashMap::new(),
 
             source: None,
-            ast: None,
+            current_ast: None,
             current_ir: None,
             current_lowered_ir: None,
             current_artifact: None,
@@ -336,3 +337,15 @@ impl Default for CompileState {
         }
     }
 }
+
+// impl CompilerCaches {
+//     pub fn sync_from_state(&mut self, state: &CompileState) {
+//         if let Some(ir) = &state.current_ir {
+//             self.ir_cache.store(ir);
+//         }
+
+//         if let Some(artifact) = &state.current_artifact {
+//             self.build_cache.store(artifact);
+//         }
+//     }
+// }

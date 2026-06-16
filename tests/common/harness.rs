@@ -72,14 +72,12 @@ impl TestHarness {
         let config = Arc::new(RwLock::new(CompileConfig::default()));
         let state = Arc::new(RwLock::new(CompileState::default()));
 
-        // engine owns shared state/config/context (all Arc clones)
         let engine = Arc::new(CompileEngine::new(
             context.clone(),
             config.clone(),
             state.clone(),
         ));
 
-        // kernel consumes engine (move happens here)
         let kernel = KernelBuilder::new()
             .context(context.clone())
             .engine(engine.clone())
@@ -135,8 +133,7 @@ impl TestHarness {
         let state = self.env.state.read().unwrap();
 
         state
-            .ast
-            .clone()
+            .current_ast()
             .ok_or_else(|| CompileError::Frontend("AST missing from test harness".into()))
     }
     pub fn get_diagnostics(&self) -> DiagnosticStore {

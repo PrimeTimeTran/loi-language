@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::{fmt, path::PathBuf};
 
-use crate::frontend::ast::{Expr, HashF64, Stmt};
+use crate::{
+    frontend::ast::{Expr, HashF64, Stmt},
+    middle::ir::IROp,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Module {
@@ -104,6 +107,7 @@ pub enum IRVal {
     Bool(bool),
     Str(String),
     Var(String),
+    Temp(String),
 }
 
 impl IRVal {
@@ -113,6 +117,12 @@ impl IRVal {
             IRVal::Bool(_) => Type::Bool,
             IRVal::Str(_) => Type::Str,
             IRVal::Var(_) => Type::Unknown,
+            IRVal::Temp(_) => Type::Unknown,
         }
     }
+}
+
+pub enum LoweredExpr {
+    Value(IRVal),
+    Op(IROp),
 }

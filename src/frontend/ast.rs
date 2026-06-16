@@ -91,6 +91,11 @@ impl fmt::Display for HashF64 {
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize)]
 pub enum Expr {
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
+        op: AssignOp,
+    },
     Number(HashF64),
     Unary {
         op: UnOp,
@@ -101,11 +106,7 @@ pub enum Expr {
         op: BinOp,
         right: Box<Expr>,
     },
-    Assign {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        op: AssignOp,
-    },
+
     Bool(bool),
 
     String(String),

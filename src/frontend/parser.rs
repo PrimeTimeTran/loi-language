@@ -131,63 +131,64 @@ pub fn parse_incremental(
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
     println!("parse_stmt at: {:?}", tokens.peek());
 
-    match tokens.peek() {
+    let stmt = match tokens.peek() {
         Some(Token::Print) => {
             println!("matched print");
             tokens.bump();
 
-            Ok(Stmt::Print {
+            Stmt::Print {
                 expr: parse_expr(tokens, diagnostics)?,
-            })
+            }
         }
-        Some(Token::Let) => parse_let(tokens, diagnostics),
-        Some(Token::If) => control::parse_if(tokens, diagnostics),
-        Some(Token::While) => control::parse_while(tokens, diagnostics),
-        Some(Token::Do) => control::parse_do_while(tokens, diagnostics),
-        Some(Token::Return) => control::parse_return(tokens, diagnostics),
-        Some(Token::Function) => control::parse_function(tokens, diagnostics),
+
+        Some(Token::Let) => {
+            return parse_let(tokens, diagnostics);
+        }
+
+        Some(Token::If) => return control::parse_if(tokens, diagnostics),
+        Some(Token::While) => return control::parse_while(tokens, diagnostics),
+        Some(Token::Do) => return control::parse_do_while(tokens, diagnostics),
+        Some(Token::Return) => return control::parse_return(tokens, diagnostics),
+        Some(Token::Function) => return control::parse_function(tokens, diagnostics),
 
         Some(Token::LBrace) => {
             println!("parse l brace");
-            tokens.bump(); // consume '{'
+            tokens.bump();
             let body = control::parse_block(tokens, diagnostics)?;
-            Ok(Stmt::Block { body })
+            Stmt::Block { body }
         }
 
         _ => {
-            println!("parse last arm of statement");
+            println!("expression statement fallback");
 
             let expr = parse_assignment(tokens, None, diagnostics)?;
-
-            if matches!(tokens.peek(), Some(Token::Semicolon)) {
-                tokens.bump();
-            }
 
             match expr {
                 Expr::Assign { left, right, op } => {
                     if let Expr::Var(name) = *left {
-                        let kind = match op {
-                            AssignOp::Assign => DeclKind::MutableStatic,
-                            AssignOp::Immutable => DeclKind::ImmutableStatic,
-                            AssignOp::Dynamic => DeclKind::Dynamic,
-                        };
-
                         return Ok(Stmt::Let {
                             name,
-                            kind,
+                            kind: DeclKind::MutableStatic, // or your default
                             value: *right,
                         });
                     }
 
-                    Ok(Stmt::ExprStmt {
+                    Stmt::ExprStmt {
                         expr: Expr::Assign { left, right, op },
-                    })
+                    }
                 }
 
-                other => Ok(Stmt::ExprStmt { expr: other }),
+                other => Stmt::ExprStmt { expr: other },
             }
         }
+    };
+
+    // ✅ single, centralized semicolon handling
+    if matches!(tokens.peek(), Some(Token::Semicolon)) {
+        tokens.bump();
     }
+
+    Ok(stmt)
 }
 fn parse_expr(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Expr, String> {
     parse_assignment(tokens, None, diagnostics)

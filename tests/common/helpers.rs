@@ -8,7 +8,7 @@ use inkwell::{
 };
 use loi::{
     backend::{
-        llvm::LLVM,
+        llvm::{LLVM, lower_ast_to_ir},
         symbol::registry::{Symbol, SymbolKind, SymbolRegistry},
         utter::{registry::UtterRegistry, utter::Utter},
     },
@@ -91,97 +91,8 @@ pub fn fails(input: &str) {
     }
 }
 
-fn lower_stmt(stmt: Stmt, ops: &mut Vec<IROp>) -> Result<(), CompileError> {
-    match stmt {
-        Stmt::ExprStmt { expr } => lower_expr_stmt(expr, ops)?,
-
-        Stmt::Print { expr } => {
-            let typed = lower_expr(expr)?;
-            let value = typed_to_irval(typed)?;
-            ops.push(IROp::Print { value });
-        }
-
-        _ => {
-            return Err(CompileError::Middle(format!(
-                "Unsupported statement: {:?}",
-                stmt
-            )));
-        }
-    }
-
-    Ok(())
-}
-fn typed_to_irval(te: TypedExpr) -> Result<IRVal, CompileError> {
-    match te.expr {
-        Expr::Bool(v) => Ok(IRVal::Bool(v)),
-        Expr::Number(n) => Ok(IRVal::Number(n)),
-        Expr::String(s) => Ok(IRVal::Str(s)),
-        Expr::Var(v) => Ok(IRVal::Var(v)),
-
-        _ => Err(CompileError::Middle("Unsupported TypedExpr".into())),
-    }
-}
-
-fn lower_expr_stmt(expr: Expr, ops: &mut Vec<IROp>) -> Result<(), CompileError> {
-    let typed = lower_expr(expr)?;
-    let value = typed_to_irval(typed)?;
-
-    ops.push(IROp::Print { value });
-
-    Ok(())
-}
-
-fn lower_expr(expr: Expr) -> Result<TypedExpr, CompileError> {
-    let span = Span::default();
-
-    let typed = match expr {
-        Expr::Bool(v) => TypedExpr {
-            expr: Expr::Bool(v),
-            ty: Type::Bool,
-            span,
-        },
-
-        Expr::Number(n) => TypedExpr {
-            expr: Expr::Number(n),
-            ty: Type::F64,
-            span,
-        },
-
-        Expr::String(s) => TypedExpr {
-            expr: Expr::String(s.clone()),
-            ty: Type::Str,
-            span,
-        },
-
-        Expr::Var(name) => TypedExpr {
-            expr: Expr::Var(name.clone()),
-            ty: Type::Str,
-            span,
-        },
-
-        other => {
-            return Err(CompileError::Middle(format!(
-                "Unsupported expression: {:?}",
-                other
-            )));
-        }
-    };
-
-    Ok(typed)
-}
-
-pub fn lower_ast_to_ops(ast: AST) -> Result<Vec<IROp>, CompileError> {
-    let mut ops = Vec::new();
-
-    for stmt in ast.stmts {
-        lower_stmt(stmt, &mut ops)?;
-    }
-
-    Ok(ops)
-}
-
 pub fn ast_to_ir(ast: AST) -> Result<Vec<IROp>, CompileError> {
-    lower_ast_to_ops(ast)
+    lower_ast_to_ir(&ast)
 }
 
 fn finalize_ir(mut ir: Vec<IROp>) -> Vec<IROp> {

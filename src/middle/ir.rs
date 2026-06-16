@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::frontend::ast::{BinOp, Expr, Stmt};
+use crate::frontend::ast::{AssignOp, BinOp, Expr, Stmt, UnOp};
 
 use crate::middle::types::{IRVal, Span, Type};
+use crate::pipeline::CompileError;
 use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;
@@ -110,8 +111,34 @@ pub enum LoweredOp {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum IROp {
-    Return {
-        value: Option<IRVal>,
+    Temp {
+        value: IRVal,
+    },
+
+    Unary {
+        op: UnOp,
+        value: IRVal,
+        // target: Option<String>,
+    },
+
+    Array {
+        values: Vec<IRVal>,
+        // target: Option<String>,
+    },
+    Assign {
+        name: String,
+        value: IRVal,
+    },
+    // Assign {
+    //     target: IRVal,
+    //     value: IRVal,
+    //     op: AssignOp,
+    // },
+    Expr {
+        value: IRVal,
+    },
+    Print {
+        value: IRVal,
     },
     Declare {
         name: String,
@@ -119,7 +146,9 @@ pub enum IROp {
         mutable: bool,
         dynamic: bool,
     },
-
+    Return {
+        value: Option<IRVal>,
+    },
     Nop,
     Binary {
         target: String,
@@ -140,10 +169,6 @@ pub enum IROp {
         body: Vec<IROp>,
     },
 
-    Assign {
-        name: String,
-        value: IRVal,
-    },
     Load {
         name: String,
     },
@@ -158,9 +183,7 @@ pub enum IROp {
         name: String,
         args: Vec<IRVal>,
     },
-    Print {
-        value: IRVal,
-    },
+
     ExternalCall {
         namespace: String,
         function: String,

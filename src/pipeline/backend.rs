@@ -5,7 +5,7 @@ use inkwell::targets::{
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    backend::llvm::{CodeGenContext, LLVM, llvm, lower_expr_to_ir},
+    backend::llvm::{CodeGenContext, LLVM, codegen_ir_op, llvm},
     compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     frontend::ast::Expr,
@@ -102,7 +102,8 @@ impl BackendPipeline {
         let i32_type = ctx.i32_type();
         let fn_type = i32_type.fn_type(&[], false);
 
-        let main: inkwell::values::FunctionValue<'_> = context.module.add_function("main", fn_type, None);
+        let main: inkwell::values::FunctionValue<'_> =
+            context.module.add_function("main", fn_type, None);
         let entry = ctx.append_basic_block(main, "entry");
         context.builder.position_at_end(entry);
 
@@ -110,7 +111,7 @@ impl BackendPipeline {
         for op in ir.nodes {
             println!("LOWERING IR: {:?}", op);
 
-            lower_expr_to_ir(&mut context, op).map_err(CompileError::Backend)?;
+            codegen_ir_op(&mut context, op).map_err(CompileError::Backend)?;
         }
 
         // RETURN
