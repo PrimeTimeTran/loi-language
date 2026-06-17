@@ -7,6 +7,9 @@ pub mod block_comment;
 #[path = "02_literals.rs"]
 pub mod literals;
 
+#[path = "03_compound_operators.rs"]
+pub mod compound_operators;
+
 #[path = "04_delimiters.rs"]
 pub mod delimiters;
 

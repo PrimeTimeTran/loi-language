@@ -16,8 +16,8 @@ pub mod assignment_expression;
 #[path = "06_declaration_statements.rs"]
 pub mod declaration_statements;
 
-#[path = "07_pratt_evaluation.rs"]
-pub mod pratt_evaluation;
+#[path = "07_expression_precedence.rs"]
+pub mod expression_precedence;
 
 #[path = "08_arrays.rs"]
 pub mod arrays;
