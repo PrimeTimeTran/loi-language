@@ -1,12 +1,10 @@
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::TestHarness;
 use loi::{
     frontend::ast::Expr,
     middle::{ir::IROp, types::IRVal},
     pipeline::runner::PipelineRunner,
 };
+
+use crate::common::TestHarness;
 
 #[test]
 fn middle_generates_ir() {
@@ -96,26 +94,6 @@ fn middle_does_not_use_raw_expr_conversion() {
         "Middle must handle complex expressions via lowering, not raw Expr conversion"
     );
 }
-
-// #[test]
-// fn middle_ir_contains_only_lowered_values() {
-//     let mut h = TestHarness::bootstrap("let x = 1 + 2;", vec![]);
-
-//     h.run_stage(h.build_frontend()).unwrap();
-//     h.run_stage(h.build_middle()).unwrap();
-
-//     let ir = h.env.state.read().unwrap().current_ir().unwrap();
-
-//     for op in ir.nodes {
-//         match op {
-//             IROp::Print { value } => match value {
-//                 IRVal::Number(_) | IRVal::Bool(_) | IRVal::Str(_) | IRVal::Var(_) => {}
-//             },
-
-//             _ => {}
-//         }
-//     }
-// }
 
 #[test]
 fn middle_never_panics_on_valid_ast() {

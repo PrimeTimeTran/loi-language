@@ -1,8 +1,6 @@
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::TestHarness;
 use loi::pipeline::{backend::BackendTarget, runner::PipelineRunner};
+
+use crate::common::TestHarness;
 
 #[test]
 fn backend_requires_ir() {
