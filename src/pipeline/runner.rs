@@ -3,6 +3,7 @@ use crate::{
     pipeline::{CompileError, Pipeline, stage::Stage},
 };
 
+#[derive(Default)]
 pub struct PipelineRunner {
     stages: Vec<Box<dyn Stage>>,
 }

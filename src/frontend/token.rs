@@ -223,7 +223,8 @@ pub enum Token {
     #[token("and")]
     AndAlias,
 
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
+    // #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
+    #[regex(r"\p{XID_Start}\p{XID_Continue}*", |lex| lex.slice().to_string())]
     Ident(String),
 
     #[regex(r"[0-9]+(?:\.[0-9]+)?", |lex| lex.slice().parse::<f64>().unwrap())]

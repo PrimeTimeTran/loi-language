@@ -30,6 +30,7 @@ cargo nextest run --test '000*'
 
 ```sh
 cargo nextest run -E 'test(/parser::ast/)' --test-threads 1 --no-fail-fast
+cargo nextest run -E 'test(/pipeline/)' --test-threads 1 --no-fail-fast
 ```
 
 - Pattern matching

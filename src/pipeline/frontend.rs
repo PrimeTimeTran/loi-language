@@ -66,7 +66,7 @@ impl FrontendPipeline {
             state,
             // Explicitly initialize the sub-components
             lexer: Arc::new(RwLock::new(Lexer::default())),
-            parser: Arc::new(RwLock::new(Parser::default())),
+            parser: Arc::new(RwLock::new(Parser)),
             features: FrontendFeatures::default(),
         }
     }
@@ -156,13 +156,18 @@ impl FrontendPipeline {
             ds
         })?;
 
-        let ast = parser_guard.parse(tokens, &mut *diag_guard).map_err(|_| {
+        let ast = parser_guard.parse(tokens, &mut diag_guard).map_err(|_| {
             let mut ds = DiagnosticStore::default();
-            let diag =
-                Diagnostic::new(format!("Error in parser"), Span::default(), Severity::Error)
-                    .with_code("ELOCK001")
-                    .with_note("Lexer was locked by another thread or poisoned")
-                    .with_suggestion("Retry compilation or ensure single-threaded access");
+
+            let diag = Diagnostic::new(
+                "Error in parser".to_string(),
+                Span::default(),
+                Severity::Error,
+            )
+            .with_code("ELOCK001")
+            .with_note("Lexer was locked by another thread or poisoned")
+            .with_suggestion("Retry compilation or ensure single-threaded access");
+
             ds.emit(diag);
             ds
         })?;

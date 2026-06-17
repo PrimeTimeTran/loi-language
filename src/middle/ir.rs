@@ -28,7 +28,7 @@ pub enum Op {
     Neg,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct IR {
     // ========================================
     // LEGACY / TRANSITIONAL (DO NOT EXPAND)
@@ -433,27 +433,6 @@ pub struct RegionBlock {
 
 pub trait RegionProcessor {
     fn process(&self, block: &RegionBlock) -> Vec<u8>;
-}
-
-impl Default for IR {
-    fn default() -> Self {
-        Self {
-            // ========================================
-            // LEGACY / TRANSITIONAL (SAFE EMPTY STATE)
-            // ========================================
-            raw: String::new(),
-            nodes: Vec::new(),
-            symbols: HashMap::new(),
-            metadata: HashMap::new(),
-            ops: Vec::new(),
-
-            // ========================================
-            // MODERN IR STRUCTURE (PRIMARY PATH)
-            // ========================================
-            modules: Vec::new(),
-            functions: Vec::new(),
-        }
-    }
 }
 
 impl IR {

@@ -10,24 +10,11 @@ use crate::{
     },
 };
 
-// #[derive(Default, Debug, Clone)]
-// pub struct LexerState {
-//     pub position: usize,
-//     pub line: usize,
-//     pub column: usize,
-// }
-
-// #[derive(Default, Debug, Clone)]
-// pub struct LexerConfig {
-//     pub allow_unicode_identifiers: bool,
-//     pub allow_raw_strings: bool,
-//     pub comment_support: bool,
-// }
-
-// pub struct Lexer {
-//     pub state: LexerState,
-//     pub config: LexerConfig,
-// }
+#[derive(Debug)]
+pub enum LexError {
+    UnexpectedChar(char),
+    InvalidToken,
+}
 
 impl Default for Lexer {
     fn default() -> Self {
@@ -47,18 +34,26 @@ impl Default for Lexer {
 }
 
 impl Lexer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn lex(&mut self, input: &str) -> Result<TokenStream, ()> {
+    pub fn lex(&mut self, input: &str) -> Result<TokenStream, LexError> {
         let mut tokens = Vec::new();
         let mut lexer = Token::lexer(input);
 
-        while let Some(tok) = lexer.next() {
-            match tok {
+        while let Some(result) = lexer.next() {
+            match result {
                 Ok(token) => tokens.push(token),
-                Err(_) => return Err(()),
+
+                Err(_) => {
+                    // Try to get context from span
+                    let span = lexer.span();
+                    let slice = &input[span.start..span.end.max(span.start)];
+
+                    let err_char = slice.chars().next();
+
+                    return Err(match err_char {
+                        Some(c) => LexError::UnexpectedChar(c),
+                        None => LexError::InvalidToken,
+                    });
+                }
             }
         }
 
@@ -141,7 +136,19 @@ impl TokenStream {
         self.tokens.get(self.pos)
     }
 
-    pub fn next(&mut self) -> Option<Token> {
+    pub fn bump(&mut self) {
+        self.pos += 1;
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.pos >= self.tokens.len()
+    }
+}
+
+impl Iterator for TokenStream {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.tokens.len() {
             return None;
         }
@@ -149,13 +156,5 @@ impl TokenStream {
         let tok = self.tokens[self.pos].clone();
         self.pos += 1;
         Some(tok)
-    }
-
-    pub fn bump(&mut self) {
-        self.pos += 1;
-    }
-
-    pub fn is_eof(&self) -> bool {
-        self.pos >= self.tokens.len()
     }
 }

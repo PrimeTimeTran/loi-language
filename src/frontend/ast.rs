@@ -4,7 +4,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 pub struct Program {
     pub stmts: Vec<Stmt>,
     pub modules: Vec<Module>,
@@ -408,10 +408,11 @@ impl Expr {
                 format!("number({})", n.0)
             }
             Expr::Bool(b) => {
-                format!("bool({})", b.to_string())
+                format!("bool({})", b)
             }
+
             Expr::Identifier { name } => {
-                format!("bool({})", name.to_string())
+                format!("bool({})", name)
             }
             Expr::String(s) => {
                 format!("string({})", s)
@@ -444,16 +445,16 @@ impl Expr {
     }
 }
 
-impl Default for Program {
-    fn default() -> Self {
-        Self {
-            entry: None,
-            stmts: Vec::new(),
-            modules: Vec::new(),
-            globals: Vec::new(),
-        }
-    }
-}
+// impl Default for Program {
+//     fn default() -> Self {
+//         Self {
+//             entry: None,
+//             stmts: Vec::new(),
+//             modules: Vec::new(),
+//             globals: Vec::new(),
+//         }
+//     }
+// }
 
 impl From<AssignOp> for DeclKind {
     fn from(op: AssignOp) -> Self {

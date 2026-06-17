@@ -4,6 +4,6 @@ mod common {
 
 #[test]
 fn common_available() {
-    let result = common::common_mod_helper("Nested Pulse");
-    assert_eq!(result, (), "module resolution failed");
+    common::common_mod_helper("Nested Pulse");
+    assert_eq!((), (), "module resolution failed");
 }

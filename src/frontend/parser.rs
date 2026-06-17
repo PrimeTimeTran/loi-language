@@ -69,7 +69,7 @@ pub fn parse(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
 ) -> Result<AST, DiagnosticStore> {
-    return parse_program(tokens, diagnostics);
+    parse_program(tokens, diagnostics)
 }
 pub fn parse_incremental(
     prev: &AST,
@@ -131,12 +131,14 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
         Some(Token::Do) => control::parse_do_while(tokens, diagnostics)?,
         Some(Token::Return) => control::parse_return(tokens, diagnostics)?,
         Some(Token::Function) => control::parse_function(tokens, diagnostics)?,
+
         Some(Token::Print) => {
             tokens.bump();
             Stmt::Print {
                 expr: parse_expr(tokens, diagnostics)?,
             }
         }
+
         Some(Token::LBrace) => {
             tokens.bump();
             let body = control::parse_block(tokens, diagnostics)?;
@@ -146,7 +148,7 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
         _ => {
             let expr = parse_assignment(tokens, None, diagnostics)?;
 
-            let stmt = match expr {
+            match expr {
                 Expr::Assign { left, right, op } if is_simple_var(&left) => {
                     if let Expr::Var(name) = *left {
                         let kind: DeclKind = op.into();
@@ -161,13 +163,10 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
                 }
 
                 other => Stmt::ExprStmt { expr: other },
-            };
-
-            stmt
+            }
         }
     };
 
-    // semicolon handling (ONLY ONCE)
     if matches!(tokens.peek(), Some(Token::Semicolon)) {
         tokens.bump();
     }

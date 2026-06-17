@@ -9,10 +9,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 // static SCOPE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+#[derive(Default)]
 pub struct SemanticAnalyzer {
     symbols: HashMap<String, Type>,
     scope_counter: AtomicUsize,
 }
+
 impl SemanticAnalyzer {
     pub fn new() -> Self {
         Self {
@@ -57,13 +59,11 @@ pub fn analyze(ast: AST) -> Result<Vec<IROp>, String> {
 
 fn annotate_types(expr: &mut Expr, symbol_table: &HashMap<String, Type>) -> Type {
     match expr {
-        Expr::Var(name) => {
-            let ty = symbol_table
-                .get(name)
-                .cloned()
-                .expect("Variable not in table");
-            ty
-        }
+        Expr::Var(name) => symbol_table
+            .get(name)
+            .cloned()
+            .expect("Variable not in table"),
+
         _ => {
             panic!("Type inference failed for expression: {:?}", expr);
         }
@@ -72,9 +72,9 @@ fn annotate_types(expr: &mut Expr, symbol_table: &HashMap<String, Type>) -> Type
 
 fn infer_type(expr: &Expr, symbols: &HashMap<String, Type>) -> Result<Type, String> {
     match expr {
+        Expr::None => Ok(Type::Unknown),
+        Expr::Empty => Ok(Type::Unknown),
         Expr::Member { .. } => Ok(Type::Unknown),
-        Expr::None { .. } => Ok(Type::Unknown),
-        Expr::Empty { .. } => Ok(Type::Unknown),
         Expr::Unary { .. } => Ok(Type::F64),
         Expr::Binary { .. } => Ok(Type::F64),
         Expr::Bool(_) => Ok(Type::Bool),
