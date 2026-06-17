@@ -1,0 +1,28 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Unary:
+            op: Neg
+            expr:
+              Member:
+                target:
+                  Var: a
+                field: b
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Unary:
+          op: Neg
+          expr:
+            Member:
+              target:
+                Var: a
+              field: b

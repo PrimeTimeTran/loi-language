@@ -1,0 +1,16 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Bool: false
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Bool: false

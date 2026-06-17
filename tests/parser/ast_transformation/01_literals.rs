@@ -1,32 +1,31 @@
-use crate::common::{ParserTestHarness, helpers::parses};
-use loi::frontend::ast::{DeclKind, Expr, Stmt};
+use crate::common::assert_expr;
 
 #[test]
 fn p01_parses_integer() {
-    parses("123");
+    assert_expr("123", "number(123)");
 }
 
 #[test]
 fn p02_parses_float() {
-    parses("123.456");
+    assert_expr("123.456", "number(123.456)");
 }
 
 #[test]
 fn p03_parses_string() {
-    parses("\"hello\"");
+    assert_expr("\"hello\"", "string(hello)");
 }
 
 #[test]
 fn p04_parses_true() {
-    parses("true");
+    assert_expr("true", "bool(true)");
 }
 
 #[test]
 fn p05_parses_false() {
-    parses("false");
+    assert_expr("false", "bool(false)");
 }
 
 #[test]
 fn p06_parses_identifier() {
-    parses("foo");
+    assert_expr("foo", "identifier(foo)");
 }

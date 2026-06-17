@@ -1,0 +1,59 @@
+---
+source: tests/00_common/snapshot.rs
+expression: value
+---
+AST {
+    program: Program {
+        stmts: [
+            Let {
+                name: "x",
+                kind: MutableStatic,
+                value: Binary {
+                    left: Number(
+                        HashF64(
+                            1.0,
+                        ),
+                    ),
+                    op: Add,
+                    right: Number(
+                        HashF64(
+                            2.0,
+                        ),
+                    ),
+                },
+            },
+            Print {
+                expr: Var(
+                    "x",
+                ),
+            },
+        ],
+        modules: [],
+        globals: [],
+        entry: None,
+    },
+    stmts: [
+        Let {
+            name: "x",
+            kind: MutableStatic,
+            value: Binary {
+                left: Number(
+                    HashF64(
+                        1.0,
+                    ),
+                ),
+                op: Add,
+                right: Number(
+                    HashF64(
+                        2.0,
+                    ),
+                ),
+            },
+        },
+        Print {
+            expr: Var(
+                "x",
+            ),
+        },
+    ],
+}

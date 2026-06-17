@@ -1,6 +1,4 @@
-use crate::common::{
-    ParserTestHarness, assert_expr, assert_expr_with_ops, fails, fn_decl, helpers::parses, let_decl,
-};
+use crate::common::{ParserTestHarness, assert_expr, fails, fn_decl, helpers::parses, let_decl};
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
 // Basic Pratt precedence
@@ -195,8 +193,7 @@ fn p26_complex_logical_grouping() {
 
 #[test]
 fn p27_precedence_power_vs_multiplication() {
-    assert_expr_with_ops(
-        true,
+    assert_expr(
         "a ^ b * c",
         "((identifier(a) ^ identifier(b)) * identifier(c))",
     );
@@ -204,15 +201,13 @@ fn p27_precedence_power_vs_multiplication() {
 
 #[test]
 fn p28_precedence_unary_vs_power() {
-    assert_expr_with_ops(true, "-a ^ b", "((-identifier(a)) ^ identifier(b))");
-
-    assert_expr_with_ops(true, "a ^ -b", "(identifier(a) ^ (-identifier(b)))");
+    assert_expr("-a ^ b", "((-identifier(a)) ^ identifier(b))");
+    assert_expr("a ^ -b", "(identifier(a) ^ (-identifier(b)))");
 }
 
 #[test]
 fn p29_precedence_complex_expression_integration() {
-    assert_expr_with_ops(
-        true,
+    assert_expr(
         "a = -b.c() ^ d * e + f == g && h",
         "(let a = ((((((-((identifier(b).c)())) ^ identifier(d)) * identifier(e)) + identifier(f)) == identifier(g)) && identifier(h)))",
     );

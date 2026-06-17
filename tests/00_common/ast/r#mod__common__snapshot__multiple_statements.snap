@@ -1,0 +1,47 @@
+---
+source: tests/00_common/snapshot.rs
+expression: value
+---
+AST {
+    program: Program {
+        stmts: [
+            Print {
+                expr: Number(
+                    HashF64(
+                        1.0,
+                    ),
+                ),
+            },
+            Let {
+                name: "x",
+                kind: MutableStatic,
+                value: Number(
+                    HashF64(
+                        2.0,
+                    ),
+                ),
+            },
+        ],
+        modules: [],
+        globals: [],
+        entry: None,
+    },
+    stmts: [
+        Print {
+            expr: Number(
+                HashF64(
+                    1.0,
+                ),
+            ),
+        },
+        Let {
+            name: "x",
+            kind: MutableStatic,
+            value: Number(
+                HashF64(
+                    2.0,
+                ),
+            ),
+        },
+    ],
+}

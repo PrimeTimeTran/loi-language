@@ -1,5 +1,4 @@
-
-use crate::common::{AssertOpts, MockEngine, TestHarness};
+use crate::common::{MockEngine, TestHarness};
 
 use inkwell::{
     AddressSpace,

@@ -1,90 +1,71 @@
 use std::cell::RefCell;
 
-use loi::{
-    compiler::diagnostic::DiagnosticStore,
-    frontend::{ast::Stmt, lexer::lex, parser::parse_program},
-};
+use insta::assert_yaml_snapshot;
 use owo_colors::OwoColorize;
 
 use crate::common::{clean, parse_to_ast, parses};
-
-pub struct AssertOpts {
-    pub snapshot: bool,
-    pub verbose: bool,
-}
-
-impl Default for AssertOpts {
-    fn default() -> Self {
-        Self {
-            snapshot: Default::default(),
-            verbose: Default::default(),
-        }
-    }
-}
-
-impl From<bool> for AssertOpts {
-    fn from(snapshot: bool) -> Self {
-        Self {
-            snapshot,
-            ..Default::default()
-        }
-    }
-}
-
-#[track_caller]
-pub fn assert_expr(input: &str, expected: &str) {
-    let actual = parses(input).expect("parses() failed");
-
-    let clean_actual = clean(&actual);
-    let clean_expected = clean(expected);
-
-    println!(" actual {}", actual);
-    println!(" clean_actual {}", clean_actual);
-    println!(" clean_expected {}", clean_expected);
-
-    if clean_actual != clean_expected {
-        panic!(
-            "\n{} {} {}\n\
-             {}: {}\n\
-             {}: {}\n\
-             {}:\n  Expected: {}\n  Actual:   {}\n",
-            "=== Test Failed ===".red().bold(),
-            "\nInput:".yellow(),
-            input.yellow(),
-            "Expected:".green(),
-            expected.green(),
-            "Actual:".red(),
-            actual.red(),
-            "\nDiff (Cleaned)".blue(),
-            clean_expected.green(),
-            clean_actual.red(),
-        );
-    }
-}
 
 thread_local! {
     static ASSERT_COUNT: RefCell<usize> = RefCell::new(0);
 }
 
-#[track_caller]
-pub fn assert_expr_with_ops(opts: impl Into<AssertOpts>, input: &str, expected: &str) {
-    let thread_name = std::thread::current()
-        .name()
-        .unwrap_or("unknown")
-        .to_string();
-    let test_name = thread_name.split("::").last().unwrap_or("unknown");
+#[derive(Default)]
+pub struct AssertExprOpts {
+    pub check_string: bool,
+}
 
-    let count = ASSERT_COUNT.with(|c| {
+#[track_caller]
+pub fn assert_expr(input: &str, expected: &str) {
+    assert_expr_full(input, expected, AssertExprOpts::default());
+}
+
+/// SINGLE UNIFIED ASSERT ENTRYPOINT
+#[track_caller]
+pub fn assert_expr_full(input: &str, expected: &str, opts: AssertExprOpts) {
+    // -----------------------------
+    // 1. PARSE ONCE (source of truth)
+    // -----------------------------
+    let ast = parse_to_ast(input).expect("parse failed");
+
+    // -----------------------------
+    // 2. SNAPSHOT (always)
+    // -----------------------------
+    let snapshot_name = ASSERT_COUNT.with(|c| {
         let mut count = c.borrow_mut();
         *count += 1;
-        *count
+
+        let test_name = std::thread::current()
+            .name()
+            .unwrap_or("unknown")
+            .to_string();
+
+        format!("{}_{}", test_name, count)
     });
-    let snapshot_name = format!("{}_{}", test_name, count);
+
     insta::with_settings!({
-            snapshot_path => "../snapshots/ast",
-        }, {
-    let ast = parse_to_ast(input).expect("parse failed");
-    insta::assert_yaml_snapshot!(snapshot_name, ast);
-        });
-    assert_expr(input, expected);
+        snapshot_path => "../snapshots/ast",
+    }, {
+        assert_yaml_snapshot!(snapshot_name, &ast);
+    });
+
+    // -----------------------------
+    // 3. OPTIONAL STRING CHECK (legacy compatibility)
+    // -----------------------------
+    if opts.check_string {
+        let actual = parses(input).expect("parses() failed");
+
+        let clean_actual = clean(&actual);
+        let clean_expected = clean(expected);
+
+        if clean_actual != clean_expected {
+            panic!(
+                "\n{} {}\nINPUT: {}\nEXPECTED: {}\nACTUAL: {}\n",
+                "=== Test Failed ===".red().bold(),
+                "",
+                input.yellow(),
+                clean_expected.green(),
+                clean_actual.red(),
+            );
+        }
+    }
 }

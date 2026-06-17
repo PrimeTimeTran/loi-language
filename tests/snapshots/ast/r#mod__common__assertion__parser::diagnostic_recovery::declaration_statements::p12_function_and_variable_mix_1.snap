@@ -1,0 +1,28 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Function:
+        name: foo
+        params: []
+        body: []
+    - Let:
+        name: x
+        kind: MutableStatic
+        value:
+          Number: 5
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Function:
+      name: foo
+      params: []
+      body: []
+  - Let:
+      name: x
+      kind: MutableStatic
+      value:
+        Number: 5

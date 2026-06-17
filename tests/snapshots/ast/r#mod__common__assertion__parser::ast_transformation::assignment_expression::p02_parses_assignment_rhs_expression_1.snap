@@ -1,0 +1,40 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Let:
+        name: x
+        kind: MutableStatic
+        value:
+          Binary:
+            left:
+              Number: 1
+            op: Add
+            right:
+              Binary:
+                left:
+                  Number: 2
+                op: Mul
+                right:
+                  Number: 3
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Let:
+      name: x
+      kind: MutableStatic
+      value:
+        Binary:
+          left:
+            Number: 1
+          op: Add
+          right:
+            Binary:
+              left:
+                Number: 2
+              op: Mul
+              right:
+                Number: 3

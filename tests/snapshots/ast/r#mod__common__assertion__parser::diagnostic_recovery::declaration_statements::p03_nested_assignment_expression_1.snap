@@ -1,0 +1,40 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Let:
+        name: a
+        kind: MutableStatic
+        value:
+          Assign:
+            left:
+              Var: b
+            right:
+              Assign:
+                left:
+                  Var: c
+                right:
+                  Number: 5
+                op: Assign
+            op: Assign
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Let:
+      name: a
+      kind: MutableStatic
+      value:
+        Assign:
+          left:
+            Var: b
+          right:
+            Assign:
+              left:
+                Var: c
+              right:
+                Number: 5
+              op: Assign
+          op: Assign

@@ -1,0 +1,46 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Binary:
+            left:
+              Number: 1
+            op: Add
+            right:
+              Binary:
+                left:
+                  Binary:
+                    left:
+                      Number: 2
+                    op: Mod
+                    right:
+                      Number: 3
+                op: Mul
+                right:
+                  Number: 4
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Binary:
+          left:
+            Number: 1
+          op: Add
+          right:
+            Binary:
+              left:
+                Binary:
+                  left:
+                    Number: 2
+                  op: Mod
+                  right:
+                    Number: 3
+              op: Mul
+              right:
+                Number: 4

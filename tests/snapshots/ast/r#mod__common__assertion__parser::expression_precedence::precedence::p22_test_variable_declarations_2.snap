@@ -1,0 +1,20 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Let:
+        name: y
+        kind: Immutable
+        value:
+          Number: 10
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Let:
+      name: y
+      kind: Immutable
+      value:
+        Number: 10

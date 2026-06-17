@@ -1,0 +1,33 @@
+---
+source: tests/00_common/snapshot.rs
+expression: value
+---
+AST {
+    program: Program {
+        stmts: [
+            Let {
+                name: "x",
+                kind: MutableStatic,
+                value: Number(
+                    HashF64(
+                        1.0,
+                    ),
+                ),
+            },
+        ],
+        modules: [],
+        globals: [],
+        entry: None,
+    },
+    stmts: [
+        Let {
+            name: "x",
+            kind: MutableStatic,
+            value: Number(
+                HashF64(
+                    1.0,
+                ),
+            ),
+        },
+    ],
+}

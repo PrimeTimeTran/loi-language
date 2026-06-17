@@ -1,0 +1,18 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Function:
+        name: foo
+        params: []
+        body: []
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Function:
+      name: foo
+      params: []
+      body: []
