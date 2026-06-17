@@ -1,5 +1,8 @@
 use crate::{
-    compiler::{engine::CompileEngine, state::CompileState}, kernel::KernelContext, pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline}
+    compiler::{PipelineContext, engine::CompileEngine, state::CompileState},
+    context::Context,
+    kernel::KernelContext,
+    pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline},
 };
 
 pub mod backend;
@@ -37,14 +40,31 @@ pub mod stage;
 //   - code generation
 //   - linking
 //   - artifact
+// pub trait Pipeline {
+//     fn name(&self) -> &str;
+//     fn run(
+//         &self,
+//         ctx: &KernelContext,
+//         engine: &CompileEngine,
+//         state: &mut CompileState,
+//     ) -> Result<(), CompileError>;
+// }
+
 pub trait Pipeline {
     fn name(&self) -> &str;
+
     fn run(
         &self,
-        ctx: &KernelContext,
-        engine: &CompileEngine,
-        state: &mut CompileState,
+        global_ctx: &Context,       // Read-only environment
+        work: &mut PipelineContext, // Mutable work-in-progress
+        state: &mut CompileState,   // Mutable compiler state
     ) -> Result<(), CompileError>;
+    fn setup(&mut self, _state: &mut CompileState) -> Result<(), CompileError> {
+        Ok(())
+    }
+    fn teardown(&mut self, _state: &mut CompileState) -> Result<(), CompileError> {
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -56,6 +76,21 @@ pub enum CompileError {
         stage: String,
         source: Box<dyn std::error::Error>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct Metadata {
+    pub name: String,
+    pub version: String,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Self {
+            name: "Pipeline: Unnamed".to_string(),
+            version: "0.0.1".to_string(),
+        }
+    }
 }
 
 impl std::fmt::Display for CompileError {
@@ -72,19 +107,3 @@ impl std::fmt::Display for CompileError {
 }
 
 impl std::error::Error for CompileError {}
-
-#[derive(Clone, Debug)]
-pub struct Metadata {
-    pub name: String,
-    pub version: String,
-    // Add other shared things here like version, status, etc.
-}
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Self {
-            name: "Pipeline: Unnamed".to_string(),
-            version: "0.0.1".to_string(),
-        }
-    }
-}

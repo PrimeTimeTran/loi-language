@@ -803,9 +803,14 @@
 
     METHODS:
     fn compile(
-        self
+        self,
+        ctx: PipelineContext,
+        state: CompileState
     )
-        -> Result < () , Compiler >
+        -> Result < () , CompileError >
+  struct PipelineContext
+    PROPERTIES:
+    ast: Option < AST >, ir: Option < Vec < IROp > >, binary: Option < Vec < u8 > >
 
 --- # compiler/runtime.rs
   STRUCTS:
@@ -1589,14 +1594,6 @@
       expr: Expr
   )
       -> Result < IRVal , CompileError >
-  fn lower_expr_as_op(
-      expr: Expr
-  )
-      -> Result < IROp , CompileError >
-  fn lower_expr_as_value(
-      expr: Expr
-  )
-      -> Result < IRVal , CompileError >
 
   STRUCTS:
   struct IRConfig
@@ -1638,24 +1635,32 @@
         engine: & CompileEngine
     )
         -> Result < () , CompileError >
-    fn lower_ast(
+    fn lower_ast_to_ir(
         self,
         ast: AST
     )
         -> Result < Vec < IROp > , CompileError >
-    fn lower_expr(
+    fn lower_stmt(
         self,
-        expr: Expr
+        stmt: Stmt
     )
-        -> Result < LoweredExpr , CompileError >
+        -> Result < IROp , CompileError >
     fn lower_expr_stmt(
         self,
         expr: Expr
     )
         -> Result < IROp , CompileError >
-    fn lower_stmt(
+    fn lower_expr(
         self,
-        stmt: Stmt
+        expr: Expr
+    )
+        -> Result < LoweredExpr , CompileError >
+    fn handle_assignment(
+        self,
+        left: Expr,
+        right: Expr,
+        op: AssignOp,
+        span: Option < Span >
     )
         -> Result < IROp , CompileError >
     fn lower_op(
@@ -1668,14 +1673,10 @@
         val: IRVal
     )
         -> Result < IRVal , CompileError >
-    fn handle_assignment(
-        self,
-        left: Expr,
-        right: Expr,
-        op: AssignOp,
-        span: Option < Span >
+    fn emit_temp(
+        self
     )
-        -> Result < IROp , CompileError >
+        -> String
     fn expr_to_irval(
         self,
         expr: Expr
@@ -1689,10 +1690,6 @@
         self,
         _ast: & AST
     )
-    fn emit_temp(
-        self
-    )
-        -> String
     fn default() -> Self
   struct SymbolInfo
     PROPERTIES:

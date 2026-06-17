@@ -1,5 +1,13 @@
 use std::sync::{Arc, RwLock};
 
+use crate::{
+    compiler::{config::CompileConfig, state::CompileState},
+    context::Context,
+    pipeline::{
+        backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline, stage::Stage,
+    },
+};
+
 // use crate::backend::symbol::registry::SymbolRegistry;
 // use crate::backend::utter::registry::UtterRegistry;
 // use crate::build::asset_optimizer::AssetOptimizer;
@@ -8,26 +16,19 @@ use std::sync::{Arc, RwLock};
 // use crate::compiler::addon::{BackendRegistry, PassRegistry, PipelineExtensions};
 // use crate::compiler::bundler::OutputEmitter;
 // use crate::compiler::cache::{CachePolicy, CompilationCache, MemoryCache, PersistentCache};
-use crate::compiler::config::CompileConfig;
 // use crate::compiler::diagnostic::{CompilerEventBus, Inspector, Logger, Profiler, TraceSystem};
 // use crate::compiler::execution::{JobQueue, PluginSystem, PrioritySystem, TaskScheduler};
 // use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
 // use crate::compiler::safety::{FallbackPipeline, RecoverySystem};
 // use crate::compiler::scale::{BuildFarm, DistributedCompiler};
-use crate::compiler::state::CompileState;
 // use crate::context::{CompileContext, Context};
-use crate::context::Context;
 // use crate::development::watcher::{
 //     ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
 // };
 // use crate::frontend::parser::Parser;
 // use crate::interface::CompileEngineProvider;
 // use crate::middle::ir::IR;
-use crate::pipeline::backend::BackendPipeline;
-use crate::pipeline::frontend::FrontendPipeline;
 // use crate::pipeline::frontend::{FrontendFeatures, FrontendPipeline};
-use crate::pipeline::middle::MiddlePipeline;
-use crate::pipeline::stage::Stage;
 // use crate::registry::file_meta::{FileMeta, GroupKey};
 // use crate::registry::prog_registry::FileStack;
 
@@ -253,120 +254,3 @@ impl Default for CompileEngine {
         Self::new(context, config, state)
     }
 }
-
-// impl CompileEngine {
-//     pub fn new(config: CompileConfig, state: CompileState) -> Self {
-//         let ctx = Context::new();
-//         let logger = Logger::default();
-//         let tracer = TraceSystem::new();
-//         let profiler = Profiler::new();
-
-//         let cache_policy = CachePolicy::default();
-//         let memory_cache = MemoryCache::new();
-//         let persistent_cache = PersistentCache::new();
-//         let cache = CompilationCache::new();
-
-//         let scheduler = TaskScheduler::new();
-//         let job_queue = JobQueue::new();
-//         let priority_system = PrioritySystem::new();
-
-//         let frontend = FrontendPipeline::new(ctx);
-//         let middle = MiddlePipeline::new(ctx);
-//         let backend = BackendPipeline::new(ctx);
-
-//         let symbol_runtime = SymbolRuntime::new();
-//         let ir_runtime = IRRuntime::new();
-//         let lowering_runtime = LoweringRuntime::new();
-
-//         let bundler = BundleService::new();
-//         let resolver = OutputResolver::new();
-//         let optimizer = AssetOptimizer::new();
-//         let emitter = OutputEmitter::default();
-
-//         let plugins = PluginSystem::new();
-//         let backend_registry = BackendRegistry::new();
-//         let pass_registry = PassRegistry::new();
-
-//         let incremental = IncrementalCompiler::new();
-//         let change_detector = ChangeDetector::new();
-
-//         let watcher = Some(FileWatcher::new());
-//         let hot_reload = Some(HotReloadManager::new());
-
-//         let recovery = RecoverySystem::new();
-//         let fallback = FallbackPipeline::new();
-
-//         let inspector = Inspector::new();
-//         let event_bus = CompilerEventBus::new();
-
-//         let distributed = None;
-//         let build_farm = None;
-//         let network_cache = None;
-
-//         Self {
-//             frontend,
-//             middle,
-//             backend,
-
-//             extensions: PipelineExtensions::default(),
-
-//             bundler,
-//             resolver,
-//             optimizer,
-//             emitter,
-
-//             // concurrency: num_cpus::get(),
-//             parallel_enabled: true,
-//             scheduler,
-//             job_queue,
-//             priority_system,
-
-//             watcher,
-//             hot_reload,
-//             incremental,
-//             change_detector,
-
-//             cache,
-//             persistent_cache,
-//             memory_cache,
-//             cache_policy,
-
-//             symbol_runtime,
-//             ir_runtime,
-//             lowering_runtime,
-
-//             logger,
-//             tracer,
-//             profiler,
-//             inspector,
-//             event_bus,
-
-//             plugins,
-//             backend_registry,
-//             pass_registry,
-
-//             distributed,
-//             build_farm,
-//             network_cache,
-
-//             recovery,
-//             fallback,
-//             safe_mode: false,
-//         }
-//     }
-// }
-
-// impl CompileEngineProvider for CompileEngine {
-//     fn compile(&self, path: &Path) -> Result<String, Error> {
-//         // call your compiler engine here
-//         Ok(String::new())
-//     }
-
-//     fn compile_target(&self) -> &Path {
-//         &self.compile_target
-//     }
-
-//     fn bundle_target(&self) -> &Path {
-//         &self.bundle_target
-//     }
-// }
