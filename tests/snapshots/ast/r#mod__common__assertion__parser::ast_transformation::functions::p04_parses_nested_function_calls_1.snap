@@ -1,0 +1,40 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Function:
+        name: f
+        params: []
+        body:
+          - Return:
+              value:
+                Call:
+                  callee:
+                    Var: g
+                  args:
+                    - Call:
+                        callee:
+                          Var: h
+                        args:
+                          - Number: 1
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Function:
+      name: f
+      params: []
+      body:
+        - Return:
+            value:
+              Call:
+                callee:
+                  Var: g
+                args:
+                  - Call:
+                      callee:
+                        Var: h
+                      args:
+                        - Number: 1

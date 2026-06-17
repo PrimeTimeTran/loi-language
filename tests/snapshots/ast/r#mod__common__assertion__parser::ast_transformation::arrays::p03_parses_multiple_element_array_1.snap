@@ -1,0 +1,22 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Array:
+            - Number: 1
+            - Number: 2
+            - Number: 3
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Array:
+          - Number: 1
+          - Number: 2
+          - Number: 3

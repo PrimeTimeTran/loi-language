@@ -1,0 +1,34 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Assign:
+            left:
+              Index:
+                target:
+                  Var: a
+                index:
+                  Number: 0
+            right:
+              Number: 5
+            op: Assign
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Assign:
+          left:
+            Index:
+              target:
+                Var: a
+              index:
+                Number: 0
+          right:
+            Number: 5
+          op: Assign

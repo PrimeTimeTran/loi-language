@@ -1,0 +1,20 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - Let:
+        name: z
+        kind: Dynamic
+        value:
+          Number: 5
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - Let:
+      name: z
+      kind: Dynamic
+      value:
+        Number: 5

@@ -1,0 +1,54 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - ExprStmt:
+        expr:
+          Call:
+            callee:
+              Member:
+                target:
+                  Call:
+                    callee:
+                      Member:
+                        target:
+                          Call:
+                            callee:
+                              Member:
+                                target:
+                                  Var: client
+                                field: connect
+                            args: []
+                        field: send
+                    args:
+                      - Var: data
+                field: disconnect
+            args: []
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - ExprStmt:
+      expr:
+        Call:
+          callee:
+            Member:
+              target:
+                Call:
+                  callee:
+                    Member:
+                      target:
+                        Call:
+                          callee:
+                            Member:
+                              target:
+                                Var: client
+                              field: connect
+                          args: []
+                      field: send
+                  args:
+                    - Var: data
+              field: disconnect
+          args: []

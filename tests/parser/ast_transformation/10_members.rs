@@ -1,16 +1,16 @@
-use crate::common::helpers::parses;
+use crate::common::assert_expr;
 
 #[test]
 fn p01_parses_member_access() {
-    parses("a.b");
+    assert_expr("a.b", "(identifier(a).b)");
 }
 
 #[test]
 fn p02_parses_member_chain() {
-    parses("a.b.c");
+    assert_expr("a.b.c", "((identifier(a).b).c)");
 }
 
 #[test]
 fn p03_parses_member_assignment() {
-    parses("a.b = 5");
+    assert_expr("a.b = 5", "((identifier(a).b) = number(5))");
 }

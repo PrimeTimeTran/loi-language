@@ -1,21 +1,21 @@
-use crate::common::helpers::parses;
+use crate::common::assert_expr;
 
 #[test]
 fn p01_parses_array_index() {
-    parses("a[0]");
+    assert_expr("a[0]", "(identifier(a)[number(0)])");
 }
 
 #[test]
 fn p02_parses_nested_index() {
-    parses("a[0][1]");
+    assert_expr("a[0][1]", "((identifier(a)[number(0)])[number(1)])");
 }
 
 #[test]
 fn p03_parses_index_expression() {
-    parses("a[1 + 2]");
+    assert_expr("a[1 + 2]", "(identifier(a)[(number(1) + number(2))])");
 }
 
 #[test]
 fn p04_parses_assignment_to_index() {
-    parses("a[0] = 5");
+    assert_expr("a[0] = 5", "((identifier(a)[number(0)]) = number(5))");
 }

@@ -1,0 +1,40 @@
+---
+source: tests/00_common/assertion.rs
+expression: "&ast"
+---
+program:
+  stmts:
+    - If:
+        condition:
+          Var: a
+        then_branch:
+          - If:
+              condition:
+                Var: b
+              then_branch:
+                - Let:
+                    name: x
+                    kind: MutableStatic
+                    value:
+                      Number: 1
+              else_branch: ~
+        else_branch: ~
+  modules: []
+  globals: []
+  entry: ~
+stmts:
+  - If:
+      condition:
+        Var: a
+      then_branch:
+        - If:
+            condition:
+              Var: b
+            then_branch:
+              - Let:
+                  name: x
+                  kind: MutableStatic
+                  value:
+                    Number: 1
+            else_branch: ~
+      else_branch: ~
