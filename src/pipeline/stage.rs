@@ -6,7 +6,6 @@ use std::sync::Arc;
 // so it can print logs and handle errors.
 ///////////////////////////////////////////////////////////////////////////////////////////
 use crate::{
-    backend::llvm::lower_ast_to_ir,
     compiler::{engine::CompileEngine, env::Env, types::BuildArtifact},
     middle::ir::IR,
     pipeline::{

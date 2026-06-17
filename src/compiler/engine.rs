@@ -198,20 +198,23 @@ pub struct CompileEngine {
     // pub safe_mode: bool,
 }
 
+#[derive(Debug)]
+pub enum StageError {
+    StageFailed(String),
+}
+
 impl CompileEngine {
     fn parse(&mut self) {}
-
     fn analyze(&mut self) {}
-
     fn lower(&mut self) {}
-
     fn backend(&mut self) {}
-
     fn build(&mut self) {}
-    pub fn run_all(&self) -> Result<(), ()> {
+
+    pub fn run_all(&self) -> Result<(), StageError> {
         for stage in &self.stages {
             println!("Running: {}...", stage.name());
-            // stage.run()?;
+
+            // stage.run().map_err(|e| StageError::StageFailed(e.to_string()))?;
         }
 
         Ok(())

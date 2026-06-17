@@ -17,7 +17,7 @@ pub enum TargetArch {
     Unknown,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TargetConfig {
     pub os: TargetOS,
     pub arch: TargetArch,
@@ -43,7 +43,7 @@ pub struct FeatureFlags {
     pub hot_reload: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct ToolchainPaths {
     pub llvm_bin: Option<PathBuf>,
     pub linker: Option<PathBuf>,
@@ -77,16 +77,6 @@ pub struct Env {
     pub timestamp: u64,
 }
 
-impl Default for TargetConfig {
-    fn default() -> Self {
-        Self {
-            os: TargetOS::default(),
-            arch: TargetArch::default(),
-            abi: None,
-        }
-    }
-}
-
 impl Default for FeatureFlags {
     fn default() -> Self {
         Self {
@@ -96,18 +86,6 @@ impl Default for FeatureFlags {
             aggressive_cache: true,
             debug_symbols: true,
             hot_reload: true,
-        }
-    }
-}
-
-impl Default for ToolchainPaths {
-    fn default() -> Self {
-        Self {
-            llvm_bin: None,
-            linker: None,
-            assembler: None,
-            wasm_toolchain: None,
-            custom_backend: None,
         }
     }
 }

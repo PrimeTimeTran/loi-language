@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Diagnostic {
     /// Human-readable message
     pub message: String,
@@ -28,19 +28,6 @@ impl Diagnostic {
             code: None,
             span,
             severity,
-            notes: Vec::new(),
-            suggestions: Vec::new(),
-        }
-    }
-}
-
-impl Default for Diagnostic {
-    fn default() -> Self {
-        Self {
-            message: String::new(),
-            code: None,
-            span: Span::default(),
-            severity: Severity::default(),
             notes: Vec::new(),
             suggestions: Vec::new(),
         }

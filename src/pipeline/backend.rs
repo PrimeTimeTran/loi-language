@@ -5,7 +5,7 @@ use inkwell::targets::{
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
-    backend::llvm::{CodeGenContext, LLVM, codegen_ir_op, llvm},
+    backend::llvm::{CodeGenContext, LLVM, codegen_ir_op},
     compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
     context::Context,
     frontend::ast::Expr,

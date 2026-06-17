@@ -36,6 +36,7 @@ pub struct Kernel {
     pub diagnostics: Arc<RwLock<DiagnosticStore>>,
 }
 
+#[derive(Default)]
 pub struct KernelBuilder {
     context: Option<Arc<Context>>,
     engine: Option<Arc<CompileEngine>>,
@@ -101,7 +102,7 @@ impl KernelBuilder {
         Kernel {
             context,
             engine,
-            logger: self.logger.unwrap_or_else(|| Arc::new(Logger::default())),
+            logger: self.logger.unwrap_or_else(|| Arc::new(Default::default())),
             cache: self.cache.unwrap_or_else(|| Arc::new(MemoryCache::new())),
             job_queue: self
                 .job_queue

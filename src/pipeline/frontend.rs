@@ -3,7 +3,6 @@ use std::sync::{Arc, RwLock};
 
 use tracing::Instrument;
 
-use crate::backend::llvm::lower_ast_to_ir;
 use crate::{
     compiler::{
         config::CompileConfig,

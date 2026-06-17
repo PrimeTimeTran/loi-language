@@ -1,16 +1,21 @@
-use crate::backend::link_with_clang::link_with_clang;
-use crate::compiler::compile::compile;
-use crate::compiler::config::{CompileConfig, ConfigResolver};
-use crate::compiler::diagnostic::DiagnosticStore;
-use crate::compiler::error::Error;
-use crate::frontend::types::TokenStream;
-use crate::frontend::{
-    lexer,
-    parser::{Parser, parse},
+use crate::{
+    backend::link_with_clang::link_with_clang,
+    compiler::{
+        compile::compile,
+        config::{CompileConfig, ConfigResolver},
+        diagnostic::DiagnosticStore,
+        error::Error,
+    },
+    frontend::{
+        lexer,
+        parser::{Parser, parse},
+        types::TokenStream,
+    },
+    kernel::Kernel,
+    middle::semantic::{SemanticAnalyzer, analyze},
+    pipeline::CompileError,
 };
-use crate::kernel::Kernel;
-use crate::middle::semantic::{SemanticAnalyzer, analyze};
-use crate::pipeline::CompileError;
+
 use rayon::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,18 +37,10 @@ pub fn compile_project(kernel: &Kernel, config: &CompileConfig) -> Result<(), Ve
 
     let errors: Vec<Error> = files
         .par_iter()
-        .filter_map(|path| match compile_file(kernel, path, &config.output) {
-            Ok(_) => None,
-
-            Err(e) => Some(e),
-        })
+        .filter_map(|path| compile_file(kernel, path, &config.output).err())
         .collect();
 
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
-    }
+    errors.is_empty().then_some(()).ok_or(errors)
 }
 
 pub fn compile_file(kernel: &Kernel, path: &Path, output_dir: &Path) -> Result<(), Error> {

@@ -93,7 +93,7 @@ impl CompileServer {
             state,
             watcher,
             repl,
-            events: CompilerEventBus::default(),
+            events: CompilerEventBus,
         }
     }
 
