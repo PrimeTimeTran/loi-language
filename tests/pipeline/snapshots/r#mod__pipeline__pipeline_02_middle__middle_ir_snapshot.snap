@@ -1,0 +1,33 @@
+---
+source: tests/pipeline/02-middle.rs
+expression: ir
+---
+IR {
+    raw: "",
+    nodes: [
+        Declare {
+            name: "x",
+            value: Var(
+                "__t0",
+            ),
+            mutable: false,
+            dynamic: false,
+        },
+    ],
+    symbols: {},
+    metadata: {
+        "stage": "middle",
+    },
+    ops: [
+        Declare {
+            name: "x",
+            value: Var(
+                "__t0",
+            ),
+            mutable: false,
+            dynamic: false,
+        },
+    ],
+    modules: [],
+    functions: [],
+}

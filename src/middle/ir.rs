@@ -437,9 +437,10 @@ pub trait RegionProcessor {
 
 impl IR {
     pub fn new_from_ops(ops: Vec<IROp>) -> Self {
+        let nodes = ops.clone();
         Self {
             raw: String::new(),
-            nodes: ops.clone(),
+            nodes,
             ops,
             symbols: std::collections::HashMap::new(),
             metadata: std::collections::HashMap::new(),

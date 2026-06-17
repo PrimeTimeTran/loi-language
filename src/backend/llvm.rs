@@ -472,26 +472,6 @@ pub fn lower_typed_expr_to_ir_value(expr: &TypedExpr) -> IRVal {
         _ => panic!("unsupported expr"),
     }
 }
-// /// Direct AST → IR value conversion.
-// ///
-// /// ⚠️ No IR ops are emitted.
-// /// ⚠️ No temporaries are generated.
-// ///
-// /// This bypasses full lowering and is only safe for:
-// /// - simple expressions
-// /// - testing
-// /// - debugging
-// pub fn lower_expr_to_ir_value(expr: &Expr) -> IRVal {
-//     match expr {
-//         Expr::Number(n) => IRVal::Number(*n),
-//         Expr::Var(name) => IRVal::Var(name.clone()),
-//         Expr::Binary { .. } => {
-//             panic!("binary must be lowered at statement level")
-//         }
-
-//         _ => panic!("unsupported expr"),
-//     }
-// }
 
 pub fn codegen_ir_op<'ctx>(context: &mut CodeGenContext<'ctx>, op: IROp) -> Result<(), String> {
     match op {

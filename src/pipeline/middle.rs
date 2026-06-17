@@ -88,7 +88,7 @@ impl MiddlePipeline {
             state.current_ast()
         }
         .ok_or_else(|| CompileError::Middle("missing AST".into()))?;
-        let ir_nodes = self.lower_ast(ast)?;
+        let ir_nodes = self.lower_ast_to_ir(ast)?;
         let ir = IR::new_from_ops(ir_nodes).with_stage("middle");
         {
             let mut state = engine.state.write().unwrap();
@@ -97,7 +97,7 @@ impl MiddlePipeline {
         Ok(())
     }
 
-    pub fn lower_ast(&mut self, ast: AST) -> Result<Vec<IROp>, CompileError> {
+    pub fn lower_ast_to_ir(&mut self, ast: AST) -> Result<Vec<IROp>, CompileError> {
         ast.stmts
             .into_iter()
             .map(|stmt| self.lower_stmt(stmt))
@@ -110,74 +110,102 @@ impl MiddlePipeline {
                 Ok(LoweredExpr::Value(lower_atomic(expr)?))
             }
 
-            Expr::Binary { .. } | Expr::Unary { .. } | Expr::Array(_) | Expr::Assign { .. } => {
-                Ok(LoweredExpr::Op(lower_expr_as_op(expr)?))
-            }
+            Expr::Binary { left, op, right } => {
+                let l = self.lower_expr(*left)?;
+                let r = self.lower_expr(*right)?;
 
+                match (l, r) {
+                    (LoweredExpr::Value(lv), LoweredExpr::Value(rv)) => {
+                        let tmp = self.emit_temp();
+
+                        Ok(LoweredExpr::Value(IRVal::Var(tmp)))
+                    }
+
+                    _ => Err(CompileError::Middle("invalid binary lowering".into())),
+                }
+            }
             _ => Err(CompileError::Middle("unsupported complex expr".into())),
         }
     }
     pub fn lower_expr_stmt(&mut self, expr: Expr) -> Result<IROp, CompileError> {
         println!("lower_expr_stmt: {:?}", expr);
+
         match expr {
             Expr::Assign { left, right, op } => self.handle_assignment(*left, *right, op, None),
-
             other => {
                 let lowered = self.lower_expr(other)?;
-
                 match lowered {
                     LoweredExpr::Value(v) => Ok(IROp::Expr { value: v }),
-
-                    LoweredExpr::Op(_) => {
-                        let tmp = self.emit_temp();
-                        Ok(IROp::Expr {
-                            value: IRVal::Var(tmp),
-                        })
-                    }
+                    LoweredExpr::Op(op) => Ok(op),
                 }
             }
         }
     }
     pub fn lower_stmt(&mut self, stmt: Stmt) -> Result<IROp, CompileError> {
         println!("lower_stmt: {:?}", stmt);
+
         match stmt {
             Stmt::ExprStmt { expr } => self.lower_expr_stmt(expr),
+            Stmt::Print { expr } => {
+                let lowered = self.lower_expr(expr)?;
+                match lowered {
+                    LoweredExpr::Value(v) => Ok(IROp::Print { value: v }),
 
-            Stmt::Print { expr } => match self.lower_expr(expr)? {
-                LoweredExpr::Value(v) => Ok(IROp::Print { value: v }),
-
-                LoweredExpr::Op(op) => {
-                    let temp = self.emit_temp();
-
-                    Ok(IROp::Print {
-                        value: IRVal::Var(temp),
-                    })
-                }
-            },
-
-            Stmt::Let { name, value, .. } => match self.lower_expr(value)? {
-                LoweredExpr::Value(v) => Ok(IROp::Declare {
-                    name,
-                    value: v,
-                    mutable: false,
-                    dynamic: false,
-                }),
-
-                LoweredExpr::Op(op) => {
-                    let ir = self.lower_op(op)?;
-
-                    match ir {
-                        IROp::Assign { name: _, value } => Ok(IROp::Declare {
-                            name,
-                            value,
-                            mutable: false,
-                            dynamic: false,
-                        }),
-
-                        _ => Err(CompileError::Middle("unsupported op in let".into())),
+                    LoweredExpr::Op(op) => {
+                        // IMPORTANT: do NOT fabricate temps here
+                        Ok(op)
                     }
                 }
-            },
+            }
+            Stmt::Let { name, value, .. } => {
+                let lowered = self.lower_expr(value)?;
+
+                match lowered {
+                    LoweredExpr::Value(v) => Ok(IROp::Declare {
+                        name,
+                        value: v,
+                        mutable: false,
+                        dynamic: false,
+                    }),
+
+                    LoweredExpr::Op(op) => {
+                        match op {
+                            // already a valid assignment form
+                            IROp::Assign { name: _, value } => Ok(IROp::Declare {
+                                name,
+                                value,
+                                mutable: false,
+                                dynamic: false,
+                            }),
+
+                            IROp::Binary { left, op, right } => {
+                                let temp = self.emit_temp();
+
+                                // convert binary into a binding
+                                Ok(IROp::Declare {
+                                    name,
+                                    value: IRVal::Var(temp),
+                                    mutable: false,
+                                    dynamic: false,
+                                })
+                            }
+
+                            // fallback safety
+                            IROp::Expr { value } => Ok(IROp::Declare {
+                                name,
+                                value,
+                                mutable: false,
+                                dynamic: false,
+                            }),
+
+                            other => Err(CompileError::Middle(format!(
+                                "unsupported op in let: {:?}",
+                                other
+                            ))),
+                        }
+                    }
+                }
+            }
 
             _ => Err(CompileError::Middle(format!(
                 "Unsupported statement: {:?}",
@@ -185,7 +213,8 @@ impl MiddlePipeline {
             ))),
         }
     }
-    fn lower_op(&mut self, op: IROp) -> Result<IROp, CompileError> {
+
+    pub fn lower_op(&mut self, op: IROp) -> Result<IROp, CompileError> {
         match op {
             IROp::Assign { name, value } => {
                 let value = self.expr_to_irval_from_value(value)?;
@@ -229,10 +258,20 @@ impl MiddlePipeline {
             other => Ok(other),
         }
     }
-    fn expr_to_irval_from_value(&self, val: IRVal) -> Result<IRVal, CompileError> {
+    pub fn expr_to_irval_from_value(&self, val: IRVal) -> Result<IRVal, CompileError> {
         Ok(val)
     }
-    fn handle_assignment(
+    pub fn expr_to_irval(&self, expr: Expr) -> Result<IRVal, CompileError> {
+        match self.lower_expr(expr)? {
+            LoweredExpr::Value(v) => Ok(v),
+            LoweredExpr::Op(_) => {
+                let tmp = self.emit_temp();
+                Ok(IRVal::Var(tmp))
+            }
+        }
+    }
+
+    pub fn handle_assignment(
         &mut self,
         left: Expr,
         right: Expr,
@@ -309,24 +348,14 @@ impl MiddlePipeline {
             }
         }
     }
-    fn expr_to_irval(&self, expr: Expr) -> Result<IRVal, CompileError> {
-        match self.lower_expr(expr)? {
-            LoweredExpr::Value(v) => Ok(v),
-            LoweredExpr::Op(_) => {
-                let tmp = self.emit_temp();
-                Ok(IRVal::Var(tmp))
-            }
-        }
-    }
 
-    fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.metadata.name
     }
-
     pub fn resolve_symbols(&self, _ast: &AST) {
         // future scope pass
     }
-    fn emit_temp(&self) -> String {
+    pub fn emit_temp(&self) -> String {
         let id = self
             .temp_counter
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -364,56 +393,5 @@ pub fn lower_atomic(expr: Expr) -> Result<IRVal, CompileError> {
         Expr::Var(v) => Ok(IRVal::Var(v)),
 
         _ => Err(CompileError::Middle("not atomic".into())),
-    }
-}
-
-pub fn lower_expr_as_value(expr: Expr) -> Result<IRVal, CompileError> {
-    match expr {
-        Expr::Number(_) | Expr::Bool(_) | Expr::String(_) | Expr::Var(_) => lower_atomic(expr),
-
-        _ => Err(CompileError::Middle(
-            "non-atomic expression cannot be lowered to IRVal".into(),
-        )),
-    }
-}
-
-pub fn lower_expr_as_op(expr: Expr) -> Result<IROp, CompileError> {
-    match expr {
-        Expr::Binary { left, op, right } => {
-            let l = lower_expr_as_value(*left)?;
-            let r = lower_expr_as_value(*right)?;
-
-            Ok(IROp::Binary {
-                left: l,
-                op,
-                right: r,
-            })
-        }
-
-        Expr::Unary { op, expr } => {
-            let v = lower_expr_as_value(*expr)?;
-
-            Ok(IROp::Unary { op, value: v })
-        }
-
-        Expr::Assign { left, right, .. } => {
-            let value = lower_expr_as_value(*right)?;
-
-            match *left {
-                Expr::Var(name) => Ok(IROp::Assign { name, value }),
-
-                _ => Err(CompileError::Middle("invalid assignment target".into())),
-            }
-        }
-        Expr::Array(items) => {
-            let vals = items
-                .into_iter()
-                .map(lower_expr_as_value)
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(IROp::Array { values: vals })
-        }
-
-        _ => Err(CompileError::Middle("unsupported complex expr".into())),
     }
 }

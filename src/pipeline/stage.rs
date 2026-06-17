@@ -53,7 +53,7 @@ impl Stage for MiddlePipeline {
         log_stage!("MIDDLE", "AST loaded");
 
         // 2. SINGLE ENTRY POINT: pipeline owns lowering
-        let ir_nodes = self.lower_ast(ast)?;
+        let ir_nodes = self.lower_ast_to_ir(ast)?;
 
         log_stage!("MIDDLE", "lowering complete");
 
