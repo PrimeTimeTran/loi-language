@@ -1,7 +1,9 @@
 use std::{fs, path::Path};
 
-use loi::frontend::lexer::lex;
-use loi::frontend::token::Token;
+use loi::{
+    frontend::{lexer::lex, token::Token},
+    tok,
+};
 
 #[test]
 fn number() {
@@ -160,18 +162,14 @@ fn negative_number() {
     assert_eq!(tokens, vec![Token::Minus, Token::Number(123.0), Token::EOF]);
 }
 
+#[allow(clippy::approx_constant)]
 #[test]
 fn float_number() {
     let tokens = lex("3.14 + 2.0").unwrap();
 
     assert_eq!(
         tokens,
-        vec![
-            Token::Number(3.14),
-            Token::Plus,
-            Token::Number(2.0),
-            Token::EOF
-        ]
+        vec![tok!(num 3.14), Token::Plus, tok!(num 2.0), Token::EOF]
     );
 }
 

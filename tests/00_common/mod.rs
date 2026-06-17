@@ -24,7 +24,6 @@ use loi::test_utils;
 #[test]
 fn can_use_src_helpers() {
     let env = test_utils::lib_helper();
-
     assert_eq!(env, "Loi", "Loading a ./src/* mod failed");
 }
 
