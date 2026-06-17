@@ -26,9 +26,16 @@ cargo run
 cargo nextest run --test '000*'
 ```
 
-- Pattern matching 
+- Pattern matching
+
 ```sh
-cargo nextest run -E 'test(/parser::/)' --test-threads 1 --no-fail-fast
+cargo nextest run -E 'test(/parser::ast/)' --test-threads 1 --no-fail-fast
+```
+
+- Pattern matching
+
+```sh
+cargo nextest run --test ast_transformation
 ```
 
 - Run specific tests

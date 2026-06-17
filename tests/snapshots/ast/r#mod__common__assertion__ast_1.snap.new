@@ -1,0 +1,109 @@
+---
+source: tests/00_common/assertion.rs
+assertion_line: 79
+description: AST snapshot
+expression: "&ast"
+---
+AST {
+    program: Program {
+        stmts: [
+            Let {
+                name: "a",
+                kind: MutableStatic,
+                value: Binary {
+                    left: Binary {
+                        left: Binary {
+                            left: Binary {
+                                left: Binary {
+                                    left: Unary {
+                                        op: Neg,
+                                        expr: Call {
+                                            callee: Member {
+                                                target: Var(
+                                                    "b",
+                                                ),
+                                                field: "c",
+                                            },
+                                            args: [],
+                                        },
+                                    },
+                                    op: Power,
+                                    right: Var(
+                                        "d",
+                                    ),
+                                },
+                                op: Mul,
+                                right: Var(
+                                    "e",
+                                ),
+                            },
+                            op: Add,
+                            right: Var(
+                                "f",
+                            ),
+                        },
+                        op: Eq,
+                        right: Var(
+                            "g",
+                        ),
+                    },
+                    op: And,
+                    right: Var(
+                        "h",
+                    ),
+                },
+            },
+        ],
+        modules: [],
+        globals: [],
+        entry: None,
+    },
+    stmts: [
+        Let {
+            name: "a",
+            kind: MutableStatic,
+            value: Binary {
+                left: Binary {
+                    left: Binary {
+                        left: Binary {
+                            left: Binary {
+                                left: Unary {
+                                    op: Neg,
+                                    expr: Call {
+                                        callee: Member {
+                                            target: Var(
+                                                "b",
+                                            ),
+                                            field: "c",
+                                        },
+                                        args: [],
+                                    },
+                                },
+                                op: Power,
+                                right: Var(
+                                    "d",
+                                ),
+                            },
+                            op: Mul,
+                            right: Var(
+                                "e",
+                            ),
+                        },
+                        op: Add,
+                        right: Var(
+                            "f",
+                        ),
+                    },
+                    op: Eq,
+                    right: Var(
+                        "g",
+                    ),
+                },
+                op: And,
+                right: Var(
+                    "h",
+                ),
+            },
+        },
+    ],
+}
