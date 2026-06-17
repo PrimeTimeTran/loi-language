@@ -1,9 +1,4 @@
-
-
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::helpers::parses;
+use crate::common::{ParserTestHarness, helpers::parses};
 
 #[test]
 fn p01_parses_grouping() {

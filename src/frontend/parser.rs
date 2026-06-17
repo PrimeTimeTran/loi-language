@@ -37,6 +37,7 @@ impl Parser {
         parse_incremental(prev, tokens, diagnostics)
     }
 }
+
 pub fn parse_program(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
@@ -118,6 +119,7 @@ pub fn parse_incremental(
 
     Ok(AST::new(stmts))
 }
+
 fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Stmt, String> {
     println!("PARSE STMT START");
     println!("PEEK AT STMT START: {:?}", tokens.peek());
@@ -145,12 +147,12 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
             let expr = parse_assignment(tokens, None, diagnostics)?;
 
             let stmt = match expr {
-                Expr::Assign { left, right, .. } if is_simple_var(&left) => {
-                    println!("STMT CONVERT LEFT: {:?}", left);
+                Expr::Assign { left, right, op } if is_simple_var(&left) => {
                     if let Expr::Var(name) = *left {
+                        let kind: DeclKind = op.into();
                         Stmt::Let {
                             name,
-                            kind: DeclKind::MutableStatic,
+                            kind,
                             value: flatten_assign(*right),
                         }
                     } else {
@@ -177,6 +179,7 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
 fn parse_expr(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Result<Expr, String> {
     parse_assignment(tokens, None, diagnostics)
 }
+
 fn parse_assignment(
     tokens: &mut TokenStream,
     lhs: Option<Expr>,
@@ -222,10 +225,8 @@ pub fn parse_let(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
 ) -> Result<Stmt, String> {
-    // assume current token is already `let`
-    tokens.bump(); // consume `let`
+    tokens.bump();
 
-    // 1. expect identifier
     let name = match tokens.next() {
         Some(Token::Ident(name)) => name,
         other => {
@@ -237,32 +238,36 @@ pub fn parse_let(
         }
     };
 
-    // 2. optional type annotation (future-proof)
-    // if matches!(tokens.peek(), Some(Token::Colon)) { ... }
-
-    // 3. expect '='
-    match tokens.peek() {
-        Some(Token::Assign) => tokens.bump(),
-        _ => {
-            diagnostics.emit(Diagnostic::error(
-                "Expected '=' in let declaration",
-                Span::default(),
-            ));
-            return Err("missing '='".into());
+    let maybe_op = match tokens.peek() {
+        Some(Token::Assign) => {
+            tokens.bump();
+            Some(AssignOp::Assign)
         }
-    }
+        Some(Token::Immutable) => {
+            tokens.bump();
+            Some(AssignOp::Immutable)
+        }
+        Some(Token::Dynamic) => {
+            tokens.bump();
+            Some(AssignOp::Dynamic)
+        }
+        _ => None,
+    };
 
-    let value = parse_assignment(tokens, None, diagnostics)?;
+    let (kind, value) = match maybe_op {
+        Some(op) => {
+            // If we had an operator, we MUST have a value
+            let val = parse_assignment(tokens, None, diagnostics)?;
+            (op.into(), val)
+        }
+        None => (DeclKind::Dynamic, Expr::Empty),
+    };
 
     if matches!(tokens.peek(), Some(Token::Semicolon)) {
         tokens.bump();
     }
 
-    Ok(Stmt::Let {
-        name,
-        kind: DeclKind::MutableStatic,
-        value,
-    })
+    Ok(Stmt::Let { name, kind, value })
 }
 fn parse_equality(
     tokens: &mut TokenStream,
@@ -660,7 +665,6 @@ fn parse_array(
 
     Ok(Expr::Array(items))
 }
-
 fn parse_power(
     tokens: &mut TokenStream,
     diagnostics: &mut DiagnosticStore,
@@ -861,6 +865,7 @@ mod control {
         tokens: &mut TokenStream,
         diagnostics: &mut DiagnosticStore,
     ) -> Result<Stmt, String> {
+        tokens.bump();
         let name = match tokens.next() {
             Some(Token::Ident(n)) => n.to_string(),
             other => {
@@ -923,39 +928,39 @@ fn is_assignable(expr: &Expr) -> bool {
     )
 }
 
-fn is_expr_start(tok: Option<&Token>) -> bool {
-    matches!(
-        tok,
-        Some(Token::Number(_))
-            | Some(Token::String(_))
-            | Some(Token::Ident(_))
-            | Some(Token::LParen)
-            | Some(Token::LBracket)
-            | Some(Token::Ampersand)
-    )
-}
+// fn is_expr_start(tok: Option<&Token>) -> bool {
+//     matches!(
+//         tok,
+//         Some(Token::Number(_))
+//             | Some(Token::String(_))
+//             | Some(Token::Ident(_))
+//             | Some(Token::LParen)
+//             | Some(Token::LBracket)
+//             | Some(Token::Ampersand)
+//     )
+// }
 
-fn kind_from_token(tok: &Token) -> DeclKind {
-    match tok {
-        Token::Assign => DeclKind::MutableStatic,
-        Token::Immutable => DeclKind::ImmutableStatic,
-        Token::Dynamic => DeclKind::Dynamic,
-        _ => unreachable!(),
-    }
-}
+// fn kind_from_token(tok: &Token) -> DeclKind {
+//     match tok {
+//         Token::Assign => DeclKind::MutableStatic,
+//         Token::Immutable => DeclKind::Immutable,
+//         Token::Dynamic => DeclKind::Dynamic,
+//         _ => unreachable!(),
+//     }
+// }
 
-fn looks_like_declaration<I>(tokens: &mut Peekable<I>) -> bool
-where
-    I: Iterator<Item = Token> + Clone,
-{
-    let mut lookahead = tokens.clone();
+// fn looks_like_declaration<I>(tokens: &mut Peekable<I>) -> bool
+// where
+//     I: Iterator<Item = Token> + Clone,
+// {
+//     let mut lookahead = tokens.clone();
 
-    match (lookahead.next(), lookahead.next()) {
-        (Some(Token::Ident(_)), Some(Token::Eq | Token::Immutable | Token::Dynamic)) => true,
+//     match (lookahead.next(), lookahead.next()) {
+//         (Some(Token::Ident(_)), Some(Token::Eq | Token::Immutable | Token::Dynamic)) => true,
 
-        _ => false,
-    }
-}
+//         _ => false,
+//     }
+// }
 
 fn is_simple_var(expr: &Expr) -> bool {
     matches!(expr, Expr::Var(_))
@@ -972,18 +977,3 @@ fn flatten_assign(expr: Expr) -> Expr {
         other => other,
     }
 }
-// #[test]
-// fn parse_simple_program() {
-//     let tokens = lex("x = 1 + 2;").unwrap();
-//     let ast = parse(tokens).unwrap();
-
-//     assert_eq!(ast.stmts.len(), 1);
-
-//     match &ast.stmts[0] {
-//         Stmt::Let { name, kind, value } => {
-//             assert_eq!(name, "x");
-//             assert!(matches!(kind, DeclKind::MutableStatic));
-//         }
-//         _ => panic!("Expected Let statement"),
-//     }
-// }

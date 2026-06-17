@@ -1,11 +1,4 @@
-
-
-
-// 2. Now you can use it
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::helpers::parses;
+use crate::common::{ParserTestHarness, assert_expr, fails, fn_decl, helpers::parses, let_decl};
 
 #[test]
 fn p01_reports_unclosed_paren() {

@@ -1,5 +1,9 @@
 use std::cell::RefCell;
 
+use loi::{
+    compiler::diagnostic::DiagnosticStore,
+    frontend::{ast::Stmt, lexer::lex, parser::parse_program},
+};
 use owo_colors::OwoColorize;
 
 use crate::common::{clean, parse_to_ast, parses};

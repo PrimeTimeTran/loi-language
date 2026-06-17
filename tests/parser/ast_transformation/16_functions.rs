@@ -1,10 +1,4 @@
-
-
-// 2. Now you can use it
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::helpers::parses;
+use crate::common::{ParserTestHarness, assert_expr, fails, helpers::parses};
 
 #[test]
 fn p01_parses_empty_function() {

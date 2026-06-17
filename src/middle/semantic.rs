@@ -7,7 +7,7 @@ use crate::middle::types::{IRVal, Span, Type};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-static SCOPE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+// static SCOPE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub struct SemanticAnalyzer {
     symbols: HashMap<String, Type>,
@@ -72,22 +72,25 @@ fn annotate_types(expr: &mut Expr, symbol_table: &HashMap<String, Type>) -> Type
 
 fn infer_type(expr: &Expr, symbols: &HashMap<String, Type>) -> Result<Type, String> {
     match expr {
-        Expr::Number(_) => Ok(Type::F64),
-        Expr::Identifier { name } => symbols
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Undefined variable: {}", name)),
+        Expr::Member { .. } => Ok(Type::Unknown),
+        Expr::None { .. } => Ok(Type::Unknown),
+        Expr::Empty { .. } => Ok(Type::Unknown),
         Expr::Unary { .. } => Ok(Type::F64),
         Expr::Binary { .. } => Ok(Type::F64),
         Expr::Bool(_) => Ok(Type::Bool),
         Expr::String(_) => Ok(Type::Str),
-        // FIXED: Actually lookup the variable in the symbols map
+        Expr::Number(_) => Ok(Type::F64),
+        Expr::Call { .. } => Ok(Type::Unknown),
+        Expr::Assign { right, .. } => infer_type(right, symbols),
+
+        Expr::Identifier { name } => symbols
+            .get(name)
+            .cloned()
+            .ok_or_else(|| format!("Undefined variable: {}", name)),
         Expr::Var(name) => symbols
             .get(name)
             .cloned()
             .ok_or_else(|| format!("Undefined variable: {}", name)),
-        Expr::Call { .. } => Ok(Type::Unknown),
-        Expr::Assign { right, .. } => infer_type(right, symbols),
         Expr::Array(items) => {
             if items.is_empty() {
                 return Ok(Type::Array(Box::new(Type::Unknown)));
@@ -108,7 +111,6 @@ fn infer_type(expr: &Expr, symbols: &HashMap<String, Type>) -> Result<Type, Stri
                 _ => Ok(Type::Unknown),
             }
         }
-        Expr::Member { .. } => Ok(Type::Unknown),
     }
 }
 
@@ -130,7 +132,13 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
 
     match stmt {
         Stmt::Block { body } => analyze_block(body, symbols),
-
+        Stmt::ExprStmt { expr } => Ok(one(IROp::ExprStmt { expr: lower(expr)? })),
+        Stmt::Print { expr } => Ok(one(IROp::Print {
+            value: lower(expr)?,
+        })),
+        Stmt::Return { value } => Ok(one(IROp::Return {
+            value: value.map(lower).transpose()?,
+        })),
         Stmt::Let { name, value, .. } => {
             let val = lower(value)?;
             symbols.insert(name.clone(), val.inferred_type());
@@ -142,13 +150,9 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
                 dynamic: false,
             }))
         }
-
-        Stmt::Print { expr } => Ok(one(IROp::Print {
-            value: lower(expr)?,
+        Stmt::Loop { body } => Ok(one(IROp::Loop {
+            body: analyze_block(body, symbols)?,
         })),
-
-        Stmt::ExprStmt { expr } => Ok(one(IROp::ExprStmt { expr: lower(expr)? })),
-
         Stmt::While { condition, body } => Ok(one(IROp::While {
             condition: lower(condition)?,
             body: analyze_block(body, symbols)?,
@@ -161,10 +165,6 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
         //         condition: lower(condition)?,
         //     }))
         // }
-        Stmt::Loop { body } => Ok(one(IROp::Loop {
-            body: analyze_block(body, symbols)?,
-        })),
-
         Stmt::For {
             iterator,
             iterable,
@@ -210,9 +210,6 @@ fn analyze_stmt(stmt: Stmt, symbols: &mut HashMap<String, Type>) -> Result<Vec<I
             }))
         }
 
-        Stmt::Return { value } => Ok(one(IROp::Return {
-            value: value.map(lower).transpose()?,
-        })),
         _ => {
             todo!("Analyze statement: unhandled statement type");
         }
@@ -238,6 +235,7 @@ fn wrap_to_irval(
     _span: Span,
 ) -> Result<IRVal, String> {
     match expr {
+        Expr::Empty | Expr::None => Ok(IRVal::Unit),
         Expr::Identifier { name } => Ok(IRVal::Str(name)),
         Expr::Number(n) => Ok(IRVal::Number(n)),
         Expr::Bool(b) => Ok(IRVal::Bool(b)),
@@ -260,25 +258,9 @@ fn wrap_to_irval(
         Expr::Call { .. } => Err("Call expressions must be lowered into IROp".into()),
         Expr::Index { .. } => Err("Index expressions must be lowered into IROp".into()),
         Expr::Member { .. } => Err("Member expressions must be lowered into IROp".into()),
-        Expr::Array(items) => {
-            // simple lowering strategy: keep as runtime construct if needed
-            // OR reject for now if IR doesn't support arrays cleanly
-
-            Err(format!(
-                "Array literals not yet supported in IRVal (len={})",
-                items.len()
-            ))
-        }
+        Expr::Array(items) => Err(format!(
+            "Array literals not yet supported in IRVal (len={})",
+            items.len()
+        )),
     }
 }
-
-// #[test]
-// fn ast_to_ir() {
-//     let tokens = lexer::lex("1 + 2").unwrap();
-
-//     let ast = parse(tokens).unwrap();
-
-//     let ir = analyze(ast);
-
-//     assert!(ir.is_ok());
-// }

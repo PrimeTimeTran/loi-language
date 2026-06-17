@@ -1,9 +1,7 @@
+use crate::common::{
+    ParserTestHarness, assert_expr, assert_expr_with_ops, fails, fn_decl, helpers::parses, let_decl,
+};
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
-
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::{assert_expr, assert_expr_with_ops, fails, parses};
 
 // Basic Pratt precedence
 

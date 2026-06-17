@@ -1,9 +1,6 @@
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::{assert_expr, fails, parses};
+use crate::common::{ParserTestHarness, assert_expr, fails, helpers::parses};
 
 #[test]
 fn p01_parses_simple_assignment() {

@@ -5,6 +5,7 @@ pub mod kernel;
 pub mod lexer;
 pub mod llvm;
 pub mod mock_engine;
+pub mod parser;
 pub mod pipeline;
 pub mod snapshot;
 pub use assertion::*;
@@ -14,6 +15,7 @@ pub use kernel::*;
 pub use lexer::*;
 pub use llvm::*;
 pub use mock_engine::*;
+pub use parser::*;
 pub use pipeline::*;
 pub use snapshot::*;
 

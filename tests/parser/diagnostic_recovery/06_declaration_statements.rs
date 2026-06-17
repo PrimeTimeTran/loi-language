@@ -1,9 +1,6 @@
 use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::assert_expr;
+use crate::common::{ParserTestHarness, assert_expr, fails, fn_decl, helpers::parses, let_decl};
 
 //
 // ============================
@@ -89,7 +86,7 @@ fn p08_test_variable_declarations() {
 
 //
 // ============================
-// 4. Function declarations (NEW)
+// 4. Function declarations
 // ============================
 //
 
@@ -100,14 +97,24 @@ fn p09_parses_empty_function() {
 
 #[test]
 fn p10_parses_function_with_params() {
-    assert_expr("fn add(a, b) {}", "(fn add(a, b) {})");
+    let harness = ParserTestHarness::new("fn add(a, b) {}", true);
+
+    harness.assert_ast(vec![fn_decl("add", vec!["a", "b"], vec![])]);
 }
 
 #[test]
 fn p11_parses_function_with_body() {
-    assert_expr("fn foo() { x = 1; }", "(fn foo() { (let x = number(1)) })");
-}
+    let harness = ParserTestHarness::new("fn foo() { x = 1; }", true);
 
+    harness.assert_ast(vec![fn_decl(
+        "foo",
+        vec![],
+        vec![
+            // No need to think about macros, they are handled internally!
+            let_decl("x", DeclKind::MutableStatic, 1.0),
+        ],
+    )]);
+}
 #[test]
 fn p12_function_and_variable_mix() {
     assert_expr("fn foo() {} x = 5;", "(fn foo() {})\n(let x = number(5))");

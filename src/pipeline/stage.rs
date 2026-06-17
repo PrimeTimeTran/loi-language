@@ -14,16 +14,6 @@ use crate::{
     },
 };
 
-macro_rules! log_stage {
-    ($stage:expr, $($arg:tt)*) => {
-        println!(
-            "[{:>8}] {}",
-            $stage,
-            format!($($arg)*)
-        );
-    };
-}
-
 pub trait Stage: std::fmt::Debug + Send + Sync {
     fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError>;
     fn name(&self) -> &str;

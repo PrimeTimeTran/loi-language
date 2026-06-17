@@ -1,7 +1,5 @@
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::helpers::parses;
+use crate::common::{ParserTestHarness, helpers::parses};
+use loi::frontend::ast::{DeclKind, Expr, Stmt};
 
 #[test]
 fn p01_parses_integer() {

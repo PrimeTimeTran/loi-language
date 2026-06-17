@@ -5,15 +5,7 @@ mod common {
     include!("../00_common/mod.rs");
 }
 use common::lexer::LexerTestHarness;
-
-macro_rules! tok {
-    (ident $s:expr) => {
-        Token::Ident($s.to_string())
-    };
-    (num $n:expr) => {
-        Token::Number($n as f64)
-    };
-}
+use loi::tok;
 
 #[test]
 fn parses_assign_not() {

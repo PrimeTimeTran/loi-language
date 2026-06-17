@@ -18,7 +18,7 @@ pub struct AST {
     pub stmts: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub enum Stmt {
     Let {
         name: String,
@@ -128,13 +128,15 @@ pub enum Expr {
         target: Box<Expr>,
         field: String,
     },
+    None,
+    Empty,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum DeclKind {
-    MutableStatic,   // =
-    ImmutableStatic, // =!
-    Dynamic,         // =?
+    MutableStatic, // =
+    Immutable,     // =!
+    Dynamic,       // =?
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Serialize)]
@@ -203,14 +205,20 @@ impl Stmt {
     pub fn to_sexpr(&self) -> String {
         match self {
             Stmt::Let { name, kind, value } => {
-                format!("(let {} {} {})", name, kind, value.to_sexpr())
+                let kind_str = match kind {
+                    DeclKind::MutableStatic => "=",
+                    DeclKind::Immutable => "=!",
+                    DeclKind::Dynamic => "=?",
+                };
+
+                format!("(let {} {} {})", name, kind_str, value.to_sexpr())
             }
             Stmt::Print { expr } => format!("(print {})", expr.to_sexpr()),
             Stmt::ExprStmt { expr } => expr.to_sexpr(),
             Stmt::Function { name, params, body } => {
                 let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
                 format!(
-                    "(fn {} ({}) ({}))",
+                    "(fn {}({}) {{{}}})",
                     name,
                     params.join(" "),
                     body_str.join(" ")
@@ -302,11 +310,25 @@ impl Expr {
         }
 
         match self {
+            Expr::None => write!(f, "none")?,
+            Expr::Empty => write!(f, "()")?,
             Expr::Identifier { name } => write!(f, "identifier({})", name)?,
             Expr::Number(n) => write!(f, "{}", n)?, // Add ? to propagate the Result
             Expr::Bool(b) => write!(f, "{}", b)?,
             Expr::String(s) => write!(f, "\"{}\"", s)?,
             Expr::Var(name) => write!(f, "{}", name)?,
+            Expr::Assign { left, right, op } => {
+                let op_str = match op {
+                    AssignOp::Assign => "=",
+                    AssignOp::Immutable => "=!",
+                    AssignOp::Dynamic => "=?",
+                };
+
+                left.format_prec(f, prec)?;
+                write!(f, " {} ", op_str)?;
+                right.format_prec(f, prec)?;
+            }
+
             Expr::Array(els) => {
                 write!(f, "[")?;
                 for (i, e) in els.iter().enumerate() {
@@ -326,11 +348,7 @@ impl Expr {
                 write!(f, "{}", op)?;
                 expr.format_prec(f, 10)?;
             }
-            Expr::Assign { left, right, op } => {
-                left.format_prec(f, prec)?;
-                write!(f, " {} ", op)?;
-                right.format_prec(f, prec)?;
-            }
+
             Expr::Call { callee, args } => {
                 callee.format_prec(f, 10)?;
                 write!(f, "(")?;
@@ -374,6 +392,15 @@ impl Expr {
     // 3. Declarations (let) are handled specifically if the node is a Stmt
     pub fn to_sexpr(&self) -> String {
         match self {
+            Expr::Assign { left, right, op } => {
+                let op_str = match op {
+                    AssignOp::Assign => "=",
+                    AssignOp::Immutable => "=!",
+                    AssignOp::Dynamic => "=?",
+                };
+
+                format!("({} {} {})", left.to_sexpr(), op_str, right.to_sexpr())
+            }
             Expr::Var(name) => {
                 format!("identifier({})", name.clone())
             }
@@ -393,9 +420,7 @@ impl Expr {
                 let els: Vec<String> = elements.iter().map(|e| e.to_sexpr()).collect();
                 format!("[{}]", els.join(", "))
             }
-            Expr::Assign { left, right, op } => {
-                format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
-            }
+
             Expr::Binary { left, op, right } => {
                 format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
             }
@@ -413,6 +438,8 @@ impl Expr {
                 let args_str: Vec<String> = args.iter().map(|a| a.to_sexpr()).collect();
                 format!("({}({}))", callee.to_sexpr(), args_str.join(", "))
             }
+            Expr::None => "none".to_string(),
+            Expr::Empty => "()".to_string(),
         }
     }
 }
@@ -424,6 +451,16 @@ impl Default for Program {
             stmts: Vec::new(),
             modules: Vec::new(),
             globals: Vec::new(),
+        }
+    }
+}
+
+impl From<AssignOp> for DeclKind {
+    fn from(op: AssignOp) -> Self {
+        match op {
+            AssignOp::Assign => DeclKind::MutableStatic,
+            AssignOp::Immutable => DeclKind::Immutable,
+            AssignOp::Dynamic => DeclKind::Dynamic,
         }
     }
 }

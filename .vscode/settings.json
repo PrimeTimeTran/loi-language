@@ -8,6 +8,7 @@
     "targets": true,
     // "output": true,
     "tests/fixtures": true,
+    "tests/root": true,
     
     "": "",
     "KEEP.end": true

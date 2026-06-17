@@ -92,6 +92,12 @@ pub struct DiagnosticStore {
     pub diagnostics: VecDeque<Diagnostic>,
 }
 impl DiagnosticStore {
+    pub fn new(halt_on_error: bool) -> Self {
+        Self {
+            halt_on_error,
+            ..Default::default()
+        }
+    }
     pub fn to_compile_error(&self, stage: &str) -> CompileError {
         CompileError::Stage {
             stage: stage.to_string(),
@@ -113,15 +119,13 @@ impl DiagnosticStore {
         }
         Ok(())
     }
-    pub fn new(halt_on_error: bool) -> Self {
-        Self {
-            halt_on_error,
-            ..Default::default()
-        }
-    }
 
     pub fn has_errors(&self) -> bool {
         self.error_count > 0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.error_count == 0
     }
 
     pub fn clear(&mut self) {

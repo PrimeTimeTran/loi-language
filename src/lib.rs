@@ -4,6 +4,9 @@
 // #![allow(dead_code)]
 // #![allow(unused_must_use)]
 
+#[macro_use]
+pub mod macros;
+
 pub mod backend;
 pub mod build;
 pub mod cli;

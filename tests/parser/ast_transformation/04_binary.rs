@@ -1,7 +1,4 @@
-mod common {
-    include!("../00_common/mod.rs");
-}
-use common::helpers::parses;
+use crate::common::{ParserTestHarness, assert_expr, helpers::parses};
 
 #[test]
 fn p01_parses_integer() {
