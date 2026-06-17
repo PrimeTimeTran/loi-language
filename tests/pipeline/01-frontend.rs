@@ -1,172 +1,205 @@
-use loi::{frontend::ast::Stmt, pipeline::runner::PipelineRunner};
+use crate::common::{SNAP_AST, TestHarness};
 
-use crate::common::TestHarness;
+//
+// =======================================================
+// 1. BASIC PARSING CORRECTNESS
+// =======================================================
+//
 
 #[test]
-fn frontend_parse_invalid_input() {
+fn frontend_rejects_invalid_syntax() {
     let mut h = TestHarness::bootstrap("let x = ;", vec![]);
-
     let result = h.run_stage(h.build_frontend());
-
-    assert!(
-        result.is_err(),
-        "Invalid input should fail frontend parsing"
-    );
+    assert!(result.is_err());
 }
 
 #[test]
-fn frontend_parse_expressions() {
-    let mut h = TestHarness::bootstrap("let x = 1 + 2 * 3;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-
-    let state = h.env.state.read().unwrap();
-    let ast = state.current_ast.as_ref().expect("AST missing");
-
-    let has_expr = ast
-        .stmts
-        .iter()
-        .any(|stmt| matches!(stmt, Stmt::ExprStmt { .. } | Stmt::Let { .. }));
-
-    assert!(has_expr, "Expected expression-based statement in AST");
-}
-
-#[test]
-fn frontend_parse_statements() {
-    let mut h = TestHarness::bootstrap("print 1; let x = 2;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-
-    let state = h.env.state.read().unwrap();
-    let ast = state.current_ast.as_ref().expect("AST missing");
-
-    assert!(ast.stmts.len() >= 2, "Expected multiple statements parsed");
-}
-
-#[test]
-fn frontend_ast_invariants() {
-    let mut h = TestHarness::bootstrap("let x = 1 + 2;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-
-    let state = h.env.state.read().unwrap();
-    let ast = state.current_ast.as_ref().expect("AST missing");
-
-    assert!(
-        !ast.stmts.is_empty(),
-        "AST should never be empty after successful parse"
-    );
-
-    for stmt in &ast.stmts {
-        match stmt {
-            Stmt::ExprStmt { .. } | Stmt::Let { .. } | Stmt::Print { .. } => {}
-            _ => panic!("Unexpected statement variant in AST"),
-        }
-    }
-}
-
-#[test]
-fn frontend_always_sets_ast() {
-    let mut h = TestHarness::bootstrap("let x = 1 + 2;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-
-    let state = h.env.state.read().unwrap();
-
-    assert!(
-        state.current_ast.is_some(),
-        "Frontend must always write AST to state"
-    );
-}
-
-#[test]
-fn frontend_ast_never_cleared_on_success() {
+fn frontend_parses_simple_expression() {
     let mut h = TestHarness::bootstrap("let x = 1;", vec![]);
-
     h.run_stage(h.build_frontend()).unwrap();
 
-    let state = h.env.state.read().unwrap();
-    assert!(
-        state.current_ast.is_some(),
-        "AST should persist after successful frontend run"
-    );
+    SNAP_AST.assert_value("simple_expression", h.get_ast().unwrap());
 }
 
 #[test]
-fn frontend_ast_changes_with_input() {
+fn frontend_parses_multiple_statements() {
+    let mut h = TestHarness::bootstrap("print 1; let x = 2;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("multiple_statements", h.get_ast().unwrap());
+}
+
+//
+// =======================================================
+// 2. AST STRUCTURE VALIDATION
+// =======================================================
+//
+
+#[test]
+fn frontend_only_emits_valid_ast() {
+    let mut h = TestHarness::bootstrap("let x = 1 + 2; print x;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("valid_ast_variants", h.get_ast().unwrap());
+}
+
+#[test]
+fn frontend_ast_never_empty_after_success() {
+    let mut h = TestHarness::bootstrap("let x = 1;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("non_empty_ast", h.get_ast().unwrap());
+}
+
+//
+// =======================================================
+// 3. OPERATOR PRECEDENCE & EXPRESSIONS
+// =======================================================
+//
+
+#[test]
+fn frontend_operator_precedence() {
+    let mut h = TestHarness::bootstrap("let x = 1 + 2 * 3;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("operator_precedence", h.get_ast().unwrap());
+}
+
+#[test]
+fn frontend_nested_parentheses() {
+    let mut h = TestHarness::bootstrap("let x = (1 + 2) * 3;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("nested_parentheses", h.get_ast().unwrap());
+}
+
+//
+// =======================================================
+// 4. DETERMINISM / STABILITY
+// =======================================================
+//
+
+#[test]
+fn frontend_is_deterministic() {
+    let mut h = TestHarness::bootstrap("let x = 1 + 2;", vec![]);
+
+    h.run_stage(h.build_frontend()).unwrap();
+    let first = h.get_ast().unwrap();
+
+    h.run_stage(h.build_frontend()).unwrap();
+    let second = h.get_ast().unwrap();
+
+    assert_eq!(first, second);
+}
+
+#[test]
+fn frontend_different_inputs_produce_different_ast() {
     let mut h1 = TestHarness::bootstrap("let x = 1;", vec![]);
     let mut h2 = TestHarness::bootstrap("let x = 2;", vec![]);
 
     h1.run_stage(h1.build_frontend()).unwrap();
     h2.run_stage(h2.build_frontend()).unwrap();
 
-    let ast1 = h1.env.state.read().unwrap().current_ast.clone().unwrap();
-    let ast2 = h2.env.state.read().unwrap().current_ast.clone().unwrap();
-
-    assert_ne!(ast1, ast2, "Different inputs must produce different ASTs");
+    assert_ne!(h1.get_ast().unwrap(), h2.get_ast().unwrap());
 }
 
-#[test]
-fn frontend_ast_is_stable_on_re_run() {
-    let mut h = TestHarness::bootstrap("let x = 1 + 2;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-    let first = h.env.state.read().unwrap().current_ast.clone();
-
-    h.run_stage(h.build_frontend()).unwrap();
-    let second = h.env.state.read().unwrap().current_ast.clone();
-
-    assert_eq!(
-        first, second,
-        "Frontend should be deterministic across repeated runs"
-    );
-}
+//
+// =======================================================
+// 5. STATE SAFETY / ATOMICITY
+// =======================================================
+//
 
 #[test]
-fn frontend_ast_has_valid_structure() {
-    let mut h = TestHarness::bootstrap("let x = 1 + 2; print x;", vec![]);
-
-    h.run_stage(h.build_frontend()).unwrap();
-
-    let state = h.env.state.read().unwrap();
-    let ast = state.current_ast.as_ref().unwrap();
-
-    for stmt in &ast.stmts {
-        match stmt {
-            Stmt::Let { .. } | Stmt::Print { .. } | Stmt::ExprStmt { .. } => {}
-            _ => panic!("Invalid AST node produced by frontend"),
-        }
-    }
-}
-
-#[test]
-fn frontend_invalid_input_does_not_write_ast() {
+fn frontend_does_not_write_ast_on_failure() {
     let mut h = TestHarness::bootstrap("let x = ;", vec![]);
 
     let result = h.run_stage(h.build_frontend());
 
-    assert!(result.is_err(), "Frontend should fail on invalid input");
-
-    let state = h.env.state.read().unwrap();
-
-    assert!(
-        state.current_ast.is_none(),
-        "AST must not be written on failed frontend"
-    );
+    assert!(result.is_err());
+    assert!(h.env.state.read().unwrap().current_ast.is_none());
 }
 
 #[test]
 fn frontend_ast_write_is_atomic() {
     let mut h = TestHarness::bootstrap("let x = 1 + 2 * 3;", vec![]);
-
     let result = h.run_stage(h.build_frontend());
 
     if result.is_ok() {
-        let state = h.env.state.read().unwrap();
-
-        assert!(
-            state.current_ast.is_some(),
-            "AST must be fully written or not written at all"
-        );
+        SNAP_AST.assert_value("atomic_write", h.get_ast().unwrap());
     }
+}
+
+//
+// =======================================================
+// 6. ERROR CASES
+// =======================================================
+//
+
+#[test]
+fn frontend_missing_rhs_expression() {
+    let mut h = TestHarness::bootstrap("let x = ;", vec![]);
+    assert!(h.run_stage(h.build_frontend()).is_err());
+}
+
+#[test]
+fn frontend_invalid_tokens() {
+    let mut h = TestHarness::bootstrap("let @ = 1;", vec![]);
+    assert!(h.run_stage(h.build_frontend()).is_err());
+}
+
+#[test]
+fn frontend_unexpected_token_sequences() {
+    let mut h = TestHarness::bootstrap("let x = + * /;", vec![]);
+    assert!(h.run_stage(h.build_frontend()).is_err());
+}
+
+//
+// =======================================================
+// 7. LEXICAL EDGE CASES
+// =======================================================
+//
+
+#[test]
+fn frontend_whitespace_variants() {
+    let mut h = TestHarness::bootstrap("let   x=1+2   *3;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("whitespace_variants", h.get_ast().unwrap());
+}
+
+#[test]
+fn frontend_unicode_identifiers() {
+    let mut h = TestHarness::bootstrap("let α = 10;", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("unicode_identifiers", h.get_ast().unwrap());
+}
+
+#[test]
+fn frontend_malformed_numbers() {
+    let mut h = TestHarness::bootstrap("let x = 1.2.3;", vec![]);
+    assert!(h.run_stage(h.build_frontend()).is_err());
+}
+
+//
+// =======================================================
+// 8. MIXED INPUTS / ROBUSTNESS
+// =======================================================
+//
+
+#[test]
+fn frontend_mixed_statements() {
+    let mut h = TestHarness::bootstrap("let x = 1; print x; let y = 2 + 3;", vec![]);
+
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("mixed_statements", h.get_ast().unwrap());
+}
+
+#[test]
+fn frontend_heavily_nested_parentheses() {
+    let mut h = TestHarness::bootstrap("let x = (((1 + 2)));", vec![]);
+    h.run_stage(h.build_frontend()).unwrap();
+
+    SNAP_AST.assert_value("nested_parentheses_deep", h.get_ast().unwrap());
 }

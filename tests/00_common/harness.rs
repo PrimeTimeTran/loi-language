@@ -33,7 +33,7 @@ use loi::{
     test_utils::TestEnv,
 };
 
-use crate::common::MockEngine;
+use crate::common::{MockEngine, SnapshotBundle, SnapshotTester};
 
 pub enum PipelineTarget {
     Frontend,
@@ -214,5 +214,82 @@ impl TestHarness {
             sym.build_incremental(stack, engine.as_ref());
         }
         sym
+    }
+}
+
+impl TestHarness {
+    pub fn snapshot_ast(&self, snap: &SnapshotTester, name: &str) {
+        let ast = self.get_ast().expect("AST missing");
+        snap.assert_value(name, ast);
+    }
+
+    pub fn snapshot_diagnostics(&self, snap: &SnapshotTester, name: &str) {
+        let diag = self.get_diagnostics();
+        snap.assert_value(name, diag);
+    }
+
+    pub fn snapshot_symbols(&self, snap: &SnapshotTester, name: &str) {
+        let symbols = self.run_pipeline();
+        snap.assert_value(name, symbols);
+    }
+
+    /// Full frontend snapshot (clean + deterministic)
+    pub fn snapshot_frontend(&mut self, snap: &SnapshotTester, name: &str) {
+        self.run_stage(self.build_frontend())
+            .expect("frontend failed");
+
+        let ast = self.get_ast().expect("AST missing after frontend");
+        let diag = self.get_diagnostics();
+
+        snap.assert_stage(
+            "frontend",
+            name,
+            SnapshotBundle {
+                ir: None,
+                llvm: None,
+                ast: Some(ast),
+                diagnostics: diag,
+            },
+        );
+    }
+
+    pub fn snapshot_middle(&mut self, snap: &SnapshotTester, name: &str) {
+        self.run_stage(self.build_middle()).expect("middle failed");
+
+        let diag = self.get_diagnostics();
+
+        snap.assert_stage(
+            "middle",
+            name,
+            SnapshotBundle {
+                ir: None,
+                llvm: None,
+                ast: None,
+                diagnostics: diag,
+            },
+        );
+    }
+
+    /// Full backend snapshot
+    pub fn snapshot_backend(&mut self, snap: &SnapshotTester, name: &str) {
+        self.run_stage(self.build_backend())
+            .expect("backend failed");
+
+        let diag = self.get_diagnostics();
+
+        snap.assert_stage(
+            "backend",
+            name,
+            SnapshotBundle {
+                ir: None,
+                ast: None,
+                llvm: None,
+                diagnostics: diag,
+            },
+        );
+    }
+    pub fn reset_pipeline_state(&self) {
+        let mut state = self.env.state.write().unwrap();
+        state.current_ast = None;
     }
 }
