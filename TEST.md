@@ -22,8 +22,13 @@ cargo run
 
 - Filter by filename with wildcard
 
+```sh
+cargo nextest run --test '000*'
 ```
-  cargo nextest run --test '000*'
+
+- Pattern matching 
+```sh
+cargo nextest run -E 'test(/parser::/)' --test-threads 1 --no-fail-fast
 ```
 
 - Run specific tests
@@ -68,6 +73,10 @@ cargo run
   cargo watch -x 'nextest run --test parser_* --test-threads 1 --no-fail-fast'
   cargo watch -x 'nextest run --test lexer_* --test-threads 1 --no-fail-fast'
   cargo nextest run --filter-expr 'test(lexer::)'
+```
+
+```tmp
+$ cargo nextest run --test-threads 1 --no-fail-fast
 ```
 
 # Enable Snapshots

@@ -10,41 +10,41 @@ pub mod unary;
 #[path = "04_binary.rs"]
 pub mod binary;
 
-#[path = "05-1_assignment_expression.rs"]
+#[path = "05_assignment_expression.rs"]
 pub mod assignment_expression;
 
-#[path = "05-2_declaration_statements.rs"]
+#[path = "06_declaration_statements.rs"]
 pub mod declaration_statements;
 
-#[path = "05-3_pratt_evaluation.rs"]
+#[path = "07_pratt_evaluation.rs"]
 pub mod pratt_evaluation;
 
-#[path = "06_arrays.rs"]
+#[path = "08_arrays.rs"]
 pub mod arrays;
 
-#[path = "07_indexing.rs"]
+#[path = "09_indexing.rs"]
 pub mod indexing;
 
-#[path = "08_members.rs"]
+#[path = "10_members.rs"]
 pub mod members;
 
-#[path = "09_calls.rs"]
+#[path = "11_calls.rs"]
 pub mod calls;
 
-#[path = "10_postfix_chaining.rs"]
+#[path = "12_postfix_chaining.rs"]
 pub mod postfix_chaining;
 
-#[path = "11_blocks.rs"]
+#[path = "13_blocks.rs"]
 pub mod blocks;
 
-#[path = "12_conditionals.rs"]
+#[path = "14_conditionals.rs"]
 pub mod conditionals;
 
-#[path = "13_declarations.rs"]
+#[path = "15_declarations.rs"]
 pub mod declarations;
 
-#[path = "14_functions.rs"]
+#[path = "16_functions.rs"]
 pub mod functions;
 
-#[path = "15_recovery.rs"]
+#[path = "17_recovery.rs"]
 pub mod recovery;

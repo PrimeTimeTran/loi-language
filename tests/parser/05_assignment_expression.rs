@@ -7,18 +7,20 @@ use common::{assert_expr, fails, parses};
 
 #[test]
 fn p01_parses_simple_assignment() {
-    assert_expr("x = 5", "(let x = 5)");
+    assert_expr("x = 5", "(let x = number(5))");
 }
 
 #[test]
 fn p02_parses_assignment_rhs_expression() {
-    // Note: If "x = 1 + 2 * 3" is also treated as a let, use "(let x = (1 + (2 * 3)))"
-    assert_expr("x = 1 + 2 * 3", "(let x = (1 + (2 * 3)))");
+    assert_expr(
+        "x = 1 + 2 * 3",
+        "(let x = (number(1) + (number(2) * number(3))))",
+    );
 }
 
 #[test]
 fn p03_assignment_is_right_associative() {
-    assert_expr("x = y = 5", "(let x = (y = 5))");
+    assert_expr("x = y = 5", "(let x = (identifier(y) = number(5)))");
 }
 
 #[test]
