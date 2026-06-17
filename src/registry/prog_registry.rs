@@ -1,6 +1,5 @@
 use uuid::Uuid;
 
-use crate::backend::utter::registry::UtterRegistry;
 use crate::registry::file_meta::{FileMeta, GroupKey};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

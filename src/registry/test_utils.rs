@@ -9,15 +9,11 @@ pub mod test_helpers {
 
 #[cfg(test)]
 mod test_utils {
-    use crate::{
-        backend::utter::registry::UtterRegistry, build::build_system::BuildSystem,
-        registry::registry::Registry,
-    };
+    use crate::{backend::utter::registry::UtterRegistry, build::build_system::BuildSystem};
 
-    use super::*;
     pub fn setup_test_context() -> BuildSystem {
-        let registry = Registry::from_files(vec![]);
-        let utters = UtterRegistry::new();
+        // let registry = crate::registry::prog_registry::Registry::from_files(vec![]);
+        // let utters = UtterRegistry::new();
         BuildSystem::test()
     }
 }

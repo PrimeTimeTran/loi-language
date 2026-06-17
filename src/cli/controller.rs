@@ -1,21 +1,15 @@
 use colored::*;
-use owo_colors::OwoColorize;
 use rustyline::DefaultEditor;
 use std::panic::{self, AssertUnwindSafe};
 use std::{fs, path::PathBuf};
-use strum::{Display, EnumIter, IntoEnumIterator};
-use tabled::{
-    Table,
-    settings::{Color, Modify, Style, object::Rows},
-};
 
 use crate::build::args::BuildTarget;
 use crate::build::build_system::BuildSystem;
 use crate::cli::command::{BuildAllArgs, Command, SortOrder, ViewArgs};
 use crate::cli::display::RegistryRenderer;
-use crate::cli::display::{ListFilter, RegistryUI};
+use crate::cli::display::RegistryUI;
 use crate::registry::file_meta::FileMeta;
-use crate::registry::registry::Registry;
+use crate::registry::prog_registry::Registry;
 
 pub struct CliController {
     pub system: BuildSystem,

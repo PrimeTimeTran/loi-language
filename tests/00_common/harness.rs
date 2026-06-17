@@ -29,7 +29,7 @@ use loi::{
         runner::PipelineRunner,
         stage::Stage,
     },
-    registry::{file_meta::FileMeta, registry::Registry},
+    registry::{file_meta::FileMeta, prog_registry::Registry},
     test_utils::TestEnv,
 };
 

@@ -1,19 +1,10 @@
 use clap::Parser;
 use colored::*;
-use owo_colors::OwoColorize;
-use rustyline::DefaultEditor;
-use std::{fs, path::PathBuf};
 use strum::{Display, EnumIter, IntoEnumIterator};
-use tabled::{
-    Table,
-    settings::{Color, Modify, Style, object::Rows},
-};
 
 use crate::cli::display::{ListFilter, RegistryUI};
 use crate::cli::{args::CliArgs, controller::CliController};
 use crate::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
-use crate::registry::file_meta::FileMeta;
-use crate::registry::registry::Registry;
 use crate::{build::args::BuildTarget, cli::display::RegistryRenderer};
 
 pub struct CommandMeta {

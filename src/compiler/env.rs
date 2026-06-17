@@ -1,20 +1,4 @@
-use clap::Parser;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::values::{FunctionValue, PointerValue};
-use owo_colors::OwoColorize;
-use std::collections::HashMap;
-use std::env;
 use std::path::PathBuf;
-use uuid::Uuid;
-
-use crate::backend::symbol::registry::SymbolRegistry;
-use crate::backend::utter::registry::UtterRegistry;
-use crate::build::asset_optimizer::AssetOptimizer;
-use crate::build::output_resolver::OutputResolver;
-use crate::registry::file_meta::{FileMeta, GroupKey};
-use crate::registry::registry::FileStack;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Mode {

@@ -26,15 +26,15 @@ use loi::{
         types::{IRVal, Span, Type},
     },
     pipeline::{CompileError, frontend::FrontendPipeline},
-    registry::{file_meta::FileMeta, registry::Registry},
+    registry::{file_meta::FileMeta, prog_registry::Registry},
 };
 use owo_colors::OwoColorize;
-use std::cell::RefCell;
-use std::sync::{Arc, RwLock};
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::{Arc, RwLock},
 };
 
 pub fn clean(s: &str) -> String {

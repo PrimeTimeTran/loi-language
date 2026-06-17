@@ -1,17 +1,11 @@
-use regex::Regex;
-use std::path::Path;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::build::artifact::{Artifact, ArtifactKind, CompiledArtifact};
 use crate::build::asset_optimizer::AssetOptimizer;
 use crate::build::output_resolver::OutputResolver;
 use crate::{
-    backend::{
-        symbol::registry::SymbolRegistry,
-        utter::{handler::Handler, registry::UtterRegistry, utter::Utter},
-    },
-    middle::ir::IR,
-    registry::{file_meta::FileMeta, registry::Registry},
+    backend::{symbol::registry::SymbolRegistry, utter::registry::UtterRegistry},
+    registry::{file_meta::FileMeta, prog_registry::Registry},
 };
 
 #[derive(Clone, Debug)]

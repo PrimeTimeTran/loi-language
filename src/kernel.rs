@@ -1,9 +1,4 @@
-use std::{
-    path::Path,
-    sync::{Arc, RwLock},
-};
-
-use anyhow::Error;
+use std::sync::{Arc, RwLock};
 
 use crate::{
     compiler::{
@@ -13,7 +8,6 @@ use crate::{
         execution::{JobQueue, TaskScheduler},
     },
     context::Context,
-    interface::{CompileEngineProvider, FileSystemProvider},
 };
 
 // "How": It represents the execution machinery. It holds the long-lived

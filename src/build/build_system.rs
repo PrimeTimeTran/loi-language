@@ -5,7 +5,7 @@ use crate::{
     build::service::{BundleConfig, BundleService},
     init::init,
     kernel::Kernel,
-    registry::registry::Registry,
+    registry::prog_registry::Registry,
 };
 #[derive(Debug)]
 pub struct BuildContext {

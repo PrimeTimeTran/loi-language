@@ -1,5 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
 use uuid::Uuid;
@@ -88,7 +87,6 @@ impl FileMeta {
             ext: Self::get_ext(&filename),
             active: true,
             capabilities: Vec::new(),
-            ..Default::default()
         };
 
         file.capabilities = Self::infer_capabilities(&file.ext);
@@ -195,18 +193,18 @@ impl FileMeta {
 
         "loi".to_string()
     }
-    fn capabilities(&self, parsed: &ParsedPath) -> Vec<String> {
-        let mut caps = vec![];
-        if parsed.variant.as_deref() == Some("ui") {
-            caps.push("ui".to_string());
-        }
-        if parsed.version > 0 {
-            caps.push("versioned".to_string());
-        }
-        caps.sort();
-        caps.dedup();
-        caps
-    }
+    // fn capabilities(&self, parsed: &ParsedPath) -> Vec<String> {
+    //     let mut caps = vec![];
+    //     if parsed.variant.as_deref() == Some("ui") {
+    //         caps.push("ui".to_string());
+    //     }
+    //     if parsed.version > 0 {
+    //         caps.push("versioned".to_string());
+    //     }
+    //     caps.sort();
+    //     caps.dedup();
+    //     caps
+    // }
 
     fn infer_capabilities(ext: &str) -> Vec<String> {
         let mut caps = Vec::new();
@@ -278,7 +276,7 @@ impl From<&Path> for ParsedPath {
             })
             .unwrap_or(0);
 
-        let is_versioned = s.contains('#') || true;
+        let is_versioned = s.contains('#');
 
         let variant = s
             .split('$')

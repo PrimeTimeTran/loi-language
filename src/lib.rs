@@ -1,8 +1,14 @@
+// Prevent warnings
 // #![allow(warnings)]
 // #![allow(unused_imports)]
 // #![allow(unused_variables)]
 // #![allow(dead_code)]
 // #![allow(unused_must_use)]
+
+// Add warnings
+// #![warn(unused_imports)]
+// #![warn(unused_variables)]
+// #![warn(dead_code)]
 
 #[macro_use]
 pub mod macros;
@@ -25,12 +31,11 @@ pub mod registry;
 // EXPLANATION:
 // To prove we can main crate mods to all test crates
 pub mod test_utils {
-
     use crate::compiler::{config::CompileConfig, state::CompileState};
     use crate::context::Context;
-    use crate::init;
     use std::sync::{Arc, RwLock};
 
+    #[derive(Default)]
     pub struct TestEnv {
         pub context: Arc<Context>,
         pub config: Arc<RwLock<CompileConfig>>,
@@ -47,7 +52,7 @@ pub mod test_utils {
         }
     }
 
-    pub fn lib_helper() -> String {
-        return "Loi".to_string();
+    pub fn lib_helper() -> &'static str {
+        "Loi"
     }
 }

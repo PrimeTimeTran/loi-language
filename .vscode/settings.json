@@ -1,4 +1,6 @@
 {
+  "rust-analyzer.check.command": "check",
+  // "rust-analyzer.check.command": "clippy",
   "files.exclude": {
     "**/target": true,
     ".vscode": true,

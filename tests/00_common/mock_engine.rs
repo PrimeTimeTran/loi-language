@@ -11,7 +11,7 @@ use loi::{
     build::build_system::BuildSystem,
     frontend::{lexer, parser},
     middle::{ir::IR, semantic},
-    registry::{file_meta::FileMeta, registry::Registry},
+    registry::{file_meta::FileMeta, prog_registry::Registry},
 };
 
 #[derive(Clone, Debug)]

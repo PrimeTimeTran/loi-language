@@ -1,4 +1,4 @@
-use crate::registry::registry::Registry;
+use crate::registry::prog_registry::Registry;
 
 pub trait RegistryDisplay {
     fn render_table(&self);

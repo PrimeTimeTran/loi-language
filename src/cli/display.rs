@@ -9,7 +9,7 @@ use tabled::{
 use crate::{
     cli::command::Command,
     registry::file_meta::FileMeta,
-    registry::registry::{FileStack, Registry},
+    registry::prog_registry::{FileStack, Registry},
 };
 
 #[derive(Tabled)]

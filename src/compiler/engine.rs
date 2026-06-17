@@ -1,36 +1,35 @@
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use anyhow::Error;
-
-use crate::backend::symbol::registry::SymbolRegistry;
-use crate::backend::utter::registry::UtterRegistry;
-use crate::build::asset_optimizer::AssetOptimizer;
-use crate::build::output_resolver::OutputResolver;
-use crate::build::service::BundleService;
-use crate::compiler::addon::{BackendRegistry, PassRegistry, PipelineExtensions};
-use crate::compiler::bundler::OutputEmitter;
-use crate::compiler::cache::{CachePolicy, CompilationCache, MemoryCache, PersistentCache};
+// use crate::backend::symbol::registry::SymbolRegistry;
+// use crate::backend::utter::registry::UtterRegistry;
+// use crate::build::asset_optimizer::AssetOptimizer;
+// use crate::build::output_resolver::OutputResolver;
+// use crate::build::service::BundleService;
+// use crate::compiler::addon::{BackendRegistry, PassRegistry, PipelineExtensions};
+// use crate::compiler::bundler::OutputEmitter;
+// use crate::compiler::cache::{CachePolicy, CompilationCache, MemoryCache, PersistentCache};
 use crate::compiler::config::CompileConfig;
-use crate::compiler::diagnostic::{CompilerEventBus, Inspector, Logger, Profiler, TraceSystem};
-use crate::compiler::execution::{JobQueue, PluginSystem, PrioritySystem, TaskScheduler};
-use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
-use crate::compiler::safety::{FallbackPipeline, RecoverySystem};
-use crate::compiler::scale::{BuildFarm, DistributedCompiler};
+// use crate::compiler::diagnostic::{CompilerEventBus, Inspector, Logger, Profiler, TraceSystem};
+// use crate::compiler::execution::{JobQueue, PluginSystem, PrioritySystem, TaskScheduler};
+// use crate::compiler::runtime::{IRRuntime, LoweringRuntime, SymbolRuntime};
+// use crate::compiler::safety::{FallbackPipeline, RecoverySystem};
+// use crate::compiler::scale::{BuildFarm, DistributedCompiler};
 use crate::compiler::state::CompileState;
-use crate::context::{CompileContext, Context};
-use crate::development::watcher::{
-    ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
-};
-use crate::frontend::parser::Parser;
-use crate::interface::CompileEngineProvider;
-use crate::middle::ir::IR;
+// use crate::context::{CompileContext, Context};
+use crate::context::Context;
+// use crate::development::watcher::{
+//     ChangeDetector, FileWatcher, HotReloadManager, IncrementalCompiler,
+// };
+// use crate::frontend::parser::Parser;
+// use crate::interface::CompileEngineProvider;
+// use crate::middle::ir::IR;
 use crate::pipeline::backend::BackendPipeline;
-use crate::pipeline::frontend::{FrontendFeatures, FrontendPipeline};
+use crate::pipeline::frontend::FrontendPipeline;
+// use crate::pipeline::frontend::{FrontendFeatures, FrontendPipeline};
 use crate::pipeline::middle::MiddlePipeline;
 use crate::pipeline::stage::Stage;
-use crate::registry::file_meta::{FileMeta, GroupKey};
-use crate::registry::registry::FileStack;
+// use crate::registry::file_meta::{FileMeta, GroupKey};
+// use crate::registry::prog_registry::FileStack;
 
 // =========================================================
 // MACRO: SAFE DEFAULT BOOTSTRAP

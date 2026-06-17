@@ -4,7 +4,7 @@ use crate::{
     backend::utter::utter::Utter,
     registry::{
         file_meta::FileMeta,
-        registry::{FileStack, Registry},
+        prog_registry::{FileStack, Registry},
     },
 };
 

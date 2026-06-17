@@ -1,13 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
-use crate::{
-    backend::{
-        symbol::registry::SymbolRegistry,
-        utter::{handler::Handler, registry::UtterRegistry, utter::Utter},
-    },
-    middle::ir::IR,
-    registry::{file_meta::FileMeta, registry::Registry},
-};
+use crate::middle::ir::IR;
 
 #[derive(Clone, Debug)]
 pub enum ArtifactKind {
