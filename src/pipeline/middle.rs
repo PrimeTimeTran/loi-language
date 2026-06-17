@@ -82,6 +82,34 @@ pub struct SymbolInfo {
 }
 
 impl MiddlePipeline {
+    // ===============================================================
+    // MIDDLE PIPELINE (AST → IR LOWERING)
+    // ===============================================================
+    //
+    // PURPOSE:
+    // Converts a fully parsed AST into a linear IR (IROp stream).
+    //
+    // OUTPUT:
+    // Vec<IROp> where each operation is already "flat" and safe
+    // for backend codegen (LLVM or other backends).
+    //
+    // KEY IDEA:
+    // - Expressions are NOT directly executed
+    // - Complex expressions become temporaries (__t0, __t1, ...)
+    // - Statements become IR operations (Declare / Assign / Print / Expr)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // 1. PIPELINE ENTRY POINT (AST → IR MODULE)
+    // ===============================================================
+    //
+    // Takes AST from frontend state and produces IR module.
+    //
+    // Flow:
+    // AST → Vec<Stmt> → Vec<IROp> → IR
+    //
+    // This is the ONLY function LLVM should ever call upstream.
     fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
         let ast = {
             let state = engine.state.read().unwrap();
@@ -97,50 +125,38 @@ impl MiddlePipeline {
         Ok(())
     }
 
+    // ===============================================================
+    // 2. TOP LEVEL LOWERING (AST → IR OPS)
+    // ===============================================================
+    //
+    // Converts whole program into IR instruction stream.
+    //
+    // Flow:
+    // AST { stmts } → lower_stmt(stmt)* → Vec<IROp>
+    //
+    // Each statement becomes one or more IR ops.
     pub fn lower_ast_to_ir(&mut self, ast: AST) -> Result<Vec<IROp>, CompileError> {
         ast.stmts
             .into_iter()
             .map(|stmt| self.lower_stmt(stmt))
             .collect::<Result<Vec<_>, _>>()
     }
-    pub fn lower_expr(&self, expr: Expr) -> Result<LoweredExpr, CompileError> {
-        println!("lower_expr: {:?}", expr);
-        match expr {
-            Expr::Number(_) | Expr::Bool(_) | Expr::String(_) | Expr::Var(_) => {
-                Ok(LoweredExpr::Value(lower_atomic(expr)?))
-            }
 
-            Expr::Binary { left, op, right } => {
-                let l = self.lower_expr(*left)?;
-                let r = self.lower_expr(*right)?;
-
-                match (l, r) {
-                    (LoweredExpr::Value(lv), LoweredExpr::Value(rv)) => {
-                        let tmp = self.emit_temp();
-
-                        Ok(LoweredExpr::Value(IRVal::Var(tmp)))
-                    }
-
-                    _ => Err(CompileError::Middle("invalid binary lowering".into())),
-                }
-            }
-            _ => Err(CompileError::Middle("unsupported complex expr".into())),
-        }
-    }
-    pub fn lower_expr_stmt(&mut self, expr: Expr) -> Result<IROp, CompileError> {
-        println!("lower_expr_stmt: {:?}", expr);
-
-        match expr {
-            Expr::Assign { left, right, op } => self.handle_assignment(*left, *right, op, None),
-            other => {
-                let lowered = self.lower_expr(other)?;
-                match lowered {
-                    LoweredExpr::Value(v) => Ok(IROp::Expr { value: v }),
-                    LoweredExpr::Op(op) => Ok(op),
-                }
-            }
-        }
-    }
+    // ===============================================================
+    // 3. STATEMENT LOWERING (Stmt → IROp)
+    // ===============================================================
+    //
+    // This is the main dispatch layer.
+    //
+    // Responsibilities:
+    // - Decide IR shape per statement
+    // - Ensure expressions are lowered first
+    // - Never leaves AST expressions unprocessed
+    //
+    // Examples:
+    // let x = 1 + 2      → Declare + temp
+    // print x + 1        → Print + temp
+    // x = 3              → Assign
     pub fn lower_stmt(&mut self, stmt: Stmt) -> Result<IROp, CompileError> {
         println!("lower_stmt: {:?}", stmt);
 
@@ -214,63 +230,74 @@ impl MiddlePipeline {
         }
     }
 
-    pub fn lower_op(&mut self, op: IROp) -> Result<IROp, CompileError> {
-        match op {
-            IROp::Assign { name, value } => {
-                let value = self.expr_to_irval_from_value(value)?;
-                self.symbols.insert(
-                    name.clone(),
-                    SymbolInfo {
-                        is_mutable: true,
-                        is_initialized: true,
-                        declared_at: None,
-                    },
-                );
+    // ===============================================================
+    // 4. EXPRESSION STATEMENT LOWERING
+    // ===============================================================
+    //
+    // Handles standalone expressions used as statements.
+    //
+    // Flow:
+    // Expr → LoweredExpr → IROp::Expr or IROp::Assign/etc
+    pub fn lower_expr_stmt(&mut self, expr: Expr) -> Result<IROp, CompileError> {
+        println!("lower_expr_stmt: {:?}", expr);
 
-                Ok(IROp::Assign { name, value })
-            }
-
-            IROp::Declare {
-                name,
-                value,
-                mutable,
-                dynamic,
-            } => {
-                let value = self.expr_to_irval_from_value(value)?;
-
-                self.symbols.insert(
-                    name.clone(),
-                    SymbolInfo {
-                        is_mutable: mutable,
-                        is_initialized: true,
-                        declared_at: None,
-                    },
-                );
-
-                Ok(IROp::Declare {
-                    name,
-                    value,
-                    mutable,
-                    dynamic,
-                })
-            }
-
-            other => Ok(other),
-        }
-    }
-    pub fn expr_to_irval_from_value(&self, val: IRVal) -> Result<IRVal, CompileError> {
-        Ok(val)
-    }
-    pub fn expr_to_irval(&self, expr: Expr) -> Result<IRVal, CompileError> {
-        match self.lower_expr(expr)? {
-            LoweredExpr::Value(v) => Ok(v),
-            LoweredExpr::Op(_) => {
-                let tmp = self.emit_temp();
-                Ok(IRVal::Var(tmp))
+        match expr {
+            Expr::Assign { left, right, op } => self.handle_assignment(*left, *right, op, None),
+            other => {
+                let lowered = self.lower_expr(other)?;
+                match lowered {
+                    LoweredExpr::Value(v) => Ok(IROp::Expr { value: v }),
+                    LoweredExpr::Op(op) => Ok(op),
+                }
             }
         }
     }
 
+    // ===============================================================
+    // 5. EXPRESSION LOWERING (CORE LOGIC)
+    // ===============================================================
+    //
+    // Converts AST expressions into either:
+    //
+    // A) LoweredExpr::Value   → direct IR value (constant/var)
+    // B) LoweredExpr::Op      → requires IR operation + temp
+    //
+    // IMPORTANT RULE:
+    // This function MUST NOT produce IR ops directly.
+    // It only decides VALUE vs OP.
+    pub fn lower_expr(&self, expr: Expr) -> Result<LoweredExpr, CompileError> {
+        println!("lower_expr: {:?}", expr);
+        match expr {
+            Expr::Number(_) | Expr::Bool(_) | Expr::String(_) | Expr::Var(_) => {
+                Ok(LoweredExpr::Value(lower_atomic(expr)?))
+            }
+
+            Expr::Binary { left, op, right } => {
+                let l = self.lower_expr(*left)?;
+                let r = self.lower_expr(*right)?;
+
+                match (l, r) {
+                    (LoweredExpr::Value(lv), LoweredExpr::Value(rv)) => {
+                        let tmp = self.emit_temp();
+
+                        Ok(LoweredExpr::Value(IRVal::Var(tmp)))
+                    }
+
+                    _ => Err(CompileError::Middle("invalid binary lowering".into())),
+                }
+            }
+            _ => Err(CompileError::Middle("unsupported complex expr".into())),
+        }
+    }
+
+    // ===============================================================
+    // 6. ASSIGNMENT HANDLING (SPECIAL CASE)
+    // ===============================================================
+    //
+    // Handles:
+    // - let x = ...
+    // - x = ...
+    // - x := dynamic / immutable forms
     pub fn handle_assignment(
         &mut self,
         left: Expr,
@@ -348,18 +375,106 @@ impl MiddlePipeline {
             }
         }
     }
+    // ===============================================================
+    // 7. IR OP POST-PROCESSING (OPTIONAL PASS)
+    // ===============================================================
+    //
+    // Takes already-created IR ops and:
+    // - resolves symbol table info
+    // - normalizes declare/assign
+    // - applies final IR rules
+    pub fn lower_op(&mut self, op: IROp) -> Result<IROp, CompileError> {
+        match op {
+            IROp::Assign { name, value } => {
+                let value = self.expr_to_irval_from_value(value)?;
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: true,
+                        is_initialized: true,
+                        declared_at: None,
+                    },
+                );
 
-    pub fn name(&self) -> &str {
-        &self.metadata.name
+                Ok(IROp::Assign { name, value })
+            }
+
+            IROp::Declare {
+                name,
+                value,
+                mutable,
+                dynamic,
+            } => {
+                let value = self.expr_to_irval_from_value(value)?;
+
+                self.symbols.insert(
+                    name.clone(),
+                    SymbolInfo {
+                        is_mutable: mutable,
+                        is_initialized: true,
+                        declared_at: None,
+                    },
+                );
+
+                Ok(IROp::Declare {
+                    name,
+                    value,
+                    mutable,
+                    dynamic,
+                })
+            }
+
+            other => Ok(other),
+        }
     }
-    pub fn resolve_symbols(&self, _ast: &AST) {
-        // future scope pass
+    // ===============================================================
+    // 8. VALUE CONVERSION HELPERS
+    // ===============================================================
+    //
+    // Used when IRVal is already known and just needs validation.
+    //
+    // DOES NOT lower expressions.
+    pub fn expr_to_irval_from_value(&self, val: IRVal) -> Result<IRVal, CompileError> {
+        Ok(val)
     }
+
+    // ===============================================================
+    // 9. TEMPORARY GENERATION
+    // ===============================================================
+    //
+    // Produces SSA-like temps:
+    //
+    // __t0, __t1, __t2 ...
+    //
+    // Used ONLY when lowering complex expressions.
     pub fn emit_temp(&self) -> String {
         let id = self
             .temp_counter
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         format!("__t{}", id)
+    }
+
+    // Converts full expression → IRVal (only safe for simple cases)
+    pub fn expr_to_irval(&self, expr: Expr) -> Result<IRVal, CompileError> {
+        match self.lower_expr(expr)? {
+            LoweredExpr::Value(v) => Ok(v),
+            LoweredExpr::Op(_) => {
+                let tmp = self.emit_temp();
+                Ok(IRVal::Var(tmp))
+            }
+        }
+    }
+
+    // ===============================================================
+    // 10. SYMBOL / META HELPERS
+    // ===============================================================
+    //
+    // Used for bookkeeping, not lowering.
+    pub fn name(&self) -> &str {
+        &self.metadata.name
+    }
+    pub fn resolve_symbols(&self, _ast: &AST) {
+        // future scope pass
     }
 }
 
