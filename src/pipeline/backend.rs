@@ -11,7 +11,7 @@ use crate::{
     frontend::ast::Expr,
     interface::CompileEngineProvider,
     middle::ir::{IR, IROp, Op},
-    pipeline::{CompileError, Metadata, Pipeline},
+    pipeline::{CompileError, Metadata, Pipeline, stage::Stage},
 };
 
 /// BACKEND PIPELINE
@@ -33,6 +33,7 @@ pub struct BackendPipeline {
     pub opt_level: OptimizationLevel,
     pub codegen_config: CodegenConfig,
     pub debug: bool,
+    pub passes: Vec<Box<dyn Stage>>,
 }
 
 impl BackendPipeline {
@@ -62,6 +63,7 @@ impl BackendPipeline {
             opt_level: OptimizationLevel::default(),
             codegen_config: CodegenConfig::default(),
             llvm_context: Mutex::new(inkwell::context::Context::create()),
+            passes: Vec::new(),
         }
     }
     pub fn with_target(mut self, target: BackendTarget) -> Self {
@@ -78,6 +80,10 @@ impl BackendPipeline {
     }
     pub fn with_debug(mut self, debug: bool) -> Self {
         self.debug = debug;
+        self
+    }
+    pub fn add_pass(mut self, pass: Box<dyn Stage>) -> Self {
+        self.passes.push(pass);
         self
     }
 }

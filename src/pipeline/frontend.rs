@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
@@ -40,6 +41,7 @@ pub struct FrontendPipeline {
     pub lexer: Arc<RwLock<Lexer>>,
     pub parser: Arc<RwLock<Parser>>,
     pub features: FrontendFeatures,
+    pub passes: Vec<Box<dyn Stage>>, // This is the key change
 }
 
 impl FrontendPipeline {
@@ -50,6 +52,7 @@ impl FrontendPipeline {
     ) -> Self {
         Self::with_name("FrontendPipeline", context, config, state)
     }
+
     pub fn with_name(
         name: &str,
         context: Arc<Context>,
@@ -68,10 +71,15 @@ impl FrontendPipeline {
             lexer: Arc::new(RwLock::new(Lexer::default())),
             parser: Arc::new(RwLock::new(Parser)),
             features: FrontendFeatures::default(),
+            passes: Vec::new(),
         }
     }
     pub fn with_features(mut self, features: FrontendFeatures) -> Self {
         self.features = features;
+        self
+    }
+    pub fn add_pass(mut self, pass: Box<dyn Stage>) -> Self {
+        self.passes.push(pass);
         self
     }
 }
@@ -195,5 +203,53 @@ impl Default for FrontendPipeline {
         let config = Arc::new(RwLock::new(CompileConfig::default()));
         let state = Arc::new(RwLock::new(CompileState::default()));
         Self::new(context, config, state)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParserStage {
+    pub lexer: Arc<RwLock<Lexer>>,
+    pub parser: Arc<RwLock<Parser>>,
+}
+
+impl Stage for ParserStage {
+    fn name(&self) -> &str {
+        "Parser"
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn run(&mut self, engine: &CompileEngine) -> Result<(), CompileError> {
+        // 1. Get the source from the global state
+        let source = {
+            let state = engine.state.read().unwrap();
+            state
+                .source
+                .clone()
+                .ok_or_else(|| CompileError::Frontend("No source".into()))?
+        };
+
+        // 2. Lexing
+        let tokens = self
+            .lexer
+            .write()
+            .unwrap()
+            .lex(&source)
+            .map_err(|_| CompileError::Frontend("Lexing failed".into()))?;
+
+        // 3. Parsing
+        let mut diag = DiagnosticStore::default(); // Simplified for brevity
+        let ast = self
+            .parser
+            .write()
+            .unwrap()
+            .parse(tokens, &mut diag)
+            .map_err(|_| CompileError::Frontend("Parsing failed".into()))?;
+
+        // 4. Update Engine state
+        engine.state.write().unwrap().current_ast = Some(ast);
+
+        Ok(())
     }
 }

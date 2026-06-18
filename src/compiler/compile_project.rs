@@ -17,9 +17,11 @@ use crate::{
 };
 
 use rayon::prelude::*;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use walkdir::WalkDir;
 
 pub fn compile_project(kernel: &Kernel, config: &CompileConfig) -> Result<(), Vec<Error>> {
@@ -67,7 +69,7 @@ pub fn compile_file(kernel: &Kernel, path: &Path, output_dir: &Path) -> Result<(
         .map_err(|_| Error::Parser("Parsing failed".to_string()))?;
 
     let ir = SemanticAnalyzer::analyze(ast).map_err(Error::Analysis)?;
-    let context = &kernel.context;
+    let context = &kernel.kernel_ctx;
     let bc_path = compile(context, &ir, &out_base, file_name).map_err(Error::Backend)?;
     link_with_clang(Path::new(&bc_path), &out_base).map_err(Error::Backend)?;
 

@@ -24,10 +24,10 @@ use loi::{
     pipeline::{
         CompileError,
         backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
-        frontend::{FrontendFeatures, FrontendPipeline},
-        middle::{IRConfig, MiddleFeatures, MiddlePipeline},
+        frontend::{FrontendFeatures, FrontendPipeline, ParserStage},
+        middle::{IRConfig, MiddleFeatures, MiddleLoweringLogic, MiddlePipeline},
         runner::PipelineRunner,
-        stage::Stage,
+        stage::{LoweringStage, Stage},
     },
     registry::{file_meta::FileMeta, prog_registry::Registry},
     test_utils::TestEnv,
@@ -169,21 +169,36 @@ impl TestHarness {
     }
 
     pub fn build_frontend(&self) -> FrontendPipeline {
-        FrontendPipeline::new(
+        let mut pipeline = FrontendPipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
             self.env.state.clone(),
-        )
-        .with_features(FrontendFeatures::default())
+        );
+
+        pipeline.passes.push(Box::new(ParserStage {
+            lexer: pipeline.lexer.clone(),
+            parser: pipeline.parser.clone(),
+        }));
+
+        pipeline
     }
+
     pub fn build_middle(&self) -> MiddlePipeline {
-        MiddlePipeline::new(
+        let mut pipeline = MiddlePipeline::new(
             self.env.context.clone(),
             self.env.config.clone(),
             self.env.state.clone(),
-        )
-        .with_ir_config(IRConfig::default())
-        .with_features(MiddleFeatures::default())
+        );
+
+        pipeline.ir_config = IRConfig::default();
+        pipeline.features = MiddleFeatures::default();
+
+        pipeline.passes.push(Box::new(LoweringStage {
+            name: "AST_to_IR_Lowering".to_string(),
+            logic: Arc::new(MiddleLoweringLogic),
+        }));
+
+        pipeline
     }
 
     pub fn build_backend(&self) -> BackendPipeline {
@@ -233,7 +248,6 @@ impl TestHarness {
         snap.assert_value(name, symbols);
     }
 
-    /// Full frontend snapshot (clean + deterministic)
     pub fn snapshot_frontend(&mut self, snap: &SnapshotTester, name: &str) {
         self.run_stage(self.build_frontend())
             .expect("frontend failed");

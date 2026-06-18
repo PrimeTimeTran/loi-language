@@ -2,12 +2,15 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     compiler::{
+        PipelineContext,
         cache::MemoryCache,
         diagnostic::{DiagnosticStore, Logger},
         engine::CompileEngine,
         execution::{JobQueue, TaskScheduler},
+        state::CompileState,
     },
     context::Context,
+    pipeline::{CompileError, Pipeline},
 };
 
 // "How": It represents the execution machinery. It holds the long-lived
@@ -15,25 +18,52 @@ use crate::{
 // It is the "root" of your application that coordinates the Context
 // to achieve a goal.
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct KernelContext {
     pub context: Arc<Context>,
     pub logger: Arc<Logger>,
     pub cache: Arc<MemoryCache>,
     pub job_queue: Arc<JobQueue>,
     pub scheduler: Arc<TaskScheduler>,
-    pub diagnostics: Arc<DiagnosticStore>,
+    pub diagnostics: Arc<RwLock<DiagnosticStore>>,
 }
 
 #[derive(Debug)]
 pub struct Kernel {
-    pub context: Arc<Context>,
+    pub kernel_ctx: KernelContext,
     pub engine: Arc<CompileEngine>,
-    pub logger: Arc<Logger>,
-    pub cache: Arc<MemoryCache>,
-    pub job_queue: Arc<JobQueue>,
-    pub scheduler: TaskScheduler,
-    pub diagnostics: Arc<RwLock<DiagnosticStore>>,
+}
+
+// 1. The Kernel provides the Services
+impl Kernel {
+    pub fn run_pipeline(&self, pipeline: &mut dyn Pipeline) -> Result<(), CompileError> {
+        let mut work = PipelineContext::default();
+        let mut state = CompileState::default();
+
+        pipeline
+            .setup(&mut state)
+            .map_err(|e| CompileError::Stage {
+                stage: format!("{}: setup", pipeline.name()),
+                source: Box::new(e),
+            })?;
+
+        // Pass the internal KernelContext
+        pipeline
+            .run(&self.kernel_ctx, &mut work, &mut state)
+            .map_err(|e| CompileError::Stage {
+                stage: pipeline.name().to_string(),
+                source: Box::new(e),
+            })?;
+
+        pipeline
+            .teardown(&mut state)
+            .map_err(|e| CompileError::Stage {
+                stage: format!("{}: teardown", pipeline.name()),
+                source: Box::new(e),
+            })?;
+
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -99,18 +129,23 @@ impl KernelBuilder {
         let context = self.context.expect("Kernel requires Context");
         let engine = self.engine.expect("Kernel requires CompileEngine");
 
-        Kernel {
+        let kernel_ctx = KernelContext {
             context,
-            engine,
-            logger: self.logger.unwrap_or_else(|| Arc::new(Default::default())),
+            logger: self.logger.unwrap_or_else(|| Arc::new(Logger::default())),
             cache: self.cache.unwrap_or_else(|| Arc::new(MemoryCache::new())),
             job_queue: self
                 .job_queue
                 .unwrap_or_else(|| Arc::new(JobQueue::default())),
-            scheduler: self.scheduler.unwrap_or_default(),
+            // FIX: Wrap the scheduler in Arc
+            scheduler: self
+                .scheduler
+                .map(Arc::new)
+                .unwrap_or_else(|| Arc::new(TaskScheduler::default())),
             diagnostics: self
                 .diagnostics
                 .unwrap_or_else(|| Arc::new(RwLock::new(DiagnosticStore::default()))),
-        }
+        };
+
+        Kernel { kernel_ctx, engine }
     }
 }

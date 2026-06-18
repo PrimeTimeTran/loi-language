@@ -74,7 +74,7 @@ fn test_print_output() {
 #[test]
 fn test_full_bitcode_generation() {
     let kernel = init();
-    let context = &kernel.context;
+    let context = &kernel.kernel_ctx;
     let ir = vec![ir_factory::print_val(42.0)];
 
     let dir = tempfile::tempdir().unwrap();

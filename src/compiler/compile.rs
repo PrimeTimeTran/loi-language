@@ -5,12 +5,13 @@ use chumsky::primitive::todo;
 
 use crate::backend::llvm::LLVM;
 use crate::context::Context;
+use crate::kernel::KernelContext;
 use crate::middle::ir::IROp;
 
 use inkwell::context::Context as InkwellContext;
 
 pub fn compile(
-    _system_context: &Context,
+    _system_context: &KernelContext,
     ir: &[IROp],
     out_base: &Path,
     module_name: &str,

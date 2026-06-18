@@ -1,7 +1,7 @@
 use crate::{
     compiler::state::CompileState,
-    context::Context,
     frontend::ast::AST,
+    kernel::KernelContext,
     middle::ir::IROp,
     pipeline::{CompileError, Pipeline},
 };
@@ -35,29 +35,34 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn compile(&self, global_ctx: &Context) -> Result<(), CompileError> {
+    pub fn compile(&mut self, kernel: &KernelContext) -> Result<(), CompileError> {
         let mut work = PipelineContext::default();
         let mut state = CompileState::default();
-
-        for pipeline in &self.pipelines {
-            println!("Running stage: {}", pipeline.name());
-
+        for pipeline in &mut self.pipelines {
+            let name = pipeline.name().to_string();
+            // These methods now work because pipeline is &mut
             pipeline
-                .run(global_ctx, &mut work, &mut state)
+                .setup(&mut state)
                 .map_err(|e| CompileError::Stage {
-                    stage: pipeline.name().to_string(),
+                    stage: format!("{}: setup", name),
                     source: Box::new(e),
                 })?;
-        }
-        Ok(())
-    }
 
-    pub fn execute(&self, global_ctx: &Context) -> Result<(), CompileError> {
-        let mut work = PipelineContext::default();
-        let mut state = CompileState::default();
+            // Execution
+            pipeline
+                .run(kernel, &mut work, &mut state)
+                .map_err(|e| CompileError::Stage {
+                    stage: name.clone(),
+                    source: Box::new(e),
+                })?;
 
-        for pipeline in &self.pipelines {
-            pipeline.run(global_ctx, &mut work, &mut state)?;
+            // Lifecycle: Teardown
+            pipeline
+                .teardown(&mut state)
+                .map_err(|e| CompileError::Stage {
+                    stage: format!("{}: teardown", name),
+                    source: Box::new(e),
+                })?;
         }
         Ok(())
     }
