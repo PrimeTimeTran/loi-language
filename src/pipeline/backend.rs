@@ -6,8 +6,9 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use crate::{
     backend::llvm::{CodeGenContext, LLVM, codegen_ir_op},
-    compiler::{self, config::CompileConfig, state::CompileState, types::BuildArtifact},
-    context::Context,
+    compiler::{
+        self, config::CompileConfig, context::Context, state::CompileState, types::BuildArtifact,
+    },
     frontend::ast::Expr,
     interface::CompileEngineProvider,
     middle::ir::{IR, IROp, Op},
@@ -212,6 +213,8 @@ impl BackendPipeline {
 #[cfg(test)]
 impl Default for BackendPipeline {
     fn default() -> Self {
+        use crate::compiler::context::Context;
+
         let context = Arc::new(Context::new());
         let config = Arc::new(RwLock::new(CompileConfig::default()));
         let state = Arc::new(RwLock::new(CompileState::default()));

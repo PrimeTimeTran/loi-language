@@ -163,7 +163,8 @@ pub struct Inspector;
 
 #[derive(Default)]
 pub struct CompilerEventBus;
-use crate::{middle, pipeline::CompileError};
+use crate::compiler::error::CompileError;
+use crate::middle;
 use middle::types::Span;
 use std::path::PathBuf;
 

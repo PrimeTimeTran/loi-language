@@ -1,9 +1,6 @@
+use loi::compiler::{config::CompileConfig, context::Context, state::CompileState};
 use loi::pipeline::middle::MiddlePipeline;
 use loi::pipeline::stage::Stage;
-use loi::{
-    compiler::{config::CompileConfig, state::CompileState},
-    context::Context,
-};
 
 use std::sync::{Arc, RwLock};
 

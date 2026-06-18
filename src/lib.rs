@@ -31,8 +31,7 @@ pub mod registry;
 // EXPLANATION:
 // To prove we can main crate mods to all test crates
 pub mod test_utils {
-    use crate::compiler::{config::CompileConfig, state::CompileState};
-    use crate::context::Context;
+    use crate::compiler::{config::CompileConfig, context::Context, state::CompileState};
     use std::sync::{Arc, RwLock};
 
     #[derive(Default)]

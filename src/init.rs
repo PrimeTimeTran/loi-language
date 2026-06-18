@@ -2,10 +2,8 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     compiler::{
-        config::CompileConfig, diagnostic::DiagnosticStore, engine::CompileEngine,
-        state::CompileState,
+        config::CompileConfig, context::Context, diagnostic::DiagnosticStore, engine::CompileEngine, state::CompileState
     },
-    context::Context,
     kernel::{Kernel, KernelBuilder},
 };
 

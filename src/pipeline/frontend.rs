@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use tracing::Instrument;
 
+use crate::compiler::context::Context;
 use crate::{
     compiler::{
         config::CompileConfig,
@@ -11,7 +12,7 @@ use crate::{
         engine::CompileEngine,
         state::CompileState,
     },
-    context::{Context, test::TestContext},
+    context::{test::TestContext},
     frontend::{
         ast::{AST, Stmt},
         parser::Parser,

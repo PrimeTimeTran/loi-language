@@ -1,8 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    compiler::{config::CompileConfig, state::CompileState},
-    context::Context,
+    compiler::{config::CompileConfig, context::Context, state::CompileState},
     pipeline::{
         backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline, stage::Stage,
     },

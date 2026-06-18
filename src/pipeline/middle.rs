@@ -1,21 +1,28 @@
-use std::any::Any;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    any::Any,
+    collections::HashMap,
+    sync::{Arc, Mutex, RwLock},
+};
 
-use crate::backend::symbol::registry::SymbolRegistry;
-use crate::compiler::config::CompileConfig;
-use crate::compiler::diagnostic::DiagnosticStore;
-use crate::compiler::engine::CompileEngine;
-use crate::compiler::state::CompileState;
-use crate::context::Context;
-use crate::context::test::TestContext;
-use crate::diagnostics;
-use crate::frontend::ast::{AST, AssignOp, Expr, Stmt};
-use crate::interface::CompileEngineProvider;
-use crate::middle::ir::{IR, IROp, TypedExpr};
-use crate::middle::types::{IRVal, LoweredExpr, Span, Type};
-use crate::pipeline::stage::{LoweringStage, Stage};
-use crate::pipeline::{CompileError, Metadata, Pipeline};
+use crate::{
+    backend::symbol::registry::SymbolRegistry,
+    compiler::{
+        config::CompileConfig, context::Context, diagnostic::DiagnosticStore,
+        engine::CompileEngine, state::CompileState,
+    },
+    context::test::TestContext,
+    diagnostics,
+    frontend::ast::{AST, AssignOp, Expr, Stmt},
+    interface::CompileEngineProvider,
+    middle::{
+        ir::{IR, IROp, TypedExpr},
+        types::{IRVal, LoweredExpr, Span, Type},
+    },
+    pipeline::{
+        CompileError, Metadata, Pipeline,
+        stage::{LoweringStage, Stage},
+    },
+};
 
 /// MIDDLE PIPELINE
 /// Converts AST → IR and performs semantic analysis.

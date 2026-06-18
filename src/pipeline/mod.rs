@@ -5,8 +5,9 @@
 /// It doesn't care if they are currently executing or what their error results are.
 ///////////////////////////////////////////////////////////////////////////////////////////
 use crate::{
-    compiler::{PipelineContext, engine::CompileEngine, state::CompileState},
-    context::Context,
+    compiler::{
+        context::PipelineContext, engine::CompileEngine, error::CompileError, state::CompileState,
+    },
     kernel::{Kernel, KernelContext},
     pipeline::{backend::BackendPipeline, frontend::FrontendPipeline, middle::MiddlePipeline},
 };
@@ -33,30 +34,6 @@ pub trait Pipeline {
         Ok(())
     }
 }
-
-#[derive(Debug)]
-pub enum CompileError {
-    Frontend(String),
-    Middle(String),
-    Backend(String),
-    Stage {
-        stage: String,
-        source: Box<dyn std::error::Error>,
-    },
-}
-impl std::fmt::Display for CompileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CompileError::Frontend(e) => write!(f, "Frontend error: {}", e),
-            CompileError::Middle(e) => write!(f, "Middle error: {}", e),
-            CompileError::Backend(e) => write!(f, "Backend error: {}", e),
-            CompileError::Stage { stage, source } => {
-                write!(f, "Stage error in {}: {}", stage, source)
-            }
-        }
-    }
-}
-impl std::error::Error for CompileError {}
 
 #[derive(Clone, Debug)]
 pub struct Metadata {

@@ -2,15 +2,15 @@ use std::sync::{Arc, RwLock};
 
 use crate::{
     compiler::{
-        PipelineContext,
         cache::MemoryCache,
+        context::{Context, PipelineContext},
         diagnostic::{DiagnosticStore, Logger},
         engine::CompileEngine,
+        error::CompileError,
         execution::{JobQueue, TaskScheduler},
         state::CompileState,
     },
-    context::Context,
-    pipeline::{CompileError, Pipeline},
+    pipeline::Pipeline,
 };
 
 // "How": It represents the execution machinery. It holds the long-lived
@@ -47,7 +47,6 @@ impl Kernel {
                 source: Box::new(e),
             })?;
 
-        // Pass the internal KernelContext
         pipeline
             .run(&self.kernel_ctx, &mut work, &mut state)
             .map_err(|e| CompileError::Stage {

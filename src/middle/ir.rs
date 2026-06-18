@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use crate::frontend::ast::{AssignOp, BinOp, Expr, Stmt, UnOp};
 
 use crate::middle::types::{IRVal, Span, Type};
-use crate::pipeline::CompileError;
 use crate::{backend::symbol::registry::Symbol, frontend};
 
 pub type IrInstruction = IROp;

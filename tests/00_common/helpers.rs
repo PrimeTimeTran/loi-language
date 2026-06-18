@@ -14,7 +14,7 @@ use loi::{
         utter::{registry::UtterRegistry, utter::Utter},
     },
     build::build_system::BuildSystem,
-    compiler::diagnostic::DiagnosticStore,
+    compiler::{diagnostic::DiagnosticStore, error::CompileError},
     frontend::{
         ast::{AST, BinOp, DeclKind, Expr, Stmt},
         lexer::{self, lex},
@@ -25,7 +25,7 @@ use loi::{
         semantic::{self, SemanticAnalyzer},
         types::{IRVal, Span, Type},
     },
-    pipeline::{CompileError, frontend::FrontendPipeline},
+    pipeline::frontend::FrontendPipeline,
     registry::{file_meta::FileMeta, prog_registry::Registry},
 };
 use owo_colors::OwoColorize;

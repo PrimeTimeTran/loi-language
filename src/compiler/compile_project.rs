@@ -13,7 +13,6 @@ use crate::{
     },
     kernel::Kernel,
     middle::semantic::{SemanticAnalyzer, analyze},
-    pipeline::CompileError,
 };
 
 use rayon::prelude::*;

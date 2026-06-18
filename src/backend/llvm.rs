@@ -1,22 +1,21 @@
-use inkwell::AddressSpace;
-use inkwell::basic_block::BasicBlock;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::types::FloatType;
-use inkwell::values::{
-    BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, ValueKind,
+use inkwell::{
+    AddressSpace,
+    basic_block::BasicBlock,
+    builder::Builder,
+    context::Context,
+    module::Module,
+    types::FloatType,
+    values::{BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, ValueKind},
 };
+
 use std::collections::HashMap;
 
-use crate::frontend::ast::AST;
-use crate::middle::types::IRVal;
-use crate::pipeline::CompileError;
 use crate::{
-    frontend::ast::{BinOp, Expr, Stmt, UnOp},
+    compiler::error::CompileError,
+    frontend::ast::{AST, BinOp, Expr, Stmt, UnOp},
     middle::{
         ir::{IR, IROp, LoweredOp, Op, TypedExpr},
-        types::Type,
+        types::{IRVal, Type},
     },
 };
 

@@ -13,16 +13,14 @@ use loi::{
     },
     build::build_system::BuildSystem,
     compiler::{
-        config::CompileConfig, diagnostic::DiagnosticStore, engine::CompileEngine,
-        state::CompileState, types::BuildArtifact,
+        config::CompileConfig, context::Context, diagnostic::DiagnosticStore,
+        engine::CompileEngine, error::CompileError, state::CompileState, types::BuildArtifact,
     },
-    context::Context,
     frontend::{ast::AST, lexer, parser},
     init,
     kernel::{Kernel, KernelBuilder},
     middle::semantic,
     pipeline::{
-        CompileError,
         backend::{BackendPipeline, BackendTarget, CodegenConfig, OptimizationLevel},
         frontend::{FrontendFeatures, FrontendPipeline, ParserStage},
         middle::{IRConfig, MiddleFeatures, MiddleLoweringLogic, MiddlePipeline},

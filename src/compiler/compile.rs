@@ -4,7 +4,6 @@ use std::path::Path;
 use chumsky::primitive::todo;
 
 use crate::backend::llvm::LLVM;
-use crate::context::Context;
 use crate::kernel::KernelContext;
 use crate::middle::ir::IROp;
 
