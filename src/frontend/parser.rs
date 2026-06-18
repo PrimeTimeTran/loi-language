@@ -138,13 +138,18 @@ fn parse_stmt(tokens: &mut TokenStream, diagnostics: &mut DiagnosticStore) -> Re
                 expr: parse_expr(tokens, diagnostics)?,
             }
         }
-
         Some(Token::LBrace) => {
             tokens.bump();
-            let body = control::parse_block(tokens, diagnostics)?;
-            Stmt::Block { body }
+            let stmts = control::parse_block(tokens, diagnostics)?;
+            let body = Stmt::Block { body: stmts };
+            body
         }
 
+        // Some(Token::LBrace) => {
+        //     tokens.bump();
+        //     let body = control::parse_block(tokens, diagnostics)?;
+        //     Stmt::Block { body }
+        // }
         _ => {
             let expr = parse_assignment(tokens, None, diagnostics)?;
 
@@ -375,22 +380,7 @@ fn parse_primary(
         Some(Token::False) => Ok(Expr::Bool(false)),
         Some(Token::Number(n)) => Ok(Expr::Number(HashF64(n))),
         Some(Token::String(s)) => Ok(Expr::String(s.clone())),
-        Some(Token::Ident(name)) => {
-            if let Some(Token::LParen) = tokens.peek() {
-                tokens.next();
-                let arg = parse_expr(tokens, diagnostics)?;
-                match tokens.next() {
-                    Some(Token::RParen) => Ok(Expr::Call {
-                        callee: Box::new(Expr::Var(name)),
-                        args: vec![arg],
-                    }),
-                    other => Err(format!("Expected ')', got {:?}", other)),
-                }
-            } else {
-                Ok(Expr::Var(name.clone()))
-            }
-        }
-
+        Some(Token::Ident(name)) => Ok(Expr::Var(name.clone())),
         Some(Token::Ampersand) => {
             let expr = parse_primary(tokens, diagnostics)?;
             Ok(Expr::Unary {
@@ -439,6 +429,7 @@ fn parse_postfix(
 
     loop {
         match tokens.peek() {
+            // arr[index]
             Some(Token::LBracket) => {
                 tokens.next();
 
@@ -446,7 +437,9 @@ fn parse_postfix(
 
                 match tokens.next() {
                     Some(Token::RBracket) => {}
-                    other => return Err(format!("Expected ], got {:?}", other)),
+                    other => {
+                        return Err(format!("Expected ], got {:?}", other));
+                    }
                 }
 
                 expr = Expr::Index {
@@ -459,10 +452,11 @@ fn parse_postfix(
                 tokens.next();
 
                 let field = match tokens.next() {
-                    Some(Token::Ident(name)) => name,
-                    other => return Err(format!("Expected ident after ., got {:?}", other)),
-                }
-                .clone();
+                    Some(Token::Ident(name)) => name.clone(),
+                    other => {
+                        return Err(format!("Expected identifier after '.', got {:?}", other));
+                    }
+                };
 
                 expr = Expr::Member {
                     target: Box::new(expr),
@@ -473,7 +467,7 @@ fn parse_postfix(
             Some(Token::LParen) => {
                 tokens.next();
 
-                let mut args = vec![];
+                let mut args = Vec::new();
 
                 if !matches!(tokens.peek(), Some(Token::RParen)) {
                     loop {
@@ -483,13 +477,15 @@ fn parse_postfix(
                             break;
                         }
 
-                        tokens.next();
+                        tokens.next(); // consume comma
                     }
                 }
 
                 match tokens.next() {
                     Some(Token::RParen) => {}
-                    other => return Err(format!("Expected ), got {:?}", other)),
+                    other => {
+                        return Err(format!("Expected ')', got {:?}", other));
+                    }
                 }
 
                 expr = Expr::Call {
@@ -497,11 +493,9 @@ fn parse_postfix(
                     args,
                 };
             }
-
             _ => break,
         }
     }
-
     Ok(expr)
 }
 fn parse_member_and_index_chain(
@@ -690,6 +684,110 @@ fn parse_power(
     }
 
     Ok(left)
+}
+
+fn stmt_to_expr(stmt: Stmt) -> Result<Expr, String> {
+    Ok(match stmt {
+        Stmt::Let { name, kind, value } => Expr::Assign {
+            left: Box::new(Expr::Var(name)),
+            right: Box::new(value),
+            op: match kind {
+                DeclKind::MutableStatic => AssignOp::Assign,
+                DeclKind::Immutable => AssignOp::Immutable,
+                DeclKind::Dynamic => AssignOp::Dynamic,
+            },
+        },
+
+        Stmt::Print { expr } => Expr::Call {
+            callee: Box::new(Expr::Var("print".to_string())),
+            args: vec![expr],
+        },
+
+        Stmt::ExprStmt { expr } => expr,
+
+        Stmt::Return { value } => Expr::Return {
+            value: value.map(Box::new),
+        },
+
+        Stmt::Block { body } => Expr::Block(
+            body.into_iter()
+                .map(stmt_to_expr)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => Expr::If {
+            cond: Box::new(condition),
+            then_branch: Box::new(Expr::Block(
+                then_branch
+                    .into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+            else_branch: match else_branch {
+                Some(b) => Some(Box::new(Expr::Block(
+                    b.into_iter()
+                        .map(stmt_to_expr)
+                        .collect::<Result<Vec<_>, _>>()?,
+                ))),
+                None => None,
+            },
+        },
+
+        Stmt::While { condition, body } => Expr::While {
+            cond: Box::new(condition),
+            body: Box::new(Expr::Block(
+                body.into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+        },
+
+        Stmt::Loop { body } => Expr::Loop {
+            body: Box::new(Expr::Block(
+                body.into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+        },
+
+        Stmt::For {
+            iterator,
+            iterable,
+            body,
+        } => Expr::For {
+            iterator,
+            iterable: Box::new(iterable),
+            body: Box::new(Expr::Block(
+                body.into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+        },
+
+        Stmt::DoWhile { body, condition } => Expr::DoWhile {
+            body: Box::new(Expr::Block(
+                body.into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+            cond: Box::new(condition),
+        },
+
+        Stmt::Function { name, params, body } => Expr::Function {
+            name,
+            params: params.into_iter().map(Expr::Var).collect(),
+            body: Box::new(Expr::Block(
+                body.into_iter()
+                    .map(stmt_to_expr)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
+            return_expr: None,
+        },
+    })
 }
 
 mod control {

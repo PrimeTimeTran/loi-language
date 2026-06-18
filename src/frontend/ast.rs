@@ -91,6 +91,13 @@ impl fmt::Display for HashF64 {
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize)]
 pub enum Expr {
+    Block(Vec<Expr>),
+    Function {
+        name: String,
+        params: Vec<Expr>,
+        body: Box<Expr>,
+        return_expr: Option<Box<Expr>>,
+    },
     Identifier {
         name: String,
     },
@@ -130,6 +137,36 @@ pub enum Expr {
     },
     None,
     Empty,
+
+    Return {
+        value: Option<Box<Expr>>,
+    },
+
+    If {
+        cond: Box<Expr>,
+        then_branch: Box<Expr>,
+        else_branch: Option<Box<Expr>>,
+    },
+
+    While {
+        cond: Box<Expr>,
+        body: Box<Expr>,
+    },
+
+    Loop {
+        body: Box<Expr>,
+    },
+
+    For {
+        iterator: String,
+        iterable: Box<Expr>,
+        body: Box<Expr>,
+    },
+
+    DoWhile {
+        body: Box<Expr>,
+        cond: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -204,6 +241,8 @@ impl Expr {
 impl Stmt {
     pub fn to_sexpr(&self) -> String {
         match self {
+            Stmt::Print { expr } => format!("(print {})", expr.to_sexpr()),
+            Stmt::ExprStmt { expr } => expr.to_sexpr(),
             Stmt::Let { name, kind, value } => {
                 let kind_str = match kind {
                     DeclKind::MutableStatic => "=",
@@ -213,8 +252,6 @@ impl Stmt {
 
                 format!("(let {} {} {})", name, kind_str, value.to_sexpr())
             }
-            Stmt::Print { expr } => format!("(print {})", expr.to_sexpr()),
-            Stmt::ExprStmt { expr } => expr.to_sexpr(),
             Stmt::Function { name, params, body } => {
                 let body_str: Vec<String> = body.iter().map(|s| s.to_sexpr()).collect();
                 format!(
@@ -317,6 +354,33 @@ impl Expr {
             Expr::Bool(b) => write!(f, "{}", b)?,
             Expr::String(s) => write!(f, "\"{}\"", s)?,
             Expr::Var(name) => write!(f, "{}", name)?,
+            Expr::Index { target, index } => {
+                target.format_prec(f, 10)?;
+                write!(f, "[{}]", index)?;
+            }
+            Expr::Member { target, field } => {
+                target.format_prec(f, 10)?;
+                write!(f, ".{}", field)?;
+            }
+            Expr::Binary { left, op, right } => {
+                left.format_prec(f, prec)?;
+                write!(f, " {} ", op)?;
+                right.format_prec(f, prec + 1)?;
+            }
+            Expr::Unary { op, expr } => {
+                write!(f, "{}", op)?;
+                expr.format_prec(f, 10)?;
+            }
+            Expr::Array(els) => {
+                write!(f, "[")?;
+                for (i, e) in els.iter().enumerate() {
+                    e.format_prec(f, 0)?;
+                    if i < els.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "]")?;
+            }
             Expr::Assign { left, right, op } => {
                 let op_str = match op {
                     AssignOp::Assign => "=",
@@ -328,27 +392,6 @@ impl Expr {
                 write!(f, " {} ", op_str)?;
                 right.format_prec(f, prec)?;
             }
-
-            Expr::Array(els) => {
-                write!(f, "[")?;
-                for (i, e) in els.iter().enumerate() {
-                    e.format_prec(f, 0)?; // Recursively call format_prec
-                    if i < els.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, "]")?;
-            }
-            Expr::Binary { left, op, right } => {
-                left.format_prec(f, prec)?;
-                write!(f, " {} ", op)?;
-                right.format_prec(f, prec + 1)?;
-            }
-            Expr::Unary { op, expr } => {
-                write!(f, "{}", op)?;
-                expr.format_prec(f, 10)?;
-            }
-
             Expr::Call { callee, args } => {
                 callee.format_prec(f, 10)?;
                 write!(f, "(")?;
@@ -360,13 +403,100 @@ impl Expr {
                 }
                 write!(f, ")")?;
             }
-            Expr::Index { target, index } => {
-                target.format_prec(f, 10)?;
-                write!(f, "[{}]", index)?;
+            Expr::Function {
+                name,
+                params,
+                body,
+                return_expr,
+            } => {
+                write!(f, "fn {}(", name)?;
+
+                for (i, param) in params.iter().enumerate() {
+                    param.format_prec(f, 0)?;
+
+                    if i < params.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, ") ")?;
+
+                body.format_prec(f, 0)?;
+
+                if let Some(ret) = return_expr {
+                    write!(f, " -> ")?;
+                    ret.format_prec(f, 0)?;
+                }
             }
-            Expr::Member { target, field } => {
-                target.format_prec(f, 10)?;
-                write!(f, ".{}", field)?;
+            Expr::Block(stmts) => {
+                write!(f, "block([")?;
+                for (i, s) in stmts.iter().enumerate() {
+                    s.format_prec(f, 0)?;
+                    if i < stmts.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "])")?;
+            }
+
+            Expr::Return { value } => match value {
+                Some(v) => write!(f, "return({})", v)?,
+                None => write!(f, "return(none)")?,
+            },
+
+            Expr::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                write!(f, "if(")?;
+                cond.format_prec(f, 0)?;
+                write!(f, ", ")?;
+                then_branch.format_prec(f, 0)?;
+
+                match else_branch {
+                    Some(e) => {
+                        write!(f, ", ")?;
+                        e.format_prec(f, 0)?;
+                    }
+                    None => write!(f, ", none")?,
+                }
+
+                write!(f, ")")?;
+            }
+
+            Expr::While { cond, body } => {
+                write!(f, "while(")?;
+                cond.format_prec(f, 0)?;
+                write!(f, ", ")?;
+                body.format_prec(f, 0)?;
+                write!(f, ")")?;
+            }
+
+            Expr::Loop { body } => {
+                write!(f, "loop(")?;
+                body.format_prec(f, 0)?;
+                write!(f, ")")?;
+            }
+
+            Expr::For {
+                iterator,
+                iterable,
+                body,
+            } => {
+                write!(f, "for({}, ", iterator)?;
+                iterable.format_prec(f, 0)?;
+                write!(f, ", ")?;
+                body.format_prec(f, 0)?;
+                write!(f, ")")?;
+            }
+
+            Expr::DoWhile { body, cond } => {
+                write!(f, "do_while(")?;
+                body.format_prec(f, 0)?;
+                write!(f, ", ")?;
+                cond.format_prec(f, 0)?;
+                write!(f, ")")?;
             }
         }
 
@@ -386,12 +516,78 @@ impl Expr {
             _ => expr.to_sexpr(),
         }
     }
-    // Standardized S-Expr rules:
-    // 1. Every operation is (Op Arg1 Arg2)
-    // 2. Every assignment is (Assign Target Value)
-    // 3. Declarations (let) are handled specifically if the node is a Stmt
     pub fn to_sexpr(&self) -> String {
         match self {
+            Expr::Block(stmts) => {
+                let items: Vec<String> = stmts.iter().map(|e| e.to_sexpr()).collect();
+                format!("block([{}])", items.join(", "))
+            }
+            Expr::Return { value } => match value {
+                Some(v) => format!("return({})", v.to_sexpr()),
+                None => "return(none)".to_string(),
+            },
+            Expr::If {
+                cond,
+                then_branch,
+                else_branch,
+            } => {
+                let else_part = match else_branch {
+                    Some(e) => e.to_sexpr(),
+                    None => "none".to_string(),
+                };
+
+                format!(
+                    "if({}, {}, {})",
+                    cond.to_sexpr(),
+                    then_branch.to_sexpr(),
+                    else_part
+                )
+            }
+            Expr::While { cond, body } => {
+                format!("while({}, {})", cond.to_sexpr(), body.to_sexpr())
+            }
+            Expr::Loop { body } => {
+                format!("loop({})", body.to_sexpr())
+            }
+            Expr::For {
+                iterator,
+                iterable,
+                body,
+            } => {
+                format!(
+                    "for({}, {}, {})",
+                    iterator,
+                    iterable.to_sexpr(),
+                    body.to_sexpr()
+                )
+            }
+            Expr::DoWhile { body, cond } => {
+                format!("do_while({}, {})", body.to_sexpr(), cond.to_sexpr())
+            }
+            Expr::Function {
+                name,
+                params,
+                body,
+                return_expr,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|p| p.to_sexpr())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                let body_str = body.to_sexpr();
+
+                let return_str = match return_expr {
+                    Some(ret) => ret.to_sexpr(),
+                    None => "none".to_string(),
+                };
+
+                format!(
+                    "fn({}, [{}], {}, {})",
+                    name, params_str, body_str, return_str
+                )
+            }
             Expr::Assign { left, right, op } => {
                 let op_str = match op {
                     AssignOp::Assign => "=",
@@ -419,9 +615,8 @@ impl Expr {
             }
             Expr::Array(elements) => {
                 let els: Vec<String> = elements.iter().map(|e| e.to_sexpr()).collect();
-                format!("[{}]", els.join(", "))
+                format!("array([{}])", els.join(", "))
             }
-
             Expr::Binary { left, op, right } => {
                 format!("({} {} {})", left.to_sexpr(), op, right.to_sexpr())
             }
@@ -439,22 +634,12 @@ impl Expr {
                 let args_str: Vec<String> = args.iter().map(|a| a.to_sexpr()).collect();
                 format!("({}({}))", callee.to_sexpr(), args_str.join(", "))
             }
+
             Expr::None => "none".to_string(),
             Expr::Empty => "()".to_string(),
         }
     }
 }
-
-// impl Default for Program {
-//     fn default() -> Self {
-//         Self {
-//             entry: None,
-//             stmts: Vec::new(),
-//             modules: Vec::new(),
-//             globals: Vec::new(),
-//         }
-//     }
-// }
 
 impl From<AssignOp> for DeclKind {
     fn from(op: AssignOp) -> Self {

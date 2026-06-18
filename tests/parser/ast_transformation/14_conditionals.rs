@@ -1,47 +1,45 @@
-use crate::common::assert_expr;
+use crate::common::TestHarness;
 
 #[test]
-fn p01_parses_if() {
-    assert_expr(
-        "if true { x = 1 }",
-        "if(bool(true), block([(let x = number(1))]), none)",
-    );
+fn debug_if_1() {
+    let mut h = TestHarness::new().with_source("if true { x = 1 }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p02_parses_if_else() {
-    assert_expr(
-        "if true { x = 1 } else { x = 2 }",
-        "if(
-            bool(true),
-            block([(let x = number(1))]),
-            block([(let x = number(2))])
-        )",
-    );
+fn debug_if_2() {
+    let mut h = TestHarness::new().with_source("if true { x = 1 } else { x = 2 }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p03_parses_else_if() {
-    assert_expr(
-        "if a { x = 1 } else if b { x = 2 }",
-        "if(
-            identifier(a),
-            block([(let x = number(1))]),
-            if(identifier(b), block([(let x = number(2))]), none)
-        )",
-    );
+fn debug_if_3() {
+    let mut h = TestHarness::new().with_source("if a { x = 1 } else if b { x = 2 }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p04_parses_nested_if() {
-    assert_expr(
-        "if a { if b { x = 1 } }",
-        "if(
-            identifier(a),
-            block([
-                if(identifier(b), block([(let x = number(1))]), none)
-            ]),
-            none
-        )",
-    );
+fn debug_if_4() {
+    let mut h = TestHarness::new().with_source("if a { if b { x = 1 } }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }

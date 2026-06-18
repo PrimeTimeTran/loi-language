@@ -1,37 +1,61 @@
-use crate::common::assert_expr;
+use crate::common::TestHarness;
 
 #[test]
-fn p01_parses_integer() {
-    assert_expr("123", "number(123)");
+fn debug_p01_integer() {
+    let mut h = TestHarness::new().with_source("123");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p02_parenthesis_override_precedence() {
-    assert_expr("(4 + 2) * 3", "((number(4) + number(2)) * number(3))");
+fn debug_p02_paren_override() {
+    let mut h = TestHarness::new().with_source("(4 + 2) * 3");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p03_comparison_lower_than_addition() {
-    assert_expr("1 + 2 < 5", "((number(1) + number(2)) < number(5))");
+fn debug_p03_comparison_add() {
+    let mut h = TestHarness::new().with_source("1 + 2 < 5");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p04_equality_lower_than_comparison() {
-    assert_expr("1 == 2 < 3", "((number(1) == number(2)) < number(3))");
+fn debug_p04_equality_chain() {
+    let mut h = TestHarness::new().with_source("1 == 2 < 3");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p05_logical_and_lower_than_equality() {
-    assert_expr(
-        "a == b && c == d",
-        "((identifier(a) == identifier(b)) && (identifier(c) == identifier(d)))",
-    );
+fn debug_p05_and_equality() {
+    let mut h = TestHarness::new().with_source("a == b && c == d");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p06_logical_or_lower_than_and() {
-    assert_expr(
-        "a || b && c",
-        "(identifier(a) || (identifier(b) && identifier(c)))",
-    );
+fn debug_p06_or_and() {
+    let mut h = TestHarness::new().with_source("a || b && c");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }

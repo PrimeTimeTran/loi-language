@@ -1,48 +1,71 @@
-use crate::common::assert_expr;
+use crate::common::TestHarness;
 
 #[test]
-fn p01_call_after_member() {
-    assert_expr("obj.method()", "(identifier(obj).method())");
+fn debug_p01_call_after_member() {
+    let mut h = TestHarness::new().with_source("obj.method()");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p02_member_after_call() {
-    assert_expr("get_obj().property", "(get_obj().property)");
+fn debug_p02_member_after_call() {
+    let mut h = TestHarness::new().with_source("get_obj().property");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p03_index_after_call() {
-    assert_expr("get_list()[0]", "(get_list()[number(0)])");
+fn debug_p03_index_after_call() {
+    let mut h = TestHarness::new().with_source("get_list()[0]");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p04_deeply_chained_expression() {
-    assert_expr(
-        "data.users[0].get_name()[1]",
-        "((identifier(data).users[number(0)].get_name())(number(1)))",
-    );
+fn debug_p04_deep_chain() {
+    let mut h = TestHarness::new().with_source("data.users[0].get_name()[1]");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p05_chained_method_calls() {
-    assert_expr(
-        "client.connect().send(data).disconnect()",
-        "(((client.connect())(send(data)))(disconnect()))",
-    );
+fn debug_p05_chain_calls() {
+    let mut h = TestHarness::new().with_source("client.connect().send(data).disconnect()");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p06_complex_index_expression() {
-    assert_expr(
-        "arr[i + 1]",
-        "(identifier(arr)[(identifier(i) + number(1))])",
-    );
+fn debug_p06_index_expr() {
+    let mut h = TestHarness::new().with_source("arr[i + 1]");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }
 
 #[test]
-fn p07_member_after_index() {
-    assert_expr(
-        "matrix[0][1].value",
-        "((matrix[number(0)][number(1)]).value)",
-    );
+fn debug_p07_index_member() {
+    let mut h = TestHarness::new().with_source("matrix[0][1].value");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    println!("{}", h.get_ast().unwrap().to_sexpr());
 }

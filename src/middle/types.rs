@@ -26,6 +26,7 @@ pub enum Type {
     Array(Box<Type>),
     Return,
     Unknown,
+    Function,
 }
 
 // --- 2. Intermediate Representation (IR) ---
@@ -37,6 +38,7 @@ pub enum IRVal {
     Var(String),
     Temp(String),
     Unit,
+    Function(String),
 }
 
 impl IRVal {
@@ -47,6 +49,7 @@ impl IRVal {
             IRVal::Str(_) => Type::Str,
             IRVal::Var(_) | IRVal::Temp(_) => Type::Unknown,
             IRVal::Unit => Type::Void,
+            IRVal::Function(_) => Type::Function,
         }
     }
 }

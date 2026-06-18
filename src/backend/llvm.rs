@@ -634,6 +634,14 @@ pub fn codegen_ir_value<'ctx>(val: IRVal, ctx: &mut CodeGenContext<'ctx>) -> Bas
                 .build_load(ctx.context.f64_type(), *ptr, &name)
                 .unwrap()
         }
+        IRVal::Function(name) => {
+            let fn_val = ctx
+                .module
+                .get_function(&name)
+                .unwrap_or_else(|| panic!("undefined function: {}", name));
+
+            fn_val.as_global_value().as_pointer_value().into()
+        }
     }
 }
 pub fn codegen_expr<'ctx>(
@@ -771,6 +779,12 @@ pub fn codegen_expr<'ctx>(
 
 pub fn fmt_for_irval<'ctx>(val: &IRVal, context: &CodeGenContext<'ctx>) -> BasicValueEnum<'ctx> {
     match val {
+        IRVal::Function(_) => context
+            .builder
+            .build_global_string_ptr("<fn>\n", "fmt")
+            .unwrap()
+            .as_pointer_value()
+            .into(),
         IRVal::Number(_) => context
             .builder
             .build_global_string_ptr("%f\n", "fmt")

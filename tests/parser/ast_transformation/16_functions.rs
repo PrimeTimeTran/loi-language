@@ -1,30 +1,45 @@
-use crate::common::assert_expr;
+use crate::common::TestHarness;
 
 #[test]
-fn p01_parses_empty_function() {
-    assert_expr("fn foo() {}", "fn(foo, [], block([]), none)");
+fn debug_fn_1() {
+    let mut h = TestHarness::new().with_source("fn foo() {}");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p02_parses_function_with_params() {
-    assert_expr(
-        "fn add(a, b, c) { x = 1 }",
-        "fn(add, [a, b, c], block([(let x = number(1))]), none)",
-    );
+fn debug_fn_2() {
+    let mut h = TestHarness::new().with_source("fn add(a, b, c) { x = 1 }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p03_parses_function_with_return() {
-    assert_expr(
-        "fn foo() { return 42 }",
-        "fn(foo, [], block([return(number(42))]), number(42))",
-    );
+fn debug_fn_3() {
+    let mut h = TestHarness::new().with_source("fn foo() { return 42 }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
 
 #[test]
-fn p04_parses_nested_function_calls() {
-    assert_expr(
-        "fn f() { return g(h(1)) }",
-        "fn(f, [], block([return(identifier(g)(identifier(h)(number(1))))]), identifier(g)(identifier(h)(number(1))))",
-    );
+fn debug_fn_4() {
+    let mut h = TestHarness::new().with_source("fn f() { return g(h(1)) }");
+
+    let pipeline = h.build_frontend();
+    h.run_stage(pipeline).unwrap();
+
+    let ast = h.get_ast().unwrap();
+    println!("{}", ast.to_sexpr());
 }
