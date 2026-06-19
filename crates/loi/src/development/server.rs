@@ -1,0 +1,127 @@
+use clap::Parser;
+use std::path::PathBuf;
+
+use crate::cli::args::CliArgs;
+use crate::compiler::compile_project::compile_project;
+use crate::compiler::config::{CompileConfig, ConfigResolver, ConfigSource};
+use crate::compiler::diagnostic::CompilerEventBus;
+use crate::compiler::engine::CompileEngine;
+use crate::compiler::state::CompileState;
+use crate::development::watcher::FileWatcher;
+use crate::kernel::Kernel;
+
+pub fn start(kernel: Kernel) {
+    let cli = CliArgs::parse();
+    let sources = vec![ConfigSource::Defaults, ConfigSource::Cli(cli)];
+    let partial = ConfigResolver::resolve(sources);
+    let config = CompileConfig::from(partial);
+    start_server(kernel, config);
+}
+
+pub fn start_server(kernel: Kernel, config: CompileConfig) {
+    if config.watch {
+        return FileWatcher::watch(kernel, config).unwrap();
+    }
+
+    match compile_project(&kernel, &config) {
+        Ok(_) => println!("🎉 All files compiled successfully"),
+        Err(errors) => {
+            eprintln!("💥 Compilation failed:");
+            for e in errors {
+                eprintln!("  ❌ {}", e);
+            }
+            std::process::exit(1);
+        }
+    }
+}
+
+pub enum Event {
+    FileChanged(FileChangedEvent),
+    Command(CommandEvent),
+}
+
+pub struct FileChangedEvent {
+    pub path: PathBuf,
+
+    // Was it created, modified, deleted?
+    pub kind: FileChangeKind,
+}
+
+pub enum FileChangeKind {
+    Created,
+    Modified,
+    Deleted,
+}
+
+pub struct CommandEvent {
+    pub command: Command,
+}
+
+pub struct BuildCommand {}
+pub struct RebuildCommand {}
+pub struct CleanCommand {}
+pub struct InspectCommand {}
+
+#[derive()]
+pub enum Command {
+    Build(BuildCommand),
+    Rebuild(RebuildCommand),
+    Clean(CleanCommand),
+    Inspect(InspectCommand),
+    Exit,
+}
+pub struct Repl {}
+
+#[derive()]
+pub struct CompileServer {
+    pub engine: CompileEngine,
+    pub state: CompileState,
+    pub watcher: Option<FileWatcher>,
+    pub repl: Option<Repl>,
+    pub events: CompilerEventBus,
+}
+
+impl CompileServer {
+    pub fn new(
+        engine: CompileEngine,
+        state: CompileState,
+        watcher: Option<FileWatcher>,
+        repl: Option<Repl>,
+    ) -> Self {
+        Self {
+            engine,
+            state,
+            watcher,
+            repl,
+            events: CompilerEventBus,
+        }
+    }
+
+    pub fn run(&mut self) {
+        loop {
+            let event = self.next_event();
+
+            match event {
+                Event::FileChanged(change) => {
+                    self.rebuild(change);
+                }
+
+                Event::Command(cmd) => {
+                    self.execute(cmd);
+                }
+            }
+        }
+    }
+
+    pub fn execute(&mut self, cmd: CommandEvent) {
+        todo!()
+    }
+
+    pub fn rebuild(&mut self, event: FileChangedEvent) {
+        todo!()
+    }
+
+    pub fn next_event(&mut self) -> Event {
+        todo!()
+    }
+}
