@@ -6,6 +6,11 @@ use std::{
 
 use wasm_bindgen::prelude::*;
 
+use crate::{
+    fs::{FsInput, Metadata},
+    inode::{Dentry, InMemoryDirectoryInode, InMemoryFileInode, Inode},
+};
+
 #[derive(Deserialize)]
 pub struct JsonNode {
     pub name: String,
@@ -14,47 +19,6 @@ pub struct JsonNode {
     pub children: Option<Vec<JsonNode>>,
 }
 
-#[wasm_bindgen(getter_with_clone)]
-#[derive(Clone, Debug, Deserialize)]
-pub struct Metadata {
-    pub size: u64,
-    pub mode: u32,
-    pub is_dir: bool,
-    pub ext: String,
-    pub path_abs: String,
-    pub path_rel: String,
-    pub language: String,
-}
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Self {
-            size: 0,
-            mode: 0o644,
-            is_dir: false,
-            path_abs: String::new(),
-            path_rel: String::new(),
-            ext: String::new(),
-            language: String::new(),
-        }
-    }
-}
-#[derive(Deserialize)]
-pub struct FileEntry {
-    pub path_abs: String,
-    pub path_rel: String,
-    pub name: String,
-    pub ext: String,
-    pub content: String,
-    pub language: String,
-}
-
-#[derive(Deserialize)]
-pub struct FsInput {
-    pub files: HashMap<String, FileEntry>,
-}
-
-// --- 1. Core Error & Utility Types ---
 #[derive(Debug)]
 pub enum VfsError {
     NotFound,
@@ -64,206 +28,11 @@ pub enum VfsError {
     InvalidPath,
 }
 
-pub trait InodeOperations: Send + Sync {
-    fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>, VfsError>;
-    fn create(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>, VfsError>;
-    fn mkdir(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>, VfsError>;
-}
-
-pub trait FileOperations: Send + Sync {
-    fn read(&self, buf: &mut [u8], offset: u64) -> Result<usize, VfsError>;
-    fn write(&self, buf: &[u8], offset: u64) -> Result<usize, VfsError>;
-    fn fsync(&self) -> Result<(), VfsError>;
-    fn release(&self) -> Result<(), VfsError>;
-}
-
-/// The central "Inode" trait acts as the common interface for
-/// all filesystem nodes (files, directories, symlinks, etc.).
-///
-/// It enforces the "Bridge Pattern": it separates the metadata
-/// operations (InodeOperations) from the I/O operations (FileOperations).
-pub trait Inode: Send + Sync {
-    fn inode_ops(&self) -> &dyn InodeOperations;
-    fn file_ops(&self) -> &dyn FileOperations;
-    fn is_dir(&self) -> bool;
-    fn get_stat(&self) -> Metadata;
-}
-
-// --- 2. The Inode Implementation ---
-/// The specialized Inode for File types
-impl InMemoryFileInode {
-    pub fn new(content: String) -> Self {
-        let bytes = content.into_bytes();
-
-        Self {
-            meta: Metadata::default(),
-            data: RwLock::new(bytes.clone()),
-        }
-    }
-}
-pub struct InMemoryFileInode {
-    data: RwLock<Vec<u8>>,
-    meta: Metadata,
-}
-
-impl Inode for InMemoryFileInode {
-    fn get_stat(&self) -> Metadata {
-        self.meta.clone()
-    }
-    fn inode_ops(&self) -> &dyn InodeOperations {
-        self
-    }
-    fn file_ops(&self) -> &dyn FileOperations {
-        self
-    }
-    fn is_dir(&self) -> bool {
-        false
-    }
-}
-
-/// The specialized Inode for Directory types
-pub struct InMemoryDirectoryInode {
-    meta: Metadata,
-}
-
-impl InMemoryDirectoryInode {
-    pub fn new() -> Self {
-        Self {
-            meta: Metadata::default(),
-        }
-    }
-    fn bump_size(&self) {
-        // optional: count children
-    }
-}
-
-impl Inode for InMemoryDirectoryInode {
-    fn inode_ops(&self) -> &dyn InodeOperations {
-        self
-    }
-    fn file_ops(&self) -> &dyn FileOperations {
-        self
-    }
-    fn is_dir(&self) -> bool {
-        true
-    }
-    fn get_stat(&self) -> Metadata {
-        self.meta.clone()
-    }
-}
-
-impl InodeOperations for InMemoryFileInode {
-    fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::NotFound)
-    }
-
-    fn create(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::IoError)
-    }
-
-    fn mkdir(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::IoError)
-    }
-}
-impl InodeOperations for InMemoryDirectoryInode {
-    fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::NotFound)
-    }
-
-    fn create(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::IoError)
-    }
-
-    fn mkdir(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
-        Err(VfsError::IoError)
-    }
-}
-
-impl FileOperations for InMemoryFileInode {
-    fn read(&self, buf: &mut [u8], offset: u64) -> Result<usize, VfsError> {
-        let data = self.data.read().map_err(|_| VfsError::IoError)?;
-
-        let start = offset as usize;
-        if start >= data.len() {
-            return Ok(0);
-        }
-
-        let end = (start + buf.len()).min(data.len());
-        let len = end - start;
-
-        buf[..len].copy_from_slice(&data[start..end]);
-
-        Ok(len)
-    }
-
-    fn write(&self, buf: &[u8], offset: u64) -> Result<usize, VfsError> {
-        let mut data = self.data.write().map_err(|_| VfsError::IoError)?;
-
-        let start = offset as usize;
-
-        if start + buf.len() > data.len() {
-            data.resize(start + buf.len(), 0);
-        }
-
-        data[start..start + buf.len()].copy_from_slice(buf);
-
-        Ok(buf.len())
-    }
-
-    fn fsync(&self) -> Result<(), VfsError> {
-        Ok(())
-    }
-    fn release(&self) -> Result<(), VfsError> {
-        Ok(())
-    }
-}
-impl FileOperations for InMemoryDirectoryInode {
-    fn read(&self, _: &mut [u8], _: u64) -> Result<usize, VfsError> {
-        Err(VfsError::IoError)
-    }
-
-    fn write(&self, _: &[u8], _: u64) -> Result<usize, VfsError> {
-        Err(VfsError::PermissionDenied)
-    }
-
-    fn fsync(&self) -> Result<(), VfsError> {
-        Ok(())
-    }
-
-    fn release(&self) -> Result<(), VfsError> {
-        Ok(())
-    }
-}
-
-pub struct Dentry {
-    pub name: String,
-    pub inode: Arc<dyn Inode>,
-    pub children: RwLock<HashMap<String, Arc<Dentry>>>,
-}
-
-impl Dentry {
-    pub fn new(name: &str, inode: Arc<dyn Inode>) -> Self {
-        Self {
-            name: name.to_string(),
-            inode,
-            children: RwLock::new(HashMap::new()),
-        }
-    }
-
-    pub fn lookup(&self, name: &str) -> Result<Arc<Dentry>, VfsError> {
-        self.children
-            .read()
-            .unwrap()
-            .get(name)
-            .cloned()
-            .ok_or(VfsError::NotFound)
-    }
-}
-
 #[wasm_bindgen]
 pub struct Vfs {
     root: Arc<Dentry>,
 }
+
 impl Vfs {
     pub fn resolve(&self, path: &str) -> Result<Arc<Dentry>, VfsError> {
         let parts = path.trim_matches('/').split('/').filter(|x| !x.is_empty());
