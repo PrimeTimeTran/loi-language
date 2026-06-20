@@ -29,7 +29,8 @@ struct Evaluator {
 
 impl Evaluator {
     fn configure_defaults() -> (Config, PathBuf) {
-        let config = Config::default();
+        let mut config = Config::default();
+        config.apply_cli_args();
         let root = config
             .analysis_root
             .canonicalize()
