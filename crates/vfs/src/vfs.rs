@@ -6,11 +6,68 @@ use std::{
 
 use wasm_bindgen::prelude::*;
 
+#[derive(Deserialize)]
+pub struct JsonNode {
+    pub name: String,
+    pub r#type: String,
+    pub content: Option<String>,
+    pub children: Option<Vec<JsonNode>>,
+}
+
+#[wasm_bindgen(getter_with_clone)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct Metadata {
+    pub size: u64,
+    pub mode: u32,
+    pub is_dir: bool,
+    pub ext: String,
+    pub path_abs: String,
+    pub path_rel: String,
+    pub language: String,
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Self {
+            size: 0,
+            mode: 0o644,
+            is_dir: false,
+            path_abs: String::new(),
+            path_rel: String::new(),
+            ext: String::new(),
+            language: String::new(),
+        }
+    }
+}
+#[derive(Deserialize)]
+pub struct FileEntry {
+    pub path_abs: String,
+    pub path_rel: String,
+    pub name: String,
+    pub ext: String,
+    pub content: String,
+    pub language: String,
+}
+
+#[derive(Deserialize)]
+pub struct FsInput {
+    pub files: HashMap<String, FileEntry>,
+}
+
+// --- 1. Core Error & Utility Types ---
+#[derive(Debug)]
+pub enum VfsError {
+    NotFound,
+    PermissionDenied,
+    IoError,
+    AlreadyExists,
+    InvalidPath,
+}
+
 pub trait InodeOperations: Send + Sync {
     fn lookup(&self, name: &str) -> Result<Arc<dyn Inode>, VfsError>;
     fn create(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>, VfsError>;
     fn mkdir(&self, name: &str, mode: u32) -> Result<Arc<dyn Inode>, VfsError>;
-    fn get_attr(&self) -> Result<FileAttr, VfsError>;
 }
 
 pub trait FileOperations: Send + Sync {
@@ -26,53 +83,33 @@ pub trait FileOperations: Send + Sync {
 /// It enforces the "Bridge Pattern": it separates the metadata
 /// operations (InodeOperations) from the I/O operations (FileOperations).
 pub trait Inode: Send + Sync {
-    /// Returns the metadata and structural operations (lookup, mkdir, etc.)
     fn inode_ops(&self) -> &dyn InodeOperations;
-
-    /// Returns the data I/O operations (read, write, etc.)
     fn file_ops(&self) -> &dyn FileOperations;
-
     fn is_dir(&self) -> bool;
-}
-
-// --- 1. Core Error & Utility Types ---
-#[derive(Debug)]
-pub enum VfsError {
-    NotFound,
-    PermissionDenied,
-    IoError,
-    AlreadyExists,
-    InvalidPath,
-}
-
-#[derive(Clone)]
-pub struct FileAttr {
-    pub size: u64,
-    pub mode: u32,
+    fn get_stat(&self) -> Metadata;
 }
 
 // --- 2. The Inode Implementation ---
 /// The specialized Inode for File types
-pub struct InMemoryFileInode {
-    data: RwLock<Vec<u8>>,
-    attr: RwLock<FileAttr>,
-}
-
 impl InMemoryFileInode {
     pub fn new(content: String) -> Self {
         let bytes = content.into_bytes();
 
         Self {
+            meta: Metadata::default(),
             data: RwLock::new(bytes.clone()),
-            attr: RwLock::new(FileAttr {
-                size: bytes.len() as u64,
-                mode: 0o644,
-            }),
         }
     }
 }
+pub struct InMemoryFileInode {
+    data: RwLock<Vec<u8>>,
+    meta: Metadata,
+}
 
 impl Inode for InMemoryFileInode {
+    fn get_stat(&self) -> Metadata {
+        self.meta.clone()
+    }
     fn inode_ops(&self) -> &dyn InodeOperations {
         self
     }
@@ -86,16 +123,13 @@ impl Inode for InMemoryFileInode {
 
 /// The specialized Inode for Directory types
 pub struct InMemoryDirectoryInode {
-    attr: FileAttr,
+    meta: Metadata,
 }
 
 impl InMemoryDirectoryInode {
     pub fn new() -> Self {
         Self {
-            attr: FileAttr {
-                size: 0,
-                mode: 0o755,
-            },
+            meta: Metadata::default(),
         }
     }
     fn bump_size(&self) {
@@ -113,9 +147,11 @@ impl Inode for InMemoryDirectoryInode {
     fn is_dir(&self) -> bool {
         true
     }
+    fn get_stat(&self) -> Metadata {
+        self.meta.clone()
+    }
 }
 
-// --- 3. Operations Implementation ---
 impl InodeOperations for InMemoryFileInode {
     fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>, VfsError> {
         Err(VfsError::NotFound)
@@ -128,13 +164,7 @@ impl InodeOperations for InMemoryFileInode {
     fn mkdir(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
         Err(VfsError::IoError)
     }
-
-    fn get_attr(&self) -> Result<FileAttr, VfsError> {
-        let attr = self.attr.read().map_err(|_| VfsError::IoError)?;
-        Ok(attr.clone())
-    }
 }
-
 impl InodeOperations for InMemoryDirectoryInode {
     fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>, VfsError> {
         Err(VfsError::NotFound)
@@ -146,10 +176,6 @@ impl InodeOperations for InMemoryDirectoryInode {
 
     fn mkdir(&self, _: &str, _: u32) -> Result<Arc<dyn Inode>, VfsError> {
         Err(VfsError::IoError)
-    }
-
-    fn get_attr(&self) -> Result<FileAttr, VfsError> {
-        Ok(self.attr.clone())
     }
 }
 
@@ -181,8 +207,6 @@ impl FileOperations for InMemoryFileInode {
 
         data[start..start + buf.len()].copy_from_slice(buf);
 
-        self.attr.write().map_err(|_| VfsError::IoError)?.size = data.len() as u64;
-
         Ok(buf.len())
     }
 
@@ -209,15 +233,6 @@ impl FileOperations for InMemoryDirectoryInode {
     fn release(&self) -> Result<(), VfsError> {
         Ok(())
     }
-}
-
-// --- 4. Initialization Logic ---
-#[derive(Deserialize)]
-pub struct JsonNode {
-    pub name: String,
-    pub r#type: String,
-    pub content: Option<String>,
-    pub children: Option<Vec<JsonNode>>,
 }
 
 pub struct Dentry {
@@ -267,9 +282,7 @@ impl Vfs {
 
         Ok(current)
     }
-}
 
-impl Vfs {
     pub fn parent(&self, path: &str) -> Result<(Arc<Dentry>, String), VfsError> {
         let mut parts: Vec<_> = path.trim_matches('/').split('/').collect();
 
@@ -282,10 +295,78 @@ impl Vfs {
 }
 
 #[wasm_bindgen]
-pub struct FileStat {
-    pub size: u64,
-    pub mode: u32,
-    pub is_dir: bool,
+impl Vfs {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Vfs {
+        Vfs {
+            root: build_node(JsonNode {
+                name: "/".into(),
+                r#type: "directory".into(),
+                content: None,
+                children: Some(vec![]),
+            }),
+        }
+    }
+    pub fn from_json(json_str: &str) -> Result<Vfs, JsValue> {
+        let input: FsInput = serde_json::from_str(json_str).map_err(|e| e.to_string())?;
+        Ok(Vfs {
+            root: build_fs_from_flat_json(input),
+        })
+    }
+    pub fn stat(&self, path: String) -> Result<Metadata, JsValue> {
+        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
+        Ok(node.inode.get_stat())
+    }
+
+    pub fn read(&self, path: String) -> Result<Vec<u8>, JsValue> {
+        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
+        let size = node.inode.get_stat().size;
+        let mut buf = vec![0; size as usize];
+        node.inode
+            .file_ops()
+            .read(&mut buf, 0)
+            .map_err(|e| format!("{:?}", e))?;
+
+        Ok(buf)
+    }
+
+    pub fn mkdir(&self, path: String) -> Result<(), JsValue> {
+        let (parent, name) = self.parent(&path).map_err(|e| format!("{:?}", e))?;
+
+        let mut children = parent.children.write().unwrap();
+
+        if children.contains_key(&name) {
+            return Err("Already exists".into());
+        }
+
+        children.insert(
+            name.clone(),
+            Arc::new(Dentry::new(&name, Arc::new(InMemoryDirectoryInode::new()))),
+        );
+
+        Ok(())
+    }
+
+    pub fn write(&self, path: String, data: Vec<u8>) -> Result<(), JsValue> {
+        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
+
+        node.inode
+            .file_ops()
+            .write(&data, 0)
+            .map_err(|e| format!("{:?}", e))?;
+
+        Ok(())
+    }
+
+    pub fn exists(&self, path: String) -> bool {
+        self.resolve(&path).is_ok()
+    }
+
+    pub fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
+        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
+
+        Ok(node.children.read().unwrap().keys().cloned().collect())
+    }
 }
 
 pub fn build_node(node: JsonNode) -> Arc<Dentry> {
@@ -311,87 +392,53 @@ pub fn build_node(node: JsonNode) -> Arc<Dentry> {
     dentry
 }
 
-#[wasm_bindgen]
-impl Vfs {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Vfs {
-        Vfs {
-            root: build_node(JsonNode {
-                name: "/".into(),
-                r#type: "directory".into(),
-                content: None,
-                children: Some(vec![]),
-            }),
+pub fn build_fs_from_flat_json(input: FsInput) -> Arc<Dentry> {
+    let root = Arc::new(Dentry::new("/", Arc::new(InMemoryDirectoryInode::new())));
+    for (path, entry) in input.files {
+        let parts: Vec<&str> = path.trim_matches('/').split('/').collect();
+        let mut current = Arc::clone(&root);
+
+        for (i, part) in parts.iter().enumerate() {
+            if i == parts.len() - 1 {
+                let meta = Metadata {
+                    is_dir: false,
+                    size: entry.content.len() as u64,
+                    mode: 0o644,
+                    path_abs: entry.path_abs.clone(),
+                    path_rel: entry.path_rel.clone(),
+                    ext: entry.ext.clone(),
+                    language: entry.language.clone(),
+                };
+                let inode = Arc::new(InMemoryFileInode {
+                    data: RwLock::new(entry.content.clone().into_bytes()),
+                    meta,
+                });
+                current
+                    .children
+                    .write()
+                    .unwrap()
+                    .insert(part.to_string(), Arc::new(Dentry::new(part, inode)));
+            } else {
+                let mut children = current.children.write().unwrap();
+                if !children.contains_key(*part) {
+                    let mut dir_meta = Metadata::default();
+                    dir_meta.is_dir = true;
+                    children.insert(
+                        part.to_string(),
+                        Arc::new(Dentry::new(
+                            part,
+                            Arc::new(InMemoryDirectoryInode { meta: dir_meta }),
+                        )),
+                    );
+                }
+
+                let next_node = Arc::clone(children.get(*part).unwrap());
+
+                drop(children);
+
+                current = next_node;
+            }
         }
     }
-}
-
-#[wasm_bindgen]
-impl Vfs {
-    pub fn stat(&self, path: String) -> Result<FileStat, JsValue> {
-        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
-
-        let attr = node.inode.inode_ops().get_attr().unwrap();
-
-        Ok(FileStat {
-            size: attr.size,
-
-            mode: attr.mode,
-
-            is_dir: node.inode.file_ops().read(&mut [0u8; 1], 0).is_err(),
-        })
-    }
-
-    pub fn mkdir(&self, path: String) -> Result<(), JsValue> {
-        let (parent, name) = self.parent(&path).map_err(|e| format!("{:?}", e))?;
-
-        let mut children = parent.children.write().unwrap();
-
-        if children.contains_key(&name) {
-            return Err("Already exists".into());
-        }
-
-        children.insert(
-            name.clone(),
-            Arc::new(Dentry::new(&name, Arc::new(InMemoryDirectoryInode::new()))),
-        );
-
-        Ok(())
-    }
-
-    pub fn read(&self, path: String) -> Result<Vec<u8>, JsValue> {
-        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
-
-        let size = node.inode.inode_ops().get_attr().unwrap().size;
-
-        let mut buf = vec![0; size as usize];
-
-        node.inode
-            .file_ops()
-            .read(&mut buf, 0)
-            .map_err(|e| format!("{:?}", e))?;
-
-        Ok(buf)
-    }
-
-    pub fn write(&self, path: String, data: Vec<u8>) -> Result<(), JsValue> {
-        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
-
-        node.inode
-            .file_ops()
-            .write(&data, 0)
-            .map_err(|e| format!("{:?}", e))?;
-
-        Ok(())
-    }
-
-    pub fn exists(&self, path: String) -> bool {
-        self.resolve(&path).is_ok()
-    }
-
-    pub fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
-        let node = self.resolve(&path).map_err(|e| format!("{:?}", e))?;
-
-        Ok(node.children.read().unwrap().keys().cloned().collect())
-    }
+    root
 }
