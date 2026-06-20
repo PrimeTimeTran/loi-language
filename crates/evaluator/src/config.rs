@@ -150,8 +150,10 @@ impl Default for RenderPolicy {
 
 impl Default for Config {
     fn default() -> Self {
+        let root = PathBuf::from("./crates/loi/src").canonicalize().unwrap();
+
         Self {
-            analysis_root: PathBuf::from("./src"),
+            analysis_root: root,
             output_name: String::from("eval-.txt"),
             output_path: PathBuf::from("./"),
             extract: ExtractConfig::default(),

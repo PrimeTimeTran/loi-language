@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::language::{FileMatcher, SymbolKind};
+use crate::{extract::FileMatcher, language::SymbolKind};
 
 #[derive(Debug, Clone)]
 pub enum LineStyle {
@@ -34,6 +34,7 @@ pub enum PathFormat {
     ModulePath,
     Absolute,
 }
+
 #[derive(Debug, Clone, Default)]
 pub enum HeaderFormat {
     None,

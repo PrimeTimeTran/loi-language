@@ -1,4 +1,4 @@
-use crate::language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
+use crate::language::{FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
 use std::collections::HashSet;
 
 pub enum IncludePolicy {
@@ -33,45 +33,30 @@ pub enum Matcher {
     Symbol(SymbolMatcher),
     File(FileMatcher),
 }
+
 #[derive(Debug, Clone)]
 pub struct StructuralFilter {
     pub depth: DepthConstraint,
     pub parent: Option<ParentConstraint>,
 }
+
 #[derive(Debug, Clone)]
 pub struct Rule {
     pub languages: HashSet<Language>,
     pub matchers: Vec<Matcher>,
 }
+
 #[derive(Debug, Clone)]
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,
 }
 
-impl Default for DepthConstraint {
-    fn default() -> Self {
-        DepthConstraint::Any
-    }
-}
-impl Default for ParentConstraint {
-    fn default() -> Self {
-        ParentConstraint::Any
-    }
-}
 impl Default for StructuralFilter {
     fn default() -> Self {
         Self {
             depth: DepthConstraint::Any,
             parent: None,
-        }
-    }
-}
-impl Default for SymbolMatcher {
-    fn default() -> Self {
-        Self {
-            kinds: HashSet::new(),
-            structural: None,
         }
     }
 }
@@ -114,4 +99,11 @@ impl Default for FileMatcher {
             ignore_tests: true,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FileMatcher {
+    pub extensions: HashSet<String>,
+    pub path_contains: Option<String>,
+    pub ignore_tests: bool,
 }

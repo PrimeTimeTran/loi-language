@@ -1,0 +1,1048 @@
+--- # backend/link_with_clang.rs
+  FUNCTIONS:
+  fn link_with_clang(
+      input_bc: & Path,
+      output_exe: & Path
+  )
+      -> Result < () , String >
+
+--- # backend/llvm.back
+  FUNCTIONS:
+  fn codegen_binary(
+      context: & mut CodeGenContext < 'ctx >,
+      left: IRVal,
+      op: BinOp,
+      right: IRVal
+  )
+      -> Result < BasicValueEnum < 'ctx > , String >
+  fn codegen_expr(
+      expr: & Expr,
+      context: & mut CodeGenContext < 'ctx >,
+      _ty: & Type
+  )
+      -> BasicValueEnum < 'ctx >
+  fn codegen_ir_op(
+      context: & mut CodeGenContext < 'ctx >,
+      op: IROp
+  )
+      -> Result < () , String >
+  fn codegen_ir_value(
+      val: IRVal,
+      ctx: & mut CodeGenContext < 'ctx >
+  )
+      -> BasicValueEnum < 'ctx >
+  fn fmt_for_irval(
+      val: & IRVal,
+      context: & CodeGenContext < 'ctx >
+  )
+      -> BasicValueEnum < 'ctx >
+  fn lower_ast_to_ir(
+      ast: & AST
+  )
+      -> Result < Vec < IROp > , CompileError >
+  fn lower_expr_to_ir(
+      expr: Expr
+  )
+      -> Result < Vec < IROp > , CompileError >
+  fn lower_expr_to_ir_inner(
+      expr: Expr,
+      ops: & mut Vec < IROp >,
+      temp_counter: & mut usize
+  )
+      -> Result < IRVal , CompileError >
+  fn lower_typed_expr_to_ir_value(
+      expr: & TypedExpr
+  )
+      -> IRVal
+  fn setup_module(
+      context: & 'ctx Context,
+      module: & Module < 'ctx >,
+      builder: & Builder < 'ctx >
+  )
+      -> Runtime < 'ctx >
+
+  STRUCTS:
+  struct CodeGenContext
+    PROPERTIES:
+    context: & 'ctx Context, module: Module < 'ctx >, builder: Builder < 'ctx >, runtime: Runtime < 'ctx >, env: HashMap < String , PointerValue < 'ctx > >, last_value: Option < BasicValueEnum < 'ctx > >, counter: usize
+  struct LLVM
+    PROPERTIES:
+    context: CodeGenContext < 'ctx >
+  struct Runtime
+    PROPERTIES:
+    main: FunctionValue < 'ctx >, entry_block: BasicBlock < 'ctx >, printf: FunctionValue < 'ctx >, fmt_f64: PointerValue < 'ctx >, fmt_i32: PointerValue < 'ctx >, fmt_str: PointerValue < 'ctx >
+
+--- ## backend/symbol/registry.rs
+    ENUMS:
+    enum SymbolKind { Constant, Variable, Function, Method, Component, Action, Style, Theme, Type, Interface, Unknown }
+
+    STRUCTS:
+    struct Symbol
+      PROPERTIES:
+      name: String, kind: SymbolKind, value: String, file: FileMeta, origin: String, metadata: HashMap < String , String >
+    struct SymbolId
+      PROPERTIES:
+      name: String, origin: String
+    struct SymbolRegistry
+      PROPERTIES:
+      table: HashMap < SymbolId , Symbol >, warnings: Vec < String >
+
+      METHODS:
+      fn new() -> Self
+      fn build(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+      fn lookup(
+          self,
+          name: & str,
+          origin: & str
+      )
+          -> Option < & Symbol >
+      fn reset(
+          self
+      )
+      fn build_step(
+          self,
+          stack: & FileStack,
+          engine: & dyn Utter
+      )
+      fn build_all(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+      fn build_incremental(
+          self,
+          stack: & FileStack,
+          engine: & dyn Utter
+      )
+      fn build_with_warnings(
+          self,
+          registry: & Registry,
+          engines: & HashMap < String , Box < dyn Utter > >
+      )
+          -> Vec < String >
+      fn add_symbols(
+          self,
+          symbols: Vec < Symbol >,
+          source_file: & str
+      )
+
+--- ## backend/utter/handler.rs
+    ENUMS:
+    enum RenderTarget { Html, Css, Js, Ts, Json, Md, Loi }
+
+    STRUCTS:
+    struct GenericHandler
+      PROPERTIES:
+      target: RenderTarget
+
+      METHODS:
+      fn render_ir(
+          self,
+          ir: & IR
+      )
+          -> String
+      fn handle(
+          self,
+          file: & FileMeta,
+          utter: & dyn Utter,
+          symbols: & SymbolRegistry
+      )
+          -> Result < IR , String >
+      fn emit(
+          self,
+          ir: & IR
+      )
+          -> Result < String , String >
+
+--- ## backend/utter/registry.rs
+    STRUCTS:
+    struct UtterRegistry
+      PROPERTIES:
+      utters: HashMap < String , Box < dyn Utter > >, handlers: HashMap < String , Box < dyn Handler > >
+
+      METHODS:
+      fn default() -> Self
+      fn eq(
+          self,
+          other: & Self
+      )
+          -> bool
+      fn new() -> Self
+      fn get_utter(
+          self,
+          capability: & str
+      )
+          -> Option < & dyn Utter >
+
+--- ## backend/utter/utter.rs
+    FUNCTIONS:
+    fn get_language_definitions() -> Vec < GenericUtter >
+
+    STRUCTS:
+    struct GenericUtter
+      PROPERTIES:
+      name: String, config: LanguageConfig
+
+      METHODS:
+      fn new(
+          config: LanguageConfig
+      )
+          -> Self
+      fn fmt(
+          self,
+          f: & mut std :: fmt :: Formatter < '_ >
+      )
+          -> std :: fmt :: Result
+      fn name(
+          self
+      )
+          -> & str
+      fn flags(
+          self
+      )
+          -> UtterFlags
+      fn to_ir(
+          self,
+          metadata: & FileMeta,
+          symbols: & SymbolRegistry
+      )
+          -> Result < IR , String >
+      fn get_exported_symbols(
+          self,
+          metadata: & FileMeta
+      )
+          -> Vec < Symbol >
+      fn as_any(
+          self
+      )
+          -> & dyn Any
+      fn as_any_mut(
+          self
+      )
+          -> & mut dyn Any
+    struct LanguageConfig
+      PROPERTIES:
+      name: String, flags: UtterFlags, symbol_patterns: Vec < (& 'static str , SymbolKind) >, to_ir: Option < ToIrFn >
+
+      METHODS:
+      fn default() -> Self
+    struct UtterFlags
+      PROPERTIES:
+      browser_dom: bool, allow_network: bool, fs_access: bool, db_access: bool
+
+      METHODS:
+      fn default() -> Self
+
+--- # build/args.rs
+  ENUMS:
+  enum BuildTarget { ByName(_0: String), ByIndex(_0: usize) }
+
+--- # build/artifact.rs
+  ENUMS:
+  enum ArtifactKind { Web, Loi }
+
+  STRUCTS:
+  struct Artifact
+    PROPERTIES:
+    path: PathBuf, bytes: Vec < u8 >, kind: ArtifactKind
+  struct CompiledArtifact
+    PROPERTIES:
+    ir: IR, bundle: Vec < Artifact >
+
+--- # build/asset_optimizer.rs
+  STRUCTS:
+  struct AssetOptimizer
+    PROPERTIES:
+    minify: bool, remove_comments: bool
+
+    METHODS:
+    fn minify_js(
+        self,
+        source: & str
+    )
+        -> String
+    fn optimize(
+        self,
+        ir: IR,
+        ext: & str
+    )
+        -> IR
+    fn strip_comments(
+        self,
+        content: & str,
+        lang: & str
+    )
+        -> String
+
+--- # build/build_system.rs
+  STRUCTS:
+  struct BuildContext
+    PROPERTIES:
+    build_id: u64, started_at: Instant, dir_root: PathBuf, dir_out: PathBuf, watch: bool, clean: bool, verbose: bool
+  struct BuildSystem
+    PROPERTIES:
+    context: BuildContext, registry: Registry, utters: UtterRegistry, bundle_service: BundleService
+
+    METHODS:
+    fn new(
+        kernel: Kernel
+    )
+        -> Self
+    fn test() -> Self
+
+--- # build/output_resolver.rs
+  STRUCTS:
+  struct OutputResolver
+    PROPERTIES:
+    manifest: BundleConfig
+
+    METHODS:
+    fn new(
+        manifest: BundleConfig
+    )
+        -> Self
+    fn get_web_path(
+        self,
+        file: & FileMeta
+    )
+        -> Option < PathBuf >
+    fn get_loi_path(
+        self,
+        file: & FileMeta
+    )
+        -> PathBuf
+    fn get_stripped_base_name(
+        self,
+        meta: & FileMeta
+    )
+        -> String
+
+--- # build/service.rs
+  STRUCTS:
+  struct BundleConfig
+    PROPERTIES:
+    dir_root: PathBuf, dir_out: PathBuf, strip_namespace: bool, strip_tag: bool, strip_utter: bool, strip_variant: bool, strip_version: bool, minify: bool, remove_comments: bool
+
+    METHODS:
+    fn default() -> Self
+  struct BundleService
+    PROPERTIES:
+    registry: Registry, utter_registry: UtterRegistry, symbols: SymbolRegistry, manifest: BundleConfig, resolver: OutputResolver, optimizer: AssetOptimizer
+
+    METHODS:
+    fn new(
+        registry: Registry,
+        manifest: BundleConfig,
+        utter: UtterRegistry
+    )
+        -> Self
+    fn rebuild_symbols(
+        self
+    )
+    fn compile_all(
+        self,
+        files: & [FileMeta]
+    )
+        -> Vec < Result < (FileMeta , CompiledArtifact) , String > >
+    fn compile(
+        self,
+        file: & FileMeta
+    )
+        -> Result < CompiledArtifact , String >
+
+--- # cli/args.rs
+  STRUCTS:
+  struct CliArgs
+    PROPERTIES:
+    watch: bool, input: Option < PathBuf >, output: Option < PathBuf >, concurrency: Option < usize >
+
+--- # cli/command.rs
+  ENUMS:
+  enum Command { Mode(_0: String), List(_0: ListFilter), Tree, History(_0: Option < String >), CapabilityMap, Diff(_0: String, _1: String), Build(_0: BuildTarget), BuildAll(_0: BuildAllArgs), View(_0: ViewArgs), Clear, Help, Exit }
+  enum SortOrder { Asc, Desc }
+
+  STRUCTS:
+  struct BuildAllArgs
+    PROPERTIES:
+    target: Option < BuildTarget >, flags: BuildFlags
+  struct BuildFlags
+    PROPERTIES:
+    force: bool, ext: Option < String >, filter: Option < String >
+  struct CommandMeta
+    PROPERTIES:
+    label: & 'static str, alias: Option < & 'static str >, description: & 'static str, hidden: bool, weight: u32
+  struct ViewArgs
+    PROPERTIES:
+    target: Option < BuildTarget >, flags: ViewFlags
+  struct ViewFlags
+    PROPERTIES:
+    name: Option < String >, number: Option < i32 >, sort: Option < SortOrder >
+
+--- # cli/controller.rs
+  STRUCTS:
+  struct CliController
+    PROPERTIES:
+    system: BuildSystem, history_path: PathBuf, current_namespace: Vec < String >, verbosity: u8
+
+    METHODS:
+    fn new(
+        system: BuildSystem
+    )
+        -> Self
+    fn run(
+        self
+    )
+    fn build_index(
+        self
+    )
+        -> Vec < & FileMeta >
+    fn resolve_target(
+        _registry: & 'a Registry,
+        files: & [& 'a FileMeta],
+        target: & BuildTarget
+    )
+        -> Option < & 'a FileMeta >
+    fn handle_build(
+        self,
+        target: & BuildTarget
+    )
+    fn handle_build_all(
+        self,
+        target: & BuildAllArgs
+    )
+    fn handle_view(
+        self,
+        args: & ViewArgs,
+        ui: & dyn RegistryUI
+    )
+
+--- # cli/display.rs
+  ENUMS:
+  enum ListFilter { Active, Archived, All }
+
+  STRUCTS:
+  struct FileView
+    PROPERTIES:
+    namespace: String, index: usize, filename: String, active: String, name: String, utter: String, version: String, tag: String, ext: String, capabilities: String
+  struct RegistryRenderer
+    METHODS:
+    fn render_file_contents(
+        self,
+        path: & std :: path :: Path,
+        contents: & str
+    )
+    fn render_header(
+        self,
+        registry: & Registry
+    )
+    fn render_shortcuts(
+        self
+    )
+    fn render_list(
+        self,
+        registry: & Registry,
+        filter: ListFilter
+    )
+    fn render_tree(
+        self,
+        registry: & Registry
+    )
+    fn render_version_history(
+        self,
+        registry: & Registry,
+        target: Option < & str >
+    )
+    fn render_capability_map(
+        self,
+        registry: & Registry
+    )
+    fn render_diff(
+        self,
+        registry: & Registry,
+        a: & str,
+        b: & str
+    )
+    fn render_error(
+        self,
+        text: String
+    )
+  struct Theme
+    METHODS:
+    fn light_grey(
+        text: & str
+    )
+        -> String
+    fn header(
+        text: & str
+    )
+        -> String
+    fn error(
+        text: & str
+    )
+        -> String
+    fn success(
+        text: & str
+    )
+        -> String
+    fn highlight(
+        text: & str
+    )
+        -> String
+
+--- # compiler/addon.rs
+  STRUCTS:
+  struct BackendRegistry
+  struct PassRegistry
+  struct PipelineExtensions
+
+--- # compiler/bundler.rs
+  STRUCTS:
+  struct OutputEmitter
+
+--- # compiler/cache.rs
+  STRUCTS:
+  struct CachePolicy
+    METHODS:
+    fn should_invalidate(
+        self,
+        _key: & str
+    )
+        -> bool
+  struct CompilationCache
+    PROPERTIES:
+    cache: HashMap < String , Vec < u8 > >
+
+    METHODS:
+    fn new() -> Self
+  struct MemoryCache
+    PROPERTIES:
+    map: HashMap < String , String >
+
+    METHODS:
+    fn new() -> Self
+  struct NetworkCache
+  struct PersistentCache
+    PROPERTIES:
+    disk_path: Option < PathBuf >
+
+    METHODS:
+    fn new() -> Self
+
+--- # compiler/compile.rs
+  FUNCTIONS:
+  fn compile(
+      _system_context: & KernelContext,
+      ir: & [IROp],
+      out_base: & Path,
+      module_name: & str
+  )
+      -> Result < String , String >
+
+--- # compiler/compile_project.rs
+  FUNCTIONS:
+  fn compile_file(
+      kernel: & Kernel,
+      path: & Path,
+      output_dir: & Path
+  )
+      -> Result < () , Error >
+  fn compile_project(
+      kernel: & Kernel,
+      config: & CompileConfig
+  )
+      -> Result < () , Vec < Error > >
+
+--- # compiler/config.rs
+  ENUMS:
+  enum CompileStage { Parse, Analyze, Lower, Backend }
+  enum CompileTarget { Build, Jit, IR, Codegen }
+  enum ConfigSource { Defaults, File(_0: PathBuf), Cli(_0: CliArgs), ReplOverrides }
+
+  STRUCTS:
+  struct CompileConfig
+    PROPERTIES:
+    root: PathBuf, name: String, input: PathBuf, output: PathBuf, watch: bool, concurrency: usize, target: CompileTarget, stage: CompileStage
+
+    METHODS:
+    fn from(
+        cfg: Config
+    )
+        -> Self
+    fn default() -> Self
+  struct Config
+    PROPERTIES:
+    target: CompileTarget, stage: CompileStage, root: PathBuf, name: String, input: Option < PathBuf >, output: Option < PathBuf >, watch: bool, concurrency: usize
+
+    METHODS:
+    fn default() -> Self
+  struct ConfigResolver
+    METHODS:
+    fn resolve(
+        sources: Vec < ConfigSource >
+    )
+        -> Config
+    fn merge(
+        base: Config,
+        overlay: Config
+    )
+        -> Config
+    fn load_file(
+        _path: & Path
+    )
+        -> Config
+    fn parse_cli(
+        _args: Vec < String >
+    )
+        -> Config
+    fn from_cli(
+        base: & Config,
+        cli: CliArgs
+    )
+        -> Config
+
+--- # compiler/context.rs
+  STRUCTS:
+  struct Compiler
+    PROPERTIES:
+    pipelines: Vec < Box < dyn Pipeline > >
+
+    METHODS:
+    fn compile(
+        self,
+        kernel: & KernelContext
+    )
+        -> Result < () , CompileError >
+  struct Context
+    PROPERTIES:
+    env: Env, config: Config, diagnostics: Arc < RwLock < DiagnosticStore > >, cache: MemoryCache
+
+    METHODS:
+    fn new() -> Self
+  struct PipelineContext
+    PROPERTIES:
+    ast: Option < AST >, ir: Option < Vec < IROp > >, binary: Option < Vec < u8 > >
+
+--- # compiler/diagnostic.rs
+  ENUMS:
+  enum Severity { Info, Warning, Error, Hint }
+
+  STRUCTS:
+  struct CompilerEventBus
+  struct Diagnostic
+    PROPERTIES:
+    message: String, code: Option < String >, span: Span, severity: Severity, notes: Vec < String >, suggestions: Vec < String >
+
+    METHODS:
+    fn new(
+        message: impl Into < String >,
+        span: Span,
+        severity: Severity
+    )
+        -> Self
+    fn error(
+        message: impl Into < String >,
+        span: Span
+    )
+        -> Self
+    fn warning(
+        message: impl Into < String >,
+        span: Span
+    )
+        -> Self
+    fn with_note(
+        self,
+        note: impl Into < String >
+    )
+        -> Self
+    fn with_suggestion(
+        self,
+        suggestion: impl Into < String >
+    )
+        -> Self
+    fn with_code(
+        self,
+        code: impl Into < String >
+    )
+        -> Self
+  struct DiagnosticError
+    METHODS:
+    fn fmt(
+        self,
+        f: & mut fmt :: Formatter < '_ >
+    )
+        -> fmt :: Result
+  struct DiagnosticStore
+    PROPERTIES:
+    halt_on_error: bool, error_count: usize, diagnostics: VecDeque < Diagnostic >
+
+    METHODS:
+    fn new(
+        halt_on_error: bool
+    )
+        -> Self
+    fn to_compile_error(
+        self,
+        stage: & str
+    )
+        -> CompileError
+    fn emit(
+        self,
+        diag: Diagnostic
+    )
+        -> bool
+    fn check_halt(
+        self
+    )
+        -> Result < () , CompileError >
+    fn has_errors(
+        self
+    )
+        -> bool
+    fn is_empty(
+        self
+    )
+        -> bool
+    fn clear(
+        self
+    )
+    fn flush(
+        self
+    )
+  struct Inspector
+  struct Logger
+    METHODS:
+    fn log(
+        self,
+        msg: & str
+    )
+    fn test() -> Self
+  struct Profiler
+    METHODS:
+    fn new() -> Self
+  struct TraceSystem
+    METHODS:
+    fn new() -> Self
+
+--- # compiler/engine.rs
+  ENUMS:
+  enum StageError { StageFailed(_0: String) }
+
+  STRUCTS:
+  struct CompileEngine
+    PROPERTIES:
+    state: Arc < RwLock < CompileState > >, config: Arc < RwLock < CompileConfig > >, stages: Vec < Box < dyn Stage > >
+
+    METHODS:
+    fn parse(
+        self
+    )
+    fn analyze(
+        self
+    )
+    fn lower(
+        self
+    )
+    fn backend(
+        self
+    )
+    fn build(
+        self
+    )
+    fn run_all(
+        self
+    )
+        -> Result < () , StageError >
+    fn new(
+        context: Arc < Context >,
+        config: Arc < RwLock < CompileConfig > >,
+        state: Arc < RwLock < CompileState > >
+    )
+        -> Self
+    fn default() -> Self
+
+--- # compiler/env.rs
+  ENUMS:
+  enum Mode { Batch, Interactive, Watch }
+  enum TargetArch { X86_64, AArch64, RISCV64, Unknown }
+  enum TargetOS { Linux, MacOS, Windows, Unknown }
+
+  STRUCTS:
+  struct Env
+    PROPERTIES:
+    root_dir: PathBuf, output_dir: PathBuf, mode: Mode, target: TargetConfig, features: FeatureFlags, toolchain: ToolchainPaths, cwd: PathBuf, timestamp: u64
+
+    METHODS:
+    fn default() -> Self
+  struct FeatureFlags
+    PROPERTIES:
+    incremental: bool, parallel_frontend: bool, parallel_codegen: bool, aggressive_cache: bool, debug_symbols: bool, hot_reload: bool
+
+    METHODS:
+    fn default() -> Self
+  struct TargetConfig
+    PROPERTIES:
+    os: TargetOS, arch: TargetArch, abi: Option < String >
+  struct ToolchainPaths
+    PROPERTIES:
+    llvm_bin: Option < PathBuf >, linker: Option < PathBuf >, assembler: Option < PathBuf >, wasm_toolchain: Option < PathBuf >, custom_backend: Option < PathBuf >
+
+--- # compiler/error.rs
+  ENUMS:
+  enum CompileError { Frontend(_0: String), Middle(_0: String), Backend(_0: String), Stage(stage: String, source: Box < dyn std :: error :: Error >) }
+  enum Error { Io(_0: String), Lexer(_0: String), Parser(_0: String), Analysis(_0: String), Backend(_0: String) }
+
+--- # compiler/execution.rs
+  STRUCTS:
+  struct JobQueue
+    PROPERTIES:
+    jobs: Arc < Mutex < Vec < String > > >
+
+    METHODS:
+    fn new() -> Self
+  struct PluginSystem
+  struct PrioritySystem
+    PROPERTIES:
+    priority_map: HashMap < String , u8 >
+
+    METHODS:
+    fn new() -> Self
+  struct TaskScheduler
+    METHODS:
+    fn new() -> Self
+    fn schedule(
+        self,
+        f: F
+    )
+
+--- # compiler/runtime.rs
+  STRUCTS:
+  struct IRRuntime
+  struct LoweringRuntime
+  struct SymbolRuntime
+
+--- # compiler/safety.rs
+  STRUCTS:
+  struct FallbackPipeline
+  struct RecoverySystem
+
+--- # compiler/scale.rs
+  STRUCTS:
+  struct BuildFarm
+  struct DistributedCompiler
+
+--- # compiler/state.rs
+  STRUCTS:
+  struct BuildCache
+    PROPERTIES:
+    object_cache: HashMap < u64 , Vec < u8 > >, ir_cache: HashMap < u64 , IR >, symbol_cache: HashMap < u64 , Vec < u8 > >, timestamps: HashMap < PathBuf , u64 >, cache_version: u32, current: Option < BuildArtifact >
+
+    METHODS:
+    fn insert_artifact(
+        self,
+        hash: u64,
+        artifact: Vec < u8 >
+    )
+    fn insert_ir(
+        self,
+        hash: u64,
+        ir: IR
+    )
+    fn insert_symbol(
+        self,
+        hash: u64,
+        output: Vec < u8 >
+    )
+    fn set_current(
+        self,
+        artifact: BuildArtifact
+    )
+  struct CompileState
+    PROPERTIES:
+    registry: Registry, file_graph: FileGraph, dependency_graph: DependencyGraph, symbols: SymbolRegistry, symbol_index: SymbolIndex, dirty_files: HashSet < Uuid >, dirty_symbols: HashSet < SymbolId >, content_hashes: HashMap < PathBuf , u64 >, source: Option < String >, current_ast: Option < AST >, current_ir: Option < IR >, current_lowered_ir: Option < LoweredIR >, current_artifact: Option < BuildArtifact >, caches: CompilerCaches, compiler_version: String, ir_version: u32
+
+    METHODS:
+    fn current_ir(
+        self
+    )
+        -> Option < IR >
+    fn current_ast(
+        self
+    )
+        -> Option < AST >
+    fn current_lowered_ir(
+        self
+    )
+        -> Option < LoweredIR >
+    fn current_artifact(
+        self
+    )
+        -> Option < BuildArtifact >
+    fn registry_is_empty(
+        self
+    )
+        -> bool
+    fn default() -> Self
+  struct CompilerCaches
+    PROPERTIES:
+    build: BuildCache, lowered: LoweredCache
+  struct DependencyGraph
+    PROPERTIES:
+    forward: HashMap < SymbolId , HashSet < SymbolId > >, reverse: HashMap < SymbolId , HashSet < SymbolId > >, transitive_closure_cache: HashMap < SymbolId , HashSet < SymbolId > >, cycles: Vec < Vec < SymbolId > >
+  struct FileGraph
+    PROPERTIES:
+    imports: HashMap < Uuid , Vec < Uuid > >, dependents: HashMap < Uuid , Vec < Uuid > >, topo_order: Vec < Uuid >, cycles: Vec < Vec < Uuid > >
+  struct IRCache
+    PROPERTIES:
+    per_file: HashMap < Uuid , IR >, per_symbol: HashMap < SymbolId , IR >, dedup_cache: HashMap < u64 , IR >, ir_versions: HashMap < Uuid , u32 >, current: Option < IR >
+  struct LoweredCache
+    PROPERTIES:
+    per_file: HashMap < Uuid , Vec < LoweredOp > >, per_symbol: HashMap < SymbolId , Vec < LoweredOp > >, backend_cache: HashMap < String , Vec < u8 > >, opt_pass_version: u32, current: Option < LoweredIR >
+  struct LoweredIR
+    PROPERTIES:
+    nodes: Vec < IROp >
+  struct SymbolIndex
+    PROPERTIES:
+    by_name: HashMap < String , Vec < SymbolId > >, by_file: HashMap < Uuid , Vec < SymbolId > >, fqns: HashMap < String , SymbolId >, scope_stack: Vec < Vec < SymbolId > >
+
+--- # compiler/types.rs
+  ENUMS:
+  enum BuildArtifact { Object(_0: Vec < u8 >), Llvm(_0: Vec < u8 >), Wasm(_0: Vec < u8 >), Bytecode(_0: Vec < u8 >) }
+
+--- # context/fs.rs
+  STRUCTS:
+  struct FS
+    PROPERTIES:
+    root: PathBuf, cwd: PathBuf, cache_dir: PathBuf, build_dir: PathBuf
+
+    METHODS:
+    fn source_path(
+        self,
+        file: & str
+    )
+        -> PathBuf
+    fn cache_path(
+        self
+    )
+        -> PathBuf
+    fn build_path(
+        self
+    )
+        -> PathBuf
+
+--- # context/test.rs
+  STRUCTS:
+  struct TestContext
+    PROPERTIES:
+    logger: Logger, cache: MemoryCache, diagnostics: DiagnosticStore
+
+    METHODS:
+    fn new() -> Self
+
+--- # development/server.rs
+  ENUMS:
+  enum Command { Build(_0: BuildCommand), Rebuild(_0: RebuildCommand), Clean(_0: CleanCommand), Inspect(_0: InspectCommand), Exit }
+  enum Event { FileChanged(_0: FileChangedEvent), Command(_0: CommandEvent) }
+  enum FileChangeKind { Created, Modified, Deleted }
+
+  FUNCTIONS:
+  fn start(
+      kernel: Kernel
+  )
+  fn start_server(
+      kernel: Kernel,
+      config: CompileConfig
+  )
+
+  STRUCTS:
+  struct BuildCommand
+  struct CleanCommand
+  struct CommandEvent
+    PROPERTIES:
+    command: Command
+  struct CompileServer
+    PROPERTIES:
+    engine: CompileEngine, state: CompileState, watcher: Option < FileWatcher >, repl: Option < Repl >, events: CompilerEventBus
+
+    METHODS:
+    fn new(
+        engine: CompileEngine,
+        state: CompileState,
+        watcher: Option < FileWatcher >,
+        repl: Option < Repl >
+    )
+        -> Self
+    fn run(
+        self
+    )
+    fn execute(
+        self,
+        cmd: CommandEvent
+    )
+    fn rebuild(
+        self,
+        event: FileChangedEvent
+    )
+    fn next_event(
+        self
+    )
+        -> Event
+  struct FileChangedEvent
+    PROPERTIES:
+    path: PathBuf, kind: FileChangeKind
+  struct InspectCommand
+  struct RebuildCommand
+  struct Repl
+
+--- # development/watcher.rs
+  STRUCTS:
+  struct ChangeDetector
+    METHODS:
+    fn detect(
+        self,
+        old: & str,
+        new: & str
+    )
+        -> bool
+  struct FileWatcher
+    METHODS:
+    fn watch(
+        kernel: Kernel,
+        config: CompileConfig
+    )
+        -> Result < () , String >
+  struct HotReloadManager
+    METHODS:
+    fn reload(
+        self
+    )
+  struct IncrementalCompiler
+    METHODS:
+    fn invalidate(
+        self,
+        file: & str
+    )
+
+--- # diagnostics/mod.rs
+  FUNCTIONS:
+  fn diagnostics()
+
+--- # main.rs
+FUNCTIONS:
+fn main()
+
+--- # EMPTY FILES
+  backend/mod.rs
+  backend/symbol/mod.rs
+  backend/utter/mod.rs
+  build/mod.rs
+  cli/mod.rs
+  compiler/COMPILE-STATE.MD
+  compiler/mod.rs
+  context/compile.rs
+  context/mod.rs
+  development/mod.rs
+  lib.rs
