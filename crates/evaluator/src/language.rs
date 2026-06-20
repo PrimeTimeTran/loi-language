@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use syn::visit::{self, Visit};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Language {
@@ -47,7 +46,7 @@ impl SymbolRegistry {
         if !self.enums.is_empty() {
             if !output.is_empty() {
                 output.push("".to_string());
-            } // Extra newline
+            }
             output.push(self.enums.join("\n"));
         }
 

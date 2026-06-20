@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     extract::Rule,
-    format::{
-        CodeBlockConfig, DenseConfig, EnumDenseConfig, FieldFormat, FunctionDenseConfig,
-        HeaderFormat, LineStyle, StructDenseConfig,
-    },
+    format::{CodeBlockConfig, DenseConfig, HeaderFormat, LineStyle},
     mode::ViewMode,
 };
 

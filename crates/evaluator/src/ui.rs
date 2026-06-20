@@ -1,24 +1,14 @@
-use quote::{ToTokens, quote};
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashSet},
-    env, fs,
-    path::{Component, Path, PathBuf},
-};
+use quote::ToTokens;
+use std::{collections::BTreeMap, path::Path};
 
 use syn::{
     Fields, File, FnArg, ImplItem, Item, ItemEnum, ItemFn, ItemImpl, ItemStruct, Pat, ReturnType,
     Signature, Type,
 };
-use walkdir::WalkDir;
 
 use crate::{
     config::{Config, RenderPolicy},
-    extract::{DepthConstraint, Matcher, ParentConstraint, StructuralFilter, SymbolMatcher},
-    format::{
-        DenseConfig, FieldFormat, HeaderFormat, LineStyle, OutputConfig, ParamFormat, PathMode,
-    },
-    language::{FunctionKind, SymbolKind, TypeKind, VariableKind::Field},
+    format::{HeaderFormat, LineStyle},
     mode::ViewMode,
 };
 
@@ -89,12 +79,11 @@ pub fn render_struct(s: &ItemStruct, config: &Config, indent: String, items: &[I
         let methods: Vec<String> = items
             .iter()
             .filter_map(|item| {
-                if let Item::Impl(i) = item {
-                    if let Type::Path(p) = &*i.self_ty {
-                        if p.path.is_ident(&s.ident) {
-                            return Some(render_impl_methods(i, config, inner_indent.clone()));
-                        }
-                    }
+                if let Item::Impl(i) = item
+                    && let Type::Path(p) = &*i.self_ty
+                    && p.path.is_ident(&s.ident)
+                {
+                    return Some(render_impl_methods(i, config, inner_indent.clone()));
                 }
                 None
             })

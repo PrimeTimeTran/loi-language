@@ -1,11 +1,5 @@
-use crate::{
-    format::{CodeBlockConfig, DenseConfig, HeaderFormat, OutputConfig, ParamFormat, PathFormat},
-    language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind},
-};
-use clap::Parser;
+use crate::language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
 use std::collections::HashSet;
-use std::path::PathBuf;
-use syn::visit::{self, Visit};
 
 pub enum IncludePolicy {
     Only,

@@ -1,7 +1,6 @@
-use std::{collections::HashSet, path::PathBuf};
-use syn::visit::{self, Visit};
+use std::collections::HashSet;
 
-use crate::language::{FileMatcher, FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
+use crate::language::{FileMatcher, SymbolKind};
 
 #[derive(Debug, Clone)]
 pub enum LineStyle {
@@ -27,16 +26,19 @@ pub enum EnumFormat {
     NameWithTypes,
 }
 
+#[derive(Default)]
 pub enum PathFormat {
     FileName,
+    #[default]
     Relative,
     ModulePath,
     Absolute,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum HeaderFormat {
     None,
     Flat,
+    #[default]
     DepthHash,
 }
 
@@ -48,9 +50,10 @@ pub enum FieldFormat {
     All,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum PathMode {
     FileName,
+    #[default]
     Relative,
     ModulePath,
 }
@@ -60,8 +63,9 @@ pub enum HeaderMode {
     DepthHash,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum ExtractMode {
+    #[default]
     SymbolsOnly,
     FullBody,
 }
@@ -72,16 +76,23 @@ pub enum IncludePolicy {
     IncludeNested,
 }
 
+#[derive(Default)]
 pub enum ParentConstraint {
+    #[default]
     Any,
     Within(SymbolKind),
     WithinPath(Vec<SymbolKind>),
 }
 
+#[derive(Default)]
 pub enum DepthConstraint {
+    #[default]
     Any,
     Exact(usize),
-    Range { from: usize, to: usize },
+    Range {
+        from: usize,
+        to: usize,
+    },
 }
 
 pub enum ScopeRoot {
@@ -107,6 +118,7 @@ pub struct StructuralFilter {
     pub parent: Option<ParentConstraint>,
 }
 
+#[derive(Default)]
 pub struct SymbolMatcher {
     pub kinds: HashSet<SymbolKind>,
     pub structural: Option<StructuralFilter>,
@@ -174,26 +186,7 @@ impl Default for DenseConfig {
         }
     }
 }
-impl Default for PathMode {
-    fn default() -> Self {
-        PathMode::Relative
-    }
-}
-impl Default for ExtractMode {
-    fn default() -> Self {
-        ExtractMode::SymbolsOnly
-    }
-}
-impl Default for HeaderFormat {
-    fn default() -> Self {
-        HeaderFormat::DepthHash
-    }
-}
-impl Default for PathFormat {
-    fn default() -> Self {
-        PathFormat::Relative
-    }
-}
+
 impl Default for CodeBlockConfig {
     fn default() -> Self {
         Self {
@@ -203,29 +196,12 @@ impl Default for CodeBlockConfig {
         }
     }
 }
-impl Default for DepthConstraint {
-    fn default() -> Self {
-        DepthConstraint::Any
-    }
-}
-impl Default for ParentConstraint {
-    fn default() -> Self {
-        ParentConstraint::Any
-    }
-}
+
 impl Default for StructuralFilter {
     fn default() -> Self {
         Self {
             depth: DepthConstraint::Any,
             parent: None,
-        }
-    }
-}
-impl Default for SymbolMatcher {
-    fn default() -> Self {
-        Self {
-            kinds: HashSet::new(),
-            structural: None,
         }
     }
 }

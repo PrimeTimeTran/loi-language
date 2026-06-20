@@ -71,7 +71,6 @@ impl InMemoryDirectoryInode {
         // optional: count children
     }
 }
-
 impl Inode for InMemoryDirectoryInode {
     fn inode_ops(&self) -> &dyn InodeOperations {
         self
@@ -86,7 +85,6 @@ impl Inode for InMemoryDirectoryInode {
         self.meta.clone()
     }
 }
-
 impl InodeOperations for InMemoryFileInode {
     fn lookup(&self, _name: &str) -> Result<Arc<dyn Inode>, FSError> {
         Err(FSError::NotFound)

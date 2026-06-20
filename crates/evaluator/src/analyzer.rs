@@ -1,9 +1,8 @@
-use std::{collections::HashSet, path::PathBuf};
 use syn::visit::{self, Visit};
 
 use crate::{
     config::Config,
-    language::{FileMatcher, Language, SymbolKind, SymbolRegistry, SymbolType},
+    language::SymbolRegistry,
     ui::{render_enum, render_struct},
 };
 
