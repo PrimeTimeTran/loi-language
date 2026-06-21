@@ -49,9 +49,9 @@ impl Storage for DiskStorage {
         todo!()
     }
 
-    async fn readdir(&self, h: &FSHandle) -> Result<Vec<String>, FSError> {
-        todo!()
-    }
+    // async fn readdir(&self, h: &FSHandle) -> Result<Vec<String>, FSError> {
+    //     todo!()
+    // }
 }
 
 pub type DiskFS = FS<DiskStorage>;

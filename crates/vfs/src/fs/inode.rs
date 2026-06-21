@@ -14,6 +14,7 @@ use crate::fs::{
 pub struct Dentry {
     pub name: String,
     pub inode: Arc<dyn Inode>,
+    pub parent: Option<Arc<Dentry>>,
     pub children: RwLock<HashMap<String, Arc<Dentry>>>,
 }
 
@@ -97,20 +98,22 @@ impl Inode for RootInode {
 }
 
 impl Dentry {
-    pub fn new(name: &str, inode: Arc<dyn Inode>) -> Self {
+    pub fn new(name: &str, inode: Arc<dyn Inode>, parent: Option<Arc<Dentry>>) -> Self {
         Self {
             name: name.to_string(),
             inode,
             children: RwLock::new(HashMap::new()),
+            parent,
         }
     }
 
-    pub fn new_root(root_inode: Arc<dyn Inode>) -> Self {
-        Self {
+    pub fn new_root(root_inode: Arc<dyn Inode>) -> Arc<Self> {
+        Arc::new(Self {
             name: "/".to_string(),
             inode: root_inode,
             children: RwLock::new(HashMap::new()),
-        }
+            parent: None,
+        })
     }
 
     pub fn lookup(&self, name: &str) -> Result<Arc<Dentry>, FSError> {

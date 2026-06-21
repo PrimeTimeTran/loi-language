@@ -4,14 +4,14 @@ use std::{
     collections::HashMap,
     path::PathBuf,
     sync::{
-        Arc, RwLock,
+        Arc, Mutex, RwLock,
         atomic::{AtomicU64, Ordering},
     },
 };
 
 use crate::fs::{
     Dentry, Engine, FSConfig, FSError, InMemoryDirectoryInode, InMemoryFileInode, Inode, JsonNode,
-    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS, wasm::JsNode,
+    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS,
 };
 
 #[derive(Clone, Default)]
@@ -51,23 +51,17 @@ pub struct FSFile {
     pub content: Vec<u8>,
 }
 
-// #[derive(Deserialize)]
-// pub struct FSNode {
-//     pub name: String,
-//     #[serde(rename = "type")]
-//     pub node_type: NodeType,
-//     #[serde(default)]
-//     pub children: Vec<FSNode>,
-//     pub content: Option<String>,
-// }
-
-#[derive(Deserialize, Clone)]
-pub struct FSNode {
+#[derive(Deserialize, Debug)]
+pub struct OwnedNode {
     pub name: String,
+
     #[serde(rename = "type")]
     pub node_type: NodeType,
+
     #[serde(default)]
-    pub children: Vec<FSNode>,
+    pub children: Vec<OwnedNode>,
+
+    #[serde(default)]
     pub content: Option<String>,
 }
 
@@ -103,13 +97,8 @@ impl FSInput {
 
         Self { files }
     }
-    pub fn from_node(root: FSNode) -> Self {
-        let mut files = Vec::new();
-        Self::walk_node(&root, "".to_string(), &mut files);
-        Self { files }
-    }
 
-    pub fn walk_node_owned(node: &FSNode, prefix: String, out: &mut Vec<FileEntry>) {
+    pub fn walk_node_owned(node: &OwnedNode, prefix: String, out: &mut Vec<FileEntry>) {
         let current_path = if prefix.is_empty() {
             node.name.clone()
         } else {
@@ -132,7 +121,7 @@ impl FSInput {
         }
     }
 
-    fn walk_node(node: &FSNode, prefix: String, out: &mut Vec<FileEntry>) {
+    fn walk_node(node: &OwnedNode, prefix: String, out: &mut Vec<FileEntry>) {
         let current_path = if prefix.is_empty() {
             node.name.clone()
         } else {
@@ -154,14 +143,14 @@ impl FSInput {
             }
         }
     }
-
-    pub fn from_js(root: JsNode) -> Self {
+    pub fn from_node(root: OwnedNode) -> Self {
+        let owned = root.into_owned();
         let mut files = Vec::new();
-        Self::walk(&root, String::new(), &mut files);
+        Self::walk_owned(&owned, String::new(), &mut files);
         Self { files }
     }
 
-    fn walk(node: &JsNode, prefix: String, out: &mut Vec<FileEntry>) {
+    fn walk_owned(node: &OwnedNode, prefix: String, out: &mut Vec<FileEntry>) {
         let path = if prefix.is_empty() {
             node.name.clone()
         } else {
@@ -175,14 +164,22 @@ impl FSInput {
                     r#type: NodeType::File,
                 });
             }
-
             NodeType::Directory => {
-                if let Some(children) = &node.children {
-                    for child in children {
-                        Self::walk(child, path.clone(), out);
-                    }
+                for child in &node.children {
+                    Self::walk_owned(child, path.clone(), out);
                 }
             }
+        }
+    }
+}
+
+impl OwnedNode {
+    pub fn into_owned(self) -> OwnedNode {
+        OwnedNode {
+            name: self.name,
+            node_type: self.node_type,
+            content: self.content,
+            children: self.children.into_iter().map(|c| c.into_owned()).collect(),
         }
     }
 }
@@ -194,10 +191,6 @@ impl FSPath {
 
     pub fn empty() -> Self {
         Self(Vec::new())
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.join("/")
     }
     pub fn join(&self, other: &FSPath) -> Self {
         let mut new_segments = self.0.clone();
@@ -221,7 +214,35 @@ pub struct FS<S: Storage> {
 }
 
 impl<S: Storage> FS<S> {
+    fn find_dentry(&self, node: &Arc<Dentry>, target: &FSHandle) -> Option<Arc<Dentry>> {
+        if node.inode.handle() == *target {
+            return Some(node.clone());
+        }
+
+        let children = node.children.read().unwrap();
+
+        for child in children.values() {
+            if let Some(found) = self.find_dentry(child, target) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
     pub async fn readdir(&self, path: &str) -> Result<Vec<String>, FSError> {
+        web_sys::console::log_1(
+            &format!(
+                "[ROOT CHILDREN from readaddir] = {:?}",
+                self.core
+                    .root
+                    .children
+                    .read()
+                    .unwrap()
+                    .keys()
+                    .collect::<Vec<_>>()
+            )
+            .into(),
+        );
         self.core.readdir(path).await
     }
 
@@ -236,15 +257,39 @@ impl<S: Storage> FS<S> {
     ) -> Self {
         let root_handle: FSHandle = allocator.new_handle();
         let root_inode = Arc::new(RootInode::new(root_handle, root_meta));
-        let root = Arc::new(Dentry::new_root(root_inode));
+        let root = Dentry::new_root(root_inode);
+        let mut index = HashMap::new();
+        index.insert(root_handle, root.clone());
 
         let core = Engine {
+            lock: Mutex::new(()),
+            cwd: std::sync::RwLock::new(root_handle),
             root,
             storage,
             allocator,
+            index: RwLock::new(index),
         };
 
+        web_sys::console::log_1(
+            &format!(
+                "[ROOT CHILDREN from new] = {:?}",
+                core.root
+                    .children
+                    .read()
+                    .unwrap()
+                    .keys()
+                    .collect::<Vec<_>>()
+            )
+            .into(),
+        );
+
         Self { core }
+    }
+    pub fn pwd(&self) -> Result<String, FSError> {
+        self.core.pwd()
+    }
+    pub fn cd(&self, path: &str) -> Result<(), FSError> {
+        self.core.cd(path)
     }
 
     pub async fn walk(&self, path: &str) -> Result<FSHandle, FSError> {

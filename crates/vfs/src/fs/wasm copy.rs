@@ -17,7 +17,7 @@ pub struct Vfs {
 #[wasm_bindgen]
 impl Vfs {
     #[wasm_bindgen(constructor)]
-    pub fn new(root: JsValue) -> Result<Self, JsValue> {
+    pub async fn new(root: JsValue) -> Result<Self, JsValue> {
         web_sys::console::log_1(&format!("RAW: {:#?}", root).into());
 
         let root: OwnedNode = serde_wasm_bindgen::from_value(root)
@@ -68,22 +68,21 @@ impl Vfs {
             }
         }
     }
-
-    pub fn exists(&self, path: String) -> bool {
+    #[wasm_bindgen]
+    pub async fn exists(&self, path: String) -> bool {
         match &self.inner {
             AnyFS::Mem(fs) => fs.core.exists(&path),
 
             AnyFS::Disk(fs) => fs.core.exists(&path),
         }
     }
-
     #[wasm_bindgen]
-    pub fn add_file(&mut self, path: String) {
+    pub async fn add_file(&mut self, path: String) {
         match &mut self.inner {
             AnyFS::Mem(fs) => {
                 let input = FSInput::from_files(vec!["hello.txt".into(), "src/main.rs".into()]);
 
-                TreeBuilder::build_into(&fs.core, input, &fs.core.allocator);
+                TreeBuilder::build_into(&fs.core.root, input, &fs.core.allocator);
             }
 
             AnyFS::Disk(_) => {}
@@ -97,40 +96,47 @@ impl Vfs {
             AnyFS::Disk(fs) => fs.core.mkdir(&path).map_err(|e| e.to_string().into()),
         }
     }
-
-    // #[wasm_bindgen]
-    // pub fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
-    //     let node = match &self.inner {
-    //         AnyFS::Mem(fs) => {
-    //             let handle: crate::fs::system::FSHandle = futures::executor::block_on(fs.walk(&path))?;
-    //             fs.core.resolve_handle_to_dentry(&handle)
-    //         }
-    //         AnyFS::Disk(fs) => {
-    //             let handle = futures::executor::block_on(fs.walk(&path))?;
-    //             fs.core.resolve_handle_to_dentry(&handle)
-    //         }
-    //     };
-
-    //     Ok(node.children.read().unwrap().keys().cloned().collect())
-    // }
     #[wasm_bindgen]
     pub async fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
-        match &self.inner {
-            AnyFS::Mem(fs) => fs
-                .core
-                .readdir(&path)
-                .await
-                .map_err(|e| e.to_string().into()),
+        web_sys::console::log_1(&format!("[VFS] readdir path = {}", path).into());
 
-            AnyFS::Disk(fs) => fs
-                .core
-                .readdir(&path)
-                .await
-                .map_err(|e| e.to_string().into()),
+        let handle = match &self.inner {
+            AnyFS::Mem(fs) => {
+                let h = futures::executor::block_on(fs.walk(&path));
+                web_sys::console::log_1(&format!("[VFS] walk => {:?}", h).into());
+                h
+            }
+            AnyFS::Disk(fs) => {
+                let h = futures::executor::block_on(fs.walk(&path));
+                web_sys::console::log_1(&format!("[VFS] walk => {:?}", h).into());
+                h
+            }
         }
-    }
+        .map_err(|e| {
+            web_sys::console::log_1(&format!("[VFS] walk error = {}", e).into());
+            e.to_string()
+        })?;
 
-    pub fn write(&self, path: String, data: Vec<u8>) -> Result<(), JsValue> {
+        let result = match &self.inner {
+            AnyFS::Mem(fs) => {
+                let r = futures::executor::block_on(fs.core.storage.readdir(&handle));
+                web_sys::console::log_1(&format!("[VFS] storage readdir => {:?}", r).into());
+                r
+            }
+            AnyFS::Disk(fs) => {
+                let r = futures::executor::block_on(fs.core.storage.readdir(&handle));
+                web_sys::console::log_1(&format!("[VFS] storage readdir => {:?}", r).into());
+                r
+            }
+        };
+
+        result.map_err(|e| {
+            web_sys::console::log_1(&format!("[VFS] storage error = {}", e).into());
+            e.to_string().into()
+        })
+    }
+    #[wasm_bindgen]
+    pub async fn write(&self, path: String, data: Vec<u8>) -> Result<(), JsValue> {
         match &self.inner {
             AnyFS::Mem(fs) => {
                 let handle =
@@ -149,8 +155,8 @@ impl Vfs {
             }
         }
     }
-
-    pub fn read(&self, path: String) -> Result<Vec<u8>, JsValue> {
+    #[wasm_bindgen]
+    pub async fn read(&self, path: String) -> Result<Vec<u8>, JsValue> {
         match &self.inner {
             AnyFS::Mem(fs) => {
                 let handle =

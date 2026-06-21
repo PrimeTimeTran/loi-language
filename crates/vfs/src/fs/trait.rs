@@ -19,7 +19,7 @@ pub trait Storage: Send + Sync {
     async fn write(&self, h: &FSHandle, data: Vec<u8>) -> Result<(), FSError>;
     async fn append(&self, h: &FSHandle, data: Vec<u8>) -> Result<(), FSError>;
     async fn meta(&self, h: &FSHandle) -> Result<Meta, FSError>;
-    async fn readdir(&self, h: &FSHandle) -> Result<Vec<String>, FSError>;
+    // async fn readdir(&self, h: &FSHandle) -> Result<Vec<String>, FSError>;
 }
 
 #[async_trait]

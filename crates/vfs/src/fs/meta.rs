@@ -31,13 +31,12 @@ impl Default for Meta {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Copy)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum NodeType {
     File,
     Directory,
 }
-
 impl Meta {
     pub fn is_dir(&self) -> bool {
         self.node_type == NodeType::Directory
