@@ -4,7 +4,10 @@ use tokio::{
 };
 
 use crate::{
-    daemon::{bootstrap::bootstrap, document::generate_runtime_views},
+    daemon::{
+        bootstrap::bootstrap,
+        document::{generate_explain_doc, generate_runtime_views},
+    },
     state::state,
 };
 
@@ -36,8 +39,11 @@ async fn serve(listener: TcpListener) {
 
 pub async fn run() {
     println!("🏃🏻 loid running!");
-    bootstrap();
+    let project_root = std::env::current_dir().unwrap();
+    bootstrap(project_root.clone());
     init_runtime_state();
-    generate_runtime_views();
+    // generate_explain_doc(&workspace);
+    let workspace = std::env::current_dir().unwrap();
+    generate_runtime_views(&workspace);
     serve(TcpListener::bind("127.0.0.1:7788").await.unwrap()).await;
 }

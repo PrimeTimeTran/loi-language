@@ -2,10 +2,7 @@ use std::{fs, io::Result, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::daemon::{
-    config::derive_runtime_context,
-    initialize::{init, loid_dir},
-};
+use crate::daemon::{config::derive_runtime_context, initialize::init, resolver::loid_dir};
 
 const LOID_VERSION: &str = env!("CARGO_PKG_VERSION");
 const SCHEMA_VERSION: u32 = 1;
@@ -138,7 +135,8 @@ fn ensure_initialized() -> Result<()> {
     Ok(())
 }
 
-pub fn bootstrap() {
+pub fn bootstrap(path_workspace: PathBuf) {
+    let _ = path_workspace;
     ensure_initialized();
     derive_runtime_context();
 }

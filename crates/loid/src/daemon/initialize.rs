@@ -1,10 +1,6 @@
 use std::{fs, io::Result, path::PathBuf};
 
-pub fn loid_dir() -> PathBuf {
-    dirs::home_dir()
-        .expect("Could not find home directory")
-        .join(".loid")
-}
+use crate::daemon::resolver::loid_dir;
 
 pub fn init() -> Result<()> {
     let root = loid_dir();
