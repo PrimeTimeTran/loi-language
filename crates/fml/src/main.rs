@@ -1,5 +1,5 @@
-use flow_chart::config::Config;
-use flow_chart::evaluator::Evaluator;
+use fml::config::Config;
+use fml::evaluator::Evaluator;
 
 fn main() {
     let config = Config::load();

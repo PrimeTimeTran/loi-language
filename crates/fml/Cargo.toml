@@ -1,5 +1,6 @@
 [package]
-name = "flow-chart"
+name = "fml"
+description = "Flow Modeling Language (FML)"
 version = "0.1.0"
 edition = "2024"
 
