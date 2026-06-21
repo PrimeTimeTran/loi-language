@@ -9,9 +9,6 @@ pub struct Engine<S: Storage> {
 }
 
 impl<S: Storage> Engine<S> {
-    pub fn build_tree(&self, input: FSInput, allocator: &HandleAllocator) -> Arc<Dentry> {
-        todo!()
-    }
     pub fn walk(&self, path: &str) -> Result<FSHandle, FSError> {
         todo!()
     }

@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::fs::{FSHandle, FSPath};
 

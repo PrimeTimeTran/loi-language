@@ -8,14 +8,13 @@ use std::{
         atomic::{AtomicU64, Ordering},
     },
 };
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::fs::{
     Dentry, Engine, FSConfig, FSError, InMemoryDirectoryInode, InMemoryFileInode, Inode, JsonNode,
-    Meta, NodeType, RootInode, Storage, VFS, disk::DiskFS, mem::MemFS,
+    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct HandleAllocator {
     counter: Arc<AtomicU64>,
 }
@@ -86,10 +85,14 @@ pub struct FS<S: Storage> {
 }
 
 impl<S: Storage> FS<S> {
-    pub fn new(storage: S, allocator: HandleAllocator) -> Self {
-        let root_handle = allocator.new_handle();
-        let root_inode = Arc::new(RootInode::new(root_handle));
-
+    pub fn new(
+        storage: S,
+        allocator: HandleAllocator,
+        root_handle: FSHandle,
+        root_meta: Meta,
+    ) -> Self {
+        let root_handle: FSHandle = allocator.new_handle();
+        let root_inode = Arc::new(RootInode::new(root_handle, root_meta));
         let root = Arc::new(Dentry::new_root(root_inode));
 
         let core = Engine {
@@ -103,13 +106,5 @@ impl<S: Storage> FS<S> {
 
     pub async fn walk(&self, path: &str) -> Result<FSHandle, FSError> {
         self.core.walk(path)
-    }
-
-    pub fn load(&mut self, input: FSInput) {
-        self.core.root = self.core.build_tree(input, &self.core.allocator);
-    }
-
-    pub fn set_root(&mut self, root: Arc<Dentry>) {
-        self.core.root = root;
     }
 }

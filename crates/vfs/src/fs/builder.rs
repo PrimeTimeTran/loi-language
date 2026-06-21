@@ -31,15 +31,31 @@ impl FSBuilder {
         match self.kind {
             FsKind::Mem => {
                 let storage = MemStorage::new();
-                let fs: FS<MemStorage> = FS::new(storage, self.allocator.clone());
-                TreeBuilder::build_into(&fs.core.root, input, &self.allocator);
+                let allocator = self.allocator.clone();
+
+                let root_handle = allocator.new_handle();
+                let root_meta = Meta::new(vec!["/".into()], NodeType::Directory);
+
+                let fs: FS<MemStorage> =
+                    FS::new(storage, allocator.clone(), root_handle, root_meta);
+
+                TreeBuilder::build_into(&fs.core.root, input, &allocator);
+
                 AnyFS::Mem(fs)
             }
 
             FsKind::Disk => {
                 let storage = DiskStorage::new();
-                let fs: FS<DiskStorage> = FS::new(storage, self.allocator.clone());
-                TreeBuilder::build_into(&fs.core.root, input, &self.allocator);
+                let allocator = self.allocator.clone();
+
+                let root_handle = allocator.new_handle();
+                let root_meta = Meta::new(vec!["/".into()], NodeType::Directory);
+
+                let fs: FS<DiskStorage> =
+                    FS::new(storage, allocator.clone(), root_handle, root_meta);
+
+                TreeBuilder::build_into(&fs.core.root, input, &allocator);
+
                 AnyFS::Disk(fs)
             }
         }

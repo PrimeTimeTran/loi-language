@@ -35,6 +35,9 @@ impl Inode for InMemoryDirectoryInode {
     fn meta(&self) -> &Meta {
         &self.meta
     }
+    fn handle(&self) -> FSHandle {
+        self.handle
+    }
 }
 
 #[async_trait]
@@ -45,6 +48,9 @@ impl Inode for InMemoryFileInode {
 
     fn meta(&self) -> &Meta {
         &self.meta
+    }
+    fn handle(&self) -> FSHandle {
+        self.handle
     }
 }
 
@@ -69,14 +75,18 @@ impl InMemoryFileInode {
 
 pub struct RootInode {
     meta: Meta,
+    pub handle: FSHandle,
 }
 
 impl RootInode {
-    pub fn new(handle: FSHandle) -> Self {
-        Self {
-            meta: Meta::new(vec![], NodeType::Directory).with_handle(handle),
-        }
+    pub fn new(handle: FSHandle, meta: Meta) -> Self {
+        Self { meta, handle }
     }
+    // pub fn new(handle: FSHandle) -> Self {
+    //     Self {
+    //         meta: Meta::new(vec![], NodeType::Directory).with_handle(handle),
+    //     }
+    // }
 }
 
 impl Inode for RootInode {
@@ -85,6 +95,9 @@ impl Inode for RootInode {
     }
     fn meta(&self) -> &Meta {
         todo!()
+    }
+    fn handle(&self) -> FSHandle {
+        self.handle
     }
 }
 
