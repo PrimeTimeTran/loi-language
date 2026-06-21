@@ -6,9 +6,7 @@ use std::{
 
 use wasm_bindgen::prelude::*;
 
-use crate::fs::{
-    Dentry, FSError, FSInput, FileSystem, InMemoryDirectoryInode, InMemoryFileInode, Inode, Meta,
-};
+use crate::fs::{Dentry, FSError, FSInput, InMemoryDirectoryInode, InMemoryFileInode, Inode, Meta};
 
 #[derive(Deserialize)]
 pub struct JsonNode {
@@ -119,4 +117,3 @@ pub struct VFS {
 //         Ok(node.children.read().unwrap().keys().cloned().collect())
 //     }
 // }
-
