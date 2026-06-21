@@ -18,6 +18,17 @@ impl DiskStorage {
             path_root: PathBuf::new(),
         }
     }
+    pub fn with_root(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path_root: path.into(),
+        }
+    }
+
+    fn walk(&self, path: &str) -> PathBuf {
+        let clean = path.trim_matches('/');
+
+        self.path_root.join(clean)
+    }
 }
 
 #[async_trait]

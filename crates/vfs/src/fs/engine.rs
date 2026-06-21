@@ -9,6 +9,18 @@ pub struct Engine<S: Storage> {
 }
 
 impl<S: Storage> Engine<S> {
+    pub async fn readdir(&self, path: &str) -> Result<Vec<String>, FSError> {
+        let handle = self.walk(path)?;
+
+        self.storage.readdir(&handle).await
+    }
+
+    pub async fn write(&self, path: &str, data: Vec<u8>) -> Result<(), FSError> {
+        let handle = self.walk(path)?;
+
+        self.storage.write(&handle, data).await
+    }
+
     pub fn walk(&self, path: &str) -> Result<FSHandle, FSError> {
         todo!()
     }

@@ -9,14 +9,15 @@ pub enum AnyFS {
     Mem(FS<MemStorage>),
     Disk(FS<DiskStorage>),
 }
-pub struct FSBuilder {
-    kind: FsKind,
-    allocator: HandleAllocator,
-}
 
 pub enum FsKind {
     Mem,
     Disk,
+}
+
+pub struct FSBuilder {
+    kind: FsKind,
+    allocator: HandleAllocator,
 }
 
 impl FSBuilder {
@@ -66,31 +67,39 @@ pub struct TreeBuilder;
 
 impl TreeBuilder {
     pub fn build_into(root: &Arc<Dentry>, input: FSInput, allocator: &HandleAllocator) {
-        for (path, _entry) in input.files {
+        for entry in input.files {
+            let path = entry.path;
+            let explicit_type = entry.r#type;
+
             let parts: Vec<String> = path
                 .trim_matches('/')
                 .split('/')
+                .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
                 .collect();
 
             let mut current = Arc::clone(root);
 
             for (i, part) in parts.iter().enumerate() {
+                let is_leaf = i == parts.len() - 1;
+
+                let current_type = if is_leaf {
+                    explicit_type.clone()
+                } else {
+                    NodeType::Directory
+                };
+
                 let node = {
                     let mut children = current.children.write().unwrap();
 
                     children
                         .entry(part.clone())
                         .or_insert_with(|| {
-                            let node_type = if i == parts.len() - 1 {
-                                NodeType::File
-                            } else {
-                                NodeType::Directory
-                            };
-
                             let handle = allocator.new_handle();
-                            let meta = Meta::new(parts[..=i].to_vec(), node_type);
-                            let inode = Self::build_inode(node_type, handle, meta);
+
+                            let meta = Meta::new(parts[..=i].to_vec(), current_type.clone());
+
+                            let inode = Self::build_inode(current_type.clone(), handle, meta);
 
                             Arc::new(Dentry::new(part, inode))
                         })
@@ -101,6 +110,7 @@ impl TreeBuilder {
             }
         }
     }
+
     fn build_inode(node_type: NodeType, handle: FSHandle, meta: Meta) -> Arc<dyn Inode> {
         match node_type {
             NodeType::Directory => Arc::new(InMemoryDirectoryInode::new(handle, meta)),

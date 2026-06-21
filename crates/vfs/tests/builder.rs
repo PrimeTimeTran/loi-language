@@ -9,7 +9,7 @@ use vfs::fs::{
     inode::Dentry,
     meta::{Meta, NodeType},
     storage::mem::MemStorage,
-    system::{FS, FSInput, HandleAllocator},
+    system::{FS, FSInput, FileEntry, HandleAllocator},
 };
 
 fn make_fs() -> (FS<MemStorage>, HandleAllocator) {
@@ -24,14 +24,13 @@ fn make_fs() -> (FS<MemStorage>, HandleAllocator) {
     (fs, allocator)
 }
 fn fs_input(pairs: Vec<(&str, NodeType)>) -> FSInput {
-    let mut files = HashMap::new();
-
-    for (path, node_type) in pairs {
-        files.insert(
-            path.to_string(),
-            Meta::new(vec![path.to_string()], node_type),
-        );
-    }
+    let files = pairs
+        .into_iter()
+        .map(|(path, node_type)| FileEntry {
+            path: path.to_string(),
+            r#type: node_type,
+        })
+        .collect();
 
     FSInput { files }
 }

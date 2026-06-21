@@ -8,6 +8,7 @@ pub mod storage;
 pub mod system;
 pub mod r#trait;
 pub mod vfs;
+pub mod wasm;
 
 use builder::*;
 use config::*;
@@ -19,3 +20,4 @@ use storage::*;
 use system::*;
 use r#trait::*;
 use vfs::*;
+use wasm::*;
