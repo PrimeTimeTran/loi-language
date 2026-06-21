@@ -1,0 +1,4 @@
+{
+    "dependencies": "../../",
+    "dependencies": "./crates//loi/global.md"
+}

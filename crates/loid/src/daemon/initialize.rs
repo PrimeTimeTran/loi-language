@@ -1,6 +1,6 @@
 use std::{fs, io::Result, path::PathBuf};
 
-fn loid_dir() -> PathBuf {
+pub fn loid_dir() -> PathBuf {
     dirs::home_dir()
         .expect("Could not find home directory")
         .join(".loid")
@@ -26,17 +26,17 @@ pub fn init() -> Result<()> {
             root.join("config.toml"),
             r#"# loid configuration
 
-version = 1
-"#,
+            version = 1
+            "#,
         ),
         (
             root.join("state.json"),
             r#"{
-  "starts": 0,
-  "started_at": 0,
-  "longest_run": 0
-}
-"#,
+                "starts": 0,
+                "started_at": 0,
+                "longest_run": 0
+                }
+                "#,
         ),
         (root.join("daemon.pid"), ""),
         (root.join("socket"), ""),
@@ -45,8 +45,8 @@ version = 1
             root.join("views/default.toml"),
             r#"# Default view
 
-name = "default"
-"#,
+            name = "default"
+            "#,
         ),
         (root.join("logs/loid.log"), ""),
     ];

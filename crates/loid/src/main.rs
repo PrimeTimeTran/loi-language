@@ -1,44 +1,28 @@
-use clap::{Parser, Subcommand};
-use loid::{daemon::run::run, state};
-
-#[derive(Parser)]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    Start,
-
-    Status,
-}
+use loid::{
+    cli::command::{Command, parse},
+    daemon::{run::run, status::status},
+};
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let cli = parse();
 
     match cli.command {
-        Command::Start => {
-            run().await;
-        }
+        Command::Start => run().await,
+        Command::Status => status().await,
+        // Command::View => view().new().await,
+        // Command::ViewFork => view().create.await,
+        // Command::Explain => explain().new.await,
+        // Command::ExplainDoc => explain().new().doc().await,
 
-        Command::Status => {
-            let mut stream = tokio::net::TcpStream::connect("127.0.0.1:7788")
-                .await
-                .unwrap();
-
-            tokio::io::AsyncWriteExt::write_all(&mut stream, b"status")
-                .await
-                .unwrap();
-
-            let mut buf = vec![];
-
-            tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut buf)
-                .await
-                .unwrap();
-
-            println!("{}", String::from_utf8_lossy(&buf));
+        // Command::Start        → daemon::start()
+        // Command::Status       → daemon::status()
+        // Command::View         → view::set_active(...)
+        // Command::ViewFork     → view::fork(...)
+        // Command::Explain      → explain::run(...)
+        // Command::ExplainDoc   → explain::doc(...)
+        _ => {
+            println!("all done")
         }
     }
 }

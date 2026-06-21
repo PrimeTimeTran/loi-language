@@ -3,20 +3,19 @@ use tokio::{
     net::TcpListener,
 };
 
-use crate::state::state;
+use crate::{
+    daemon::{bootstrap::bootstrap, document::generate_runtime_views},
+    state::state,
+};
 
-pub async fn run() {
+fn init_runtime_state() {
     let mut s = state::load();
-
     s.starts += 1;
     s.started_at = state::now();
-
     state::save(&s);
+}
 
-    let listener = TcpListener::bind("127.0.0.1:7788").await.unwrap();
-
-    println!("loid daemon running");
-
+async fn serve(listener: TcpListener) {
     loop {
         let (mut socket, _) = listener.accept().await.unwrap();
 
@@ -26,16 +25,19 @@ pub async fn run() {
 
         let cmd = String::from_utf8_lossy(&buf[..n]);
 
-        match cmd.trim() {
-            "status" => {
-                let s = state::load();
-
-                let out = serde_json::to_string(&s).unwrap();
-
-                socket.write_all(out.as_bytes()).await.unwrap();
-            }
-
-            _ => {}
+        if cmd.trim() == "status" {
+            let s = state::load();
+            let out = serde_json::to_string(&s).unwrap();
+            socket.write_all(out.as_bytes()).await.unwrap();
         }
+        // handle_socket(socket).await;
     }
+}
+
+pub async fn run() {
+    println!("🏃🏻 loid running!");
+    bootstrap();
+    init_runtime_state();
+    generate_runtime_views();
+    serve(TcpListener::bind("127.0.0.1:7788").await.unwrap()).await;
 }
