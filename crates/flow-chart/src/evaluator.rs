@@ -97,16 +97,3 @@ impl Evaluator {
         println!("Wrote {:?}", self.config.output_name);
     }
 }
-
-fn format_output(output: String) -> String {
-    let re = regex::Regex::new(r"\n{3,}").unwrap();
-    let cleaned = re.replace_all(&output, "\n\n").to_string();
-
-    let re_sig = regex::Regex::new(r"\)\s*\n\s*->").unwrap();
-    let cleaned = re_sig.replace_all(&cleaned, ") ->").to_string();
-
-    let re_spaces = regex::Regex::new(r"\s*([<,>])\s*").unwrap();
-    let cleaned = re_spaces.replace_all(&cleaned, "$1").to_string();
-
-    cleaned.trim().to_string()
-}

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use quote::quote;
 use std::process::Command;
-use syn::{File, Item, Variant, parse_file};
+use syn::{parse_file, File, Item, Variant};
 
 const GROUPS: &[&str] = &[
     "MultiChar_02",

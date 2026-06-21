@@ -6,9 +6,7 @@ use std::{
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::fs::{
-    FSError, FSFile, FSHandle, FileOperations, Inode, InodeOperations, Meta, NodeType,
-};
+use crate::fs::{FSError, FSHandle, Inode, Meta};
 
 // 3. Dentry (The Name-to-Node Link): This is the Glue. A Dentry holds the name of the file (e.g., main.rs) and points to an Inode (the actual data).
 pub struct Dentry {
@@ -58,10 +56,6 @@ impl Inode for InMemoryFileInode {
 impl InMemoryDirectoryInode {
     pub fn new(handle: FSHandle, meta: Meta) -> Self {
         Self { meta, handle }
-    }
-
-    fn bump_size(&self) {
-        // optional
     }
 }
 impl InMemoryFileInode {

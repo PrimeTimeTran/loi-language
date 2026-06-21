@@ -6,9 +6,14 @@
 // #![allow(unused_must_use)]
 
 // Add warnings
-// #![warn(unused_imports)]
-// #![warn(unused_variables)]
-// #![warn(dead_code)]
+#![warn(dead_code)]
+#![warn(unused_mut)]
+#![warn(unused_parens)]
+#![warn(unused_braces)]
+#![warn(unused_imports)]
+#![warn(unused_variables)]
+#![warn(unused_assignments)]
+#![warn(unused_must_use)]
 
 #[macro_use]
 pub mod macros;

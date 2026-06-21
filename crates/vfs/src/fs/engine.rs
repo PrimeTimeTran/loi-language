@@ -4,19 +4,19 @@ use std::{
 };
 
 use crate::fs::{
-    Dentry, FSError, FSHandle, FSInput, HandleAllocator, Storage,
+    Dentry, FSError, FSHandle, HandleAllocator, Storage,
     inode::{InMemoryDirectoryInode, InMemoryFileInode},
     meta::{Meta, NodeType},
     r#trait::Inode,
 };
 
 pub struct Engine<S: Storage> {
-    pub root: Arc<Dentry>,
     pub storage: S,
-    pub allocator: HandleAllocator,
     pub lock: Mutex<()>,
-    pub index: std::sync::RwLock<HashMap<FSHandle, Arc<Dentry>>>,
+    pub root: Arc<Dentry>,
+    pub allocator: HandleAllocator,
     pub cwd: std::sync::RwLock<FSHandle>,
+    pub index: std::sync::RwLock<HashMap<FSHandle, Arc<Dentry>>>,
 }
 
 impl<S: Storage> Engine<S> {
@@ -67,7 +67,6 @@ impl<S: Storage> Engine<S> {
 
         self.storage.write(&handle, data).await
     }
-
     pub fn walk(&self, path: &str) -> Result<FSHandle, FSError> {
         web_sys::console::log_1(&format!("[ENGINE] walk path = {}", path).into());
         let parts = Self::normalize_path(path);
@@ -115,7 +114,6 @@ impl<S: Storage> Engine<S> {
     pub fn exists(&self, path: &str) -> bool {
         todo!()
     }
-
     pub fn mkdir(&self, path: &str) -> Result<(), FSError> {
         let _guard = self.lock.lock().unwrap();
 
@@ -133,8 +131,6 @@ impl<S: Storage> Engine<S> {
         let mut current = Arc::clone(&self.root);
 
         for (i, part) in parts.iter().enumerate() {
-            let is_last = i == parts.len() - 1;
-
             let mut children = current.children.write().unwrap();
 
             let next = if let Some(existing) = children.get(part) {
@@ -156,13 +152,12 @@ impl<S: Storage> Engine<S> {
 
         Ok(())
     }
-    fn build_inode(node_type: NodeType, handle: FSHandle, meta: Meta) -> Arc<dyn Inode> {
+    pub fn build_inode(node_type: NodeType, handle: FSHandle, meta: Meta) -> Arc<dyn Inode> {
         match node_type {
             NodeType::Directory => Arc::new(InMemoryDirectoryInode::new(handle, meta)),
             NodeType::File => Arc::new(InMemoryFileInode::new(handle, meta)),
         }
     }
-
     pub fn pwd(&self) -> Result<String, FSError> {
         let handle = *self.cwd.read().unwrap();
 
@@ -184,7 +179,6 @@ impl<S: Storage> Engine<S> {
 
         Ok(())
     }
-
     pub fn resolve_path(&self, path: &str) -> Result<FSHandle, FSError> {
         let mut current = if path.starts_with('/') {
             self.root.clone()

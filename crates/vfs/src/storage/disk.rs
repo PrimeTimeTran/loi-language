@@ -1,11 +1,13 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 
-use crate::fs::{Dentry, FS, FSConfig, FSError, FSHandle, HandleAllocator, Meta, Storage};
+use crate::fs::{
+    error::FSError,
+    meta::Meta,
+    system::{FS, FSHandle},
+    r#trait::Storage,
+};
 
 #[derive(Default)]
 pub struct DiskStorage {
@@ -48,10 +50,6 @@ impl Storage for DiskStorage {
     async fn meta(&self, h: &FSHandle) -> Result<Meta, FSError> {
         todo!()
     }
-
-    // async fn readdir(&self, h: &FSHandle) -> Result<Vec<String>, FSError> {
-    //     todo!()
-    // }
 }
 
 pub type DiskFS = FS<DiskStorage>;

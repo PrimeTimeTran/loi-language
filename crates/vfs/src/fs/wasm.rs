@@ -6,8 +6,6 @@ use crate::fs::{
     meta::NodeType,
     system::{FileEntry, OwnedNode},
 };
-use js_sys::Array;
-use serde::{Deserialize, Serialize};
 
 #[wasm_bindgen]
 pub struct Vfs {
@@ -98,21 +96,6 @@ impl Vfs {
         }
     }
 
-    // #[wasm_bindgen]
-    // pub fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
-    //     let node = match &self.inner {
-    //         AnyFS::Mem(fs) => {
-    //             let handle: crate::fs::system::FSHandle = futures::executor::block_on(fs.walk(&path))?;
-    //             fs.core.resolve_handle_to_dentry(&handle)
-    //         }
-    //         AnyFS::Disk(fs) => {
-    //             let handle = futures::executor::block_on(fs.walk(&path))?;
-    //             fs.core.resolve_handle_to_dentry(&handle)
-    //         }
-    //     };
-
-    //     Ok(node.children.read().unwrap().keys().cloned().collect())
-    // }
     #[wasm_bindgen]
     pub async fn readdir(&self, path: String) -> Result<Vec<String>, JsValue> {
         match &self.inner {

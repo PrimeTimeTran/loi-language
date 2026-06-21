@@ -3,13 +3,14 @@ use std::{
     sync::Arc,
 };
 
-use vfs::fs::{
-    // Dentry, FSInput, HandleAllocator, Meta, NodeType,
-    builder::{AnyFS, FSBuilder, FsKind, TreeBuilder},
-    inode::Dentry,
-    meta::{Meta, NodeType},
+use vfs::{
+    fs::{
+        builder::{AnyFS, FSBuilder, FsKind, TreeBuilder},
+        inode::Dentry,
+        meta::{Meta, NodeType},
+        system::{FS, FSInput, FileEntry, HandleAllocator},
+    },
     storage::mem::MemStorage,
-    system::{FS, FSInput, FileEntry, HandleAllocator},
 };
 
 fn make_fs() -> (FS<MemStorage>, HandleAllocator) {
@@ -23,6 +24,7 @@ fn make_fs() -> (FS<MemStorage>, HandleAllocator) {
 
     (fs, allocator)
 }
+
 fn fs_input(pairs: Vec<(&str, NodeType)>) -> FSInput {
     let files = pairs
         .into_iter()
@@ -36,7 +38,7 @@ fn fs_input(pairs: Vec<(&str, NodeType)>) -> FSInput {
 }
 
 fn build(fs: &FS<MemStorage>, input: FSInput, allocator: &HandleAllocator) {
-    TreeBuilder::build_into(&fs.core.root, input, allocator);
+    TreeBuilder::build_into(&fs.core, input, allocator);
 }
 
 #[test]
@@ -76,7 +78,7 @@ fn builds_nested_directories_and_file() {
 
     let input = fs_input(vec![("dir1/dir2/file.txt", NodeType::File)]);
 
-    TreeBuilder::build_into(&fs.core.root, input, &allocator);
+    TreeBuilder::build_into(&fs.core, input, &allocator);
 
     let level1 = fs.core.root.children.read().unwrap();
     let dir1 = level1.get("dir1").unwrap().clone();
@@ -100,7 +102,7 @@ fn reuses_existing_directories() {
         ("dir/b.txt", NodeType::File),
     ]);
 
-    TreeBuilder::build_into(&fs.core.root, input, &allocator);
+    TreeBuilder::build_into(&fs.core, input, &allocator);
 
     let children = fs.core.root.children.read().unwrap();
     let dir1 = children.get("dir").unwrap().clone();
@@ -127,7 +129,7 @@ fn allocator_creates_unique_handles() {
         ("c.txt", NodeType::File),
     ]);
 
-    TreeBuilder::build_into(&fs.core.root, input, &allocator);
+    TreeBuilder::build_into(&fs.core, input, &allocator);
 
     let children = fs.core.root.children.read().unwrap();
 

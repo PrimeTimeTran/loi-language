@@ -102,8 +102,7 @@ pub fn group_items_ts(
 
                 Decl::Var(var) => {
                     for d in &var.decls {
-                        // You need to pass d.init (the expression assigned to the variable)
-                        extract_pat(&config, &d.name, &d.init, sym_indent, &mut groups);
+                        extract_pat(config, &d.name, &d.init, sym_indent, &mut groups);
                     }
                 }
 
@@ -163,15 +162,14 @@ fn extract_pat(
 
         Pat::Array(arr) => {
             for p in arr.elems.iter().flatten() {
-                extract_pat(&config, p, &None, sym_indent, groups);
+                extract_pat(config, p, &None, sym_indent, groups);
             }
         }
 
         Pat::Object(obj) => {
             for prop in &obj.props {
                 if let ObjectPatProp::KeyValue(kv) = prop {
-                    // Pass &None for nested object properties
-                    extract_pat(&config, &kv.value, &None, sym_indent, groups);
+                    extract_pat(config, &kv.value, &None, sym_indent, groups);
                 }
             }
         }

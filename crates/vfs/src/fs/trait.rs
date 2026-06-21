@@ -2,15 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::fs::{
-    Meta,
-    config::FSConfig,
-    engine::Engine,
-    error::FSError,
-    inode::Dentry,
-    meta::NodeType,
-    system::{FSHandle, HandleAllocator},
-};
+use crate::fs::{Meta, error::FSError, system::FSHandle};
 
 // Storage = “how bytes + metadata are persisted”
 #[async_trait]

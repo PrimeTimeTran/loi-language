@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -9,10 +8,7 @@ use std::{
     },
 };
 
-use crate::fs::{
-    Dentry, Engine, FSConfig, FSError, InMemoryDirectoryInode, InMemoryFileInode, Inode, JsonNode,
-    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS,
-};
+use crate::fs::{Dentry, Engine, FSError, Meta, NodeType, RootInode, Storage};
 
 #[derive(Clone, Default)]
 pub struct HandleAllocator {
@@ -121,28 +117,28 @@ impl FSInput {
         }
     }
 
-    fn walk_node(node: &OwnedNode, prefix: String, out: &mut Vec<FileEntry>) {
-        let current_path = if prefix.is_empty() {
-            node.name.clone()
-        } else {
-            format!("{}/{}", prefix, node.name)
-        };
+    // fn walk_node(node: &OwnedNode, prefix: String, out: &mut Vec<FileEntry>) {
+    //     let current_path = if prefix.is_empty() {
+    //         node.name.clone()
+    //     } else {
+    //         format!("{}/{}", prefix, node.name)
+    //     };
 
-        match node.node_type {
-            NodeType::File => {
-                out.push(FileEntry {
-                    path: current_path,
-                    r#type: NodeType::File,
-                });
-            }
+    //     match node.node_type {
+    //         NodeType::File => {
+    //             out.push(FileEntry {
+    //                 path: current_path,
+    //                 r#type: NodeType::File,
+    //             });
+    //         }
 
-            NodeType::Directory => {
-                for child in &node.children {
-                    Self::walk_node(child, current_path.clone(), out);
-                }
-            }
-        }
-    }
+    //         NodeType::Directory => {
+    //             for child in &node.children {
+    //                 Self::walk_node(child, current_path.clone(), out);
+    //             }
+    //         }
+    //     }
+    // }
     pub fn from_node(root: OwnedNode) -> Self {
         let owned = root.into_owned();
         let mut files = Vec::new();
@@ -214,21 +210,21 @@ pub struct FS<S: Storage> {
 }
 
 impl<S: Storage> FS<S> {
-    fn find_dentry(&self, node: &Arc<Dentry>, target: &FSHandle) -> Option<Arc<Dentry>> {
-        if node.inode.handle() == *target {
-            return Some(node.clone());
-        }
+    // fn find_dentry(&self, node: &Arc<Dentry>, target: &FSHandle) -> Option<Arc<Dentry>> {
+    //     if node.inode.handle() == *target {
+    //         return Some(node.clone());
+    //     }
 
-        let children = node.children.read().unwrap();
+    //     let children = node.children.read().unwrap();
 
-        for child in children.values() {
-            if let Some(found) = self.find_dentry(child, target) {
-                return Some(found);
-            }
-        }
+    //     for child in children.values() {
+    //         if let Some(found) = self.find_dentry(child, target) {
+    //             return Some(found);
+    //         }
+    //     }
 
-        None
-    }
+    //     None
+    // }
     pub async fn readdir(&self, path: &str) -> Result<Vec<String>, FSError> {
         web_sys::console::log_1(
             &format!(
@@ -252,7 +248,7 @@ impl<S: Storage> FS<S> {
     pub fn new(
         storage: S,
         allocator: HandleAllocator,
-        root_handle: FSHandle,
+        _root_handle: FSHandle,
         root_meta: Meta,
     ) -> Self {
         let root_handle: FSHandle = allocator.new_handle();

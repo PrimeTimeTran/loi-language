@@ -2,8 +2,8 @@ use quote::ToTokens;
 use std::{collections::BTreeMap, path::Path};
 
 use syn::{
-    Fields, File, FnArg, ImplItem, Item, ItemEnum, ItemFn, ItemImpl, ItemStruct, Pat, ReturnType,
-    Signature, Type,
+    Fields, File, FnArg, ImplItem, Item, ItemEnum, ItemFn, ItemStruct, Pat, ReturnType, Signature,
+    Type,
 };
 
 use crate::{

@@ -76,7 +76,7 @@ impl Visit for TsVisitor<'_> {
                 .collect(),
         );
 
-        let return_type = n.function.return_type.as_ref().map(|rt| "any".to_string());
+        let return_type = n.function.return_type.as_ref().map(|_| "any".to_string());
 
         let visibility = self.visibility(false);
 
