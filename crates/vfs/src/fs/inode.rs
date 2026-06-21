@@ -82,11 +82,6 @@ impl RootInode {
     pub fn new(handle: FSHandle, meta: Meta) -> Self {
         Self { meta, handle }
     }
-    // pub fn new(handle: FSHandle) -> Self {
-    //     Self {
-    //         meta: Meta::new(vec![], NodeType::Directory).with_handle(handle),
-    //     }
-    // }
 }
 
 impl Inode for RootInode {

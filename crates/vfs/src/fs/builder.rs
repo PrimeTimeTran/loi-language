@@ -83,8 +83,8 @@ impl TreeBuilder {
             for (i, part) in parts.iter().enumerate() {
                 let is_leaf = i == parts.len() - 1;
 
-                let current_type = if is_leaf {
-                    explicit_type.clone()
+                let node_type = if is_leaf {
+                    entry.r#type
                 } else {
                     NodeType::Directory
                 };
@@ -97,9 +97,9 @@ impl TreeBuilder {
                         .or_insert_with(|| {
                             let handle = allocator.new_handle();
 
-                            let meta = Meta::new(parts[..=i].to_vec(), current_type.clone());
+                            let meta = Meta::new(parts[..=i].to_vec(), node_type);
 
-                            let inode = Self::build_inode(current_type.clone(), handle, meta);
+                            let inode = Self::build_inode(node_type, handle, meta);
 
                             Arc::new(Dentry::new(part, inode))
                         })

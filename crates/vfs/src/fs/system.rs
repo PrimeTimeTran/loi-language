@@ -11,7 +11,7 @@ use std::{
 
 use crate::fs::{
     Dentry, Engine, FSConfig, FSError, InMemoryDirectoryInode, InMemoryFileInode, Inode, JsonNode,
-    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS,
+    Meta, NodeType, RootInode, Storage, disk::DiskFS, mem::MemFS, wasm::JsNode,
 };
 
 #[derive(Clone, Default)]
@@ -51,14 +51,24 @@ pub struct FSFile {
     pub content: Vec<u8>,
 }
 
-#[derive(Deserialize)]
+// #[derive(Deserialize)]
+// pub struct FSNode {
+//     pub name: String,
+//     #[serde(rename = "type")]
+//     pub node_type: NodeType,
+//     #[serde(default)]
+//     pub children: Vec<FSNode>,
+//     pub content: Option<String>,
+// }
+
+#[derive(Deserialize, Clone)]
 pub struct FSNode {
     pub name: String,
     #[serde(rename = "type")]
     pub node_type: NodeType,
+    #[serde(default)]
     pub children: Vec<FSNode>,
     pub content: Option<String>,
-    // pub r#type: NodeType,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -67,11 +77,12 @@ pub struct FSFileDTO {
     pub content: String,
 }
 
+#[derive(Deserialize)]
 pub struct FSInput {
     pub files: Vec<FileEntry>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct FileEntry {
     pub path: String,
     pub r#type: NodeType,
@@ -98,6 +109,29 @@ impl FSInput {
         Self { files }
     }
 
+    pub fn walk_node_owned(node: &FSNode, prefix: String, out: &mut Vec<FileEntry>) {
+        let current_path = if prefix.is_empty() {
+            node.name.clone()
+        } else {
+            format!("{}/{}", prefix, node.name)
+        };
+
+        match node.node_type {
+            NodeType::File => {
+                out.push(FileEntry {
+                    path: current_path,
+                    r#type: NodeType::File,
+                });
+            }
+
+            NodeType::Directory => {
+                for child in &node.children {
+                    Self::walk_node_owned(child, current_path.clone(), out);
+                }
+            }
+        }
+    }
+
     fn walk_node(node: &FSNode, prefix: String, out: &mut Vec<FileEntry>) {
         let current_path = if prefix.is_empty() {
             node.name.clone()
@@ -116,6 +150,37 @@ impl FSInput {
             NodeType::Directory => {
                 for child in &node.children {
                     Self::walk_node(child, current_path.clone(), out);
+                }
+            }
+        }
+    }
+
+    pub fn from_js(root: JsNode) -> Self {
+        let mut files = Vec::new();
+        Self::walk(&root, String::new(), &mut files);
+        Self { files }
+    }
+
+    fn walk(node: &JsNode, prefix: String, out: &mut Vec<FileEntry>) {
+        let path = if prefix.is_empty() {
+            node.name.clone()
+        } else {
+            format!("{}/{}", prefix, node.name)
+        };
+
+        match node.node_type {
+            NodeType::File => {
+                out.push(FileEntry {
+                    path,
+                    r#type: NodeType::File,
+                });
+            }
+
+            NodeType::Directory => {
+                if let Some(children) = &node.children {
+                    for child in children {
+                        Self::walk(child, path.clone(), out);
+                    }
                 }
             }
         }

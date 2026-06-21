@@ -1,7 +1,11 @@
 use wasm_bindgen::prelude::*;
 
-use crate::fs::{AnyFS, FSBuilder, FSInput, FsKind, Storage, builder::TreeBuilder, system::FSNode};
+use crate::fs::{
+    AnyFS, FSBuilder, FSInput, FsKind, Storage, builder::TreeBuilder, meta::NodeType,
+    system::FSNode,
+};
 use js_sys::Array;
+use serde::{Deserialize, Serialize};
 
 #[wasm_bindgen]
 pub struct Vfs {
@@ -12,14 +16,28 @@ pub struct Vfs {
 impl Vfs {
     #[wasm_bindgen(constructor)]
     pub fn new(root: JsValue) -> Result<Self, JsValue> {
+        web_sys::console::log_1(&format!("{:?}", root).into());
         let root: FSNode = serde_wasm_bindgen::from_value(root)?;
-        let input = FSInput::from_node(root);
-        let builder = FSBuilder::new(FsKind::Mem);
+
+        let input = {
+            let mut files = Vec::new();
+            FSInput::walk_node_owned(&root, String::new(), &mut files);
+            FSInput { files }
+        };
 
         Ok(Self {
-            inner: builder.build(input),
+            inner: FSBuilder::new(FsKind::Mem).build(input),
         })
     }
+    // pub fn new(input: JsValue) -> Result<Self, JsValue> {
+    //     web_sys::console::log_1(&format!("{:?}", input).into());
+    //     let input: FSInput = serde_wasm_bindgen::from_value(input)?;
+    //     let builder = FSBuilder::new(FsKind::Mem);
+
+    //     Ok(Self {
+    //         inner: builder.build(input),
+    //     })
+    // }
 
     pub fn exists(&self, path: String) -> bool {
         match &self.inner {
@@ -123,13 +141,12 @@ impl Default for Vfs {
     }
 }
 
-use serde::Deserialize;
-
 #[derive(Deserialize)]
-struct JsNode {
-    name: String,
+#[serde(rename_all = "lowercase")]
+pub struct JsNode {
+    pub name: String,
     #[serde(rename = "type")]
-    node_type: String,
-    children: Option<Vec<JsNode>>,
-    content: Option<String>,
+    pub node_type: NodeType,
+    pub children: Option<Vec<JsNode>>,
+    pub content: Option<String>,
 }
