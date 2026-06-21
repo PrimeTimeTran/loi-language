@@ -20,9 +20,15 @@
 
 pub mod analyzer;
 pub mod config;
+pub mod context;
+pub mod detector;
 pub mod evaluator;
 pub mod extract;
 pub mod format;
-pub mod language;
+pub mod ir;
 pub mod mode;
+pub mod parser;
+pub mod render;
+pub mod scanner;
 pub mod ui;
+pub mod writer;

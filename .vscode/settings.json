@@ -6,9 +6,9 @@
     ".vscode": true,
     "Cargo.lock": true,
     ".config": true,
+    "tests/snapshots": true,
     
     "targets": true,
-    // "output": true,
     "tests/fixtures": true,
     "tests/root": true,
     

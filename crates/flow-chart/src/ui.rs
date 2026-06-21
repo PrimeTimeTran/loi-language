@@ -12,146 +12,161 @@ use crate::{
     mode::ViewMode,
 };
 
+pub const INDENT_STEP: &str = "    ";
+
+pub fn render_header_only(path: &Path, root: &Path, config: &Config) -> String {
+    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let rel = abs.strip_prefix(root).unwrap_or(&abs);
+    let file_depth = rel.components().count().saturating_sub(1);
+
+    render_header(rel, file_depth, config)
+}
+pub fn render_header(rel: &Path, file_depth: usize, config: &Config) -> String {
+    let path_str = rel.to_string_lossy();
+    let display_path = path_str.strip_prefix("src/").unwrap_or(&path_str);
+
+    match config.format.header {
+        HeaderFormat::None => String::new(),
+        HeaderFormat::Flat => {
+            format!("# {}\n\n", display_path)
+        }
+        HeaderFormat::DepthHash => {
+            let depth = file_depth.saturating_add(1);
+            let hashes = "#".repeat(depth);
+
+            format!("{} {}\n\n", hashes, display_path)
+        }
+    }
+}
+
 pub fn render_sym_item<'a>(
     config: Config,
     item: &'a Item,
     ast: &'a File,
     sym_indent: &str,
-) -> Option<(&'static str, String)> {
+) -> Option<(String, String)> {
+    let item_indent = format!("{}{}", sym_indent, INDENT_STEP);
     match item {
         Item::Struct(s) => Some((
-            "STRUCTS",
+            "STRUCTS".to_string(),
             render_struct(s, &config, sym_indent.to_string(), &ast.items)
                 .trim_end()
                 .to_string(),
         )),
+
+        Item::Fn(f) => Some((
+            "FUNCTIONS".to_string(),
+            render_function(f, &config, sym_indent),
+        )),
         Item::Enum(e) => Some((
-            "ENUMS",
+            "ENUMS".to_string(),
             render_enum(e, &config, sym_indent.to_string())
                 .trim_end()
                 .to_string(),
         )),
-        Item::Fn(f) => Some((
-            "FUNCTIONS",
-            render_function(f, &config, sym_indent.to_string())
-                .trim_end()
-                .to_string(),
-        )),
+
         _ => None,
     }
 }
-pub fn render_blocks(groups: BTreeMap<&'static str, Vec<String>>, sym_indent: &str) -> String {
-    groups
-        .into_iter()
-        .map(|(label, items)| format!("{}{}:\n{}", sym_indent, label, items.join("\n")))
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-pub fn render_header(rel: &Path, file_depth: usize, config: &Config) -> String {
-    match config.format.header {
-        HeaderFormat::None => String::new(),
-        HeaderFormat::Flat => {
-            format!("# {}\n\n", rel.to_string_lossy())
-        }
-        HeaderFormat::DepthHash => {
-            let depth = file_depth.max(1);
-            let hashes = "#".repeat(depth);
 
-            format!("{} {}\n\n", hashes, rel.to_string_lossy())
+pub fn render_blocks(
+    config: &Config,
+    groups: BTreeMap<String, Vec<String>>,
+    sym_indent: &str,
+) -> String {
+    let mut output = String::new();
+    let mark = &config.format.comment_mark;
+
+    for (category, items) in groups {
+        output.push_str(&format!(
+            "{}{} {}:\n",
+            sym_indent,
+            mark,
+            category.to_uppercase()
+        ));
+
+        for item in items {
+            output.push_str(&format!("{}\n", item));
         }
+
+        output.push('\n');
     }
+
+    output.trim_end().to_string()
 }
+
 pub fn render_struct(s: &ItemStruct, config: &Config, indent: String, items: &[Item]) -> String {
     let policy = &config.render_policy;
-    let nest = "  ";
-    let inner_indent = format!("{}{}", indent, nest);
+    let mark = &config.format.comment_mark;
+
+    // base struct line
     let mut output = format!("{}struct {}\n", indent, s.ident);
 
+    // ONE shared content scope for EVERYTHING inside struct
+    let content_indent = format!("{}{}", indent, INDENT_STEP);
+
+    // ----------------------------
+    // PROPERTIES
+    // ----------------------------
     if policy.include_properties {
         let props = collect_fields(s, policy);
+
         if !props.is_empty() {
-            output.push_str(&format!("{}PROPERTIES:\n", inner_indent));
-            output.push_str(&format!("{}{}\n\n", inner_indent, props.join(", ")));
+            output.push_str(&format!("{}{} PROPERTIES:\n", content_indent, mark));
+
+            output.push_str(&format!("{}{}\n\n", content_indent, props.join(", ")));
         }
     }
 
+    // ----------------------------
+    // METHODS
+    // ----------------------------
     if policy.include_functions {
-        let methods: Vec<String> = items
-            .iter()
-            .filter_map(|item| {
-                if let Item::Impl(i) = item
-                    && let Type::Path(p) = &*i.self_ty
-                    && p.path.is_ident(&s.ident)
-                {
-                    return Some(render_impl_methods(i, config, inner_indent.clone()));
+        let mut methods = Vec::new();
+
+        for item in items {
+            if let Item::Impl(i) = item
+                && let Type::Path(p) = &*i.self_ty
+                && p.path.is_ident(&s.ident)
+            {
+                for impl_item in &i.items {
+                    if let ImplItem::Fn(m) = impl_item {
+                        // IMPORTANT: use struct scope, not inner_indent
+                        methods.push(render_method(&m.sig, config, &indent));
+                    }
                 }
-                None
-            })
-            .flatten()
-            .collect();
+            }
+        }
 
         if !methods.is_empty() {
-            output.push_str(&format!("{}METHODS:\n", inner_indent));
-            output.push_str(&format!("{}\n\n", methods.join("\n")));
+            output.push_str(&format!("{}{} METHODS:\n", content_indent, mark));
+
+            output.push_str(&methods.join("\n"));
+            output.push_str("\n\n");
         }
     }
 
     output
 }
-pub fn render_impl_methods(i: &ItemImpl, config: &Config, indent: String) -> Vec<String> {
-    i.items
-        .iter()
-        .filter_map(|item| {
-            if let ImplItem::Fn(m) = item {
-                // Use the shared signature formatter instead of manual string building
-                // Note: pass empty indent or specific indent to format_signature
-                Some(format_signature(&m.sig, config, &indent))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-pub fn render_function(f: &ItemFn, config: &Config, indent: String) -> String {
-    // Simply pass the signature to the shared formatter
-    format_signature(&f.sig, config, &indent)
-}
-pub fn format_signature(sig: &Signature, config: &Config, indent: &str) -> String {
-    let name = sig.ident.to_string();
-    let policy = &config.render_policy;
 
-    // Extract parameters using the logic you already have
-    let params: Vec<String> = if policy.include_params {
-        sig.inputs
-            .iter()
-            .map(|arg| match arg {
-                FnArg::Typed(pt) => {
-                    let p_name = match &*pt.pat {
-                        Pat::Ident(i) => i.ident.to_string(),
-                        _ => "_".to_string(),
-                    };
-                    if policy.include_nested_types {
-                        format!("{}: {}", p_name, ToTokens::to_token_stream(&pt.ty))
-                    } else {
-                        p_name
-                    }
-                }
-                FnArg::Receiver(_) => "self".to_string(),
-            })
-            .collect()
-    } else {
-        vec![]
-    };
-
-    // EXTRACT RETURN TYPE
-    let ret = match &sig.output {
-        ReturnType::Default => None,
-        ReturnType::Type(_, ty) => Some(ToTokens::to_token_stream(ty).to_string()),
-    };
-
-    // Use your existing central formatter logic
-    config.format_function_signature(&name, &params, ret, indent)
+pub fn render_function(f: &ItemFn, config: &Config, scope: &str) -> String {
+    config.format_signature(
+        &f.sig.ident.to_string(),
+        &extract_params(&f.sig, config),
+        extract_ret(&f.sig),
+        scope,
+    )
 }
+
+pub fn render_method(sig: &Signature, config: &Config, struct_scope: &str) -> String {
+    config.format_method_sig(
+        &sig.ident.to_string(),
+        &extract_params(sig, config),
+        extract_ret(sig),
+        struct_scope,
+    )
+}
+
 pub fn render_enum(e: &ItemEnum, config: &Config, indent: String) -> String {
     let name = e.ident.to_string();
     let policy = &config.render_policy;
@@ -208,17 +223,12 @@ pub fn render_enum_payload(fields: &Fields, policy: &RenderPolicy) -> Vec<String
         Fields::Unit => vec![],
     }
 }
-pub fn render_header_only(path: &Path, root: &Path, config: &Config) -> String {
-    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let rel = abs.strip_prefix(root).unwrap_or(&abs);
-    let file_depth = rel.parent().map(|p| p.components().count()).unwrap_or(0);
-    render_header(rel, file_depth, config)
-}
+
 pub fn render_indent(level: usize) -> String {
-    "  ".repeat(level)
+    INDENT_STEP.repeat(level)
 }
 
-pub fn format_output(output: &str, config: &Config) -> String {
+pub fn format_output(output: &str, _config: &Config) -> String {
     let mut result = output.to_string();
 
     result = result
@@ -255,6 +265,7 @@ pub fn get_params(f: &ItemFn, policy: &RenderPolicy) -> Vec<String> {
         })
         .collect()
 }
+
 pub fn collect_fields(s: &ItemStruct, policy: &RenderPolicy) -> Vec<String> {
     match &s.fields {
         Fields::Named(f) => f
@@ -274,5 +285,42 @@ pub fn collect_fields(s: &ItemStruct, policy: &RenderPolicy) -> Vec<String> {
             })
             .collect(),
         _ => vec![],
+    }
+}
+
+pub enum RenderScope {
+    TopLevel,
+    InsideStruct,
+}
+
+pub fn extract_params(sig: &Signature, config: &Config) -> Vec<String> {
+    let policy = &config.render_policy;
+    if !policy.include_params {
+        return vec![];
+    }
+
+    sig.inputs
+        .iter()
+        .map(|arg| match arg {
+            FnArg::Typed(pt) => {
+                let p_name = match &*pt.pat {
+                    Pat::Ident(i) => i.ident.to_string(),
+                    _ => "_".to_string(),
+                };
+                if policy.include_nested_types {
+                    format!("{}: {}", p_name, ToTokens::to_token_stream(&pt.ty))
+                } else {
+                    p_name
+                }
+            }
+            FnArg::Receiver(_) => "self".to_string(),
+        })
+        .collect()
+}
+
+pub fn extract_ret(sig: &Signature) -> Option<String> {
+    match &sig.output {
+        ReturnType::Default => None,
+        ReturnType::Type(_, ty) => Some(ToTokens::to_token_stream(ty).to_string()),
     }
 }

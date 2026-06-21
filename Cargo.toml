@@ -1,12 +1,6 @@
 [workspace]
-members = [
-  "crates/loi",
-  "crates/evaluator",
-  "crates/vfs"
-]
-
+members = ["crates/loi", "crates/flow-chart", "crates/vfs"]
 resolver = "2"
 
-[patch.crates-io]
-inkwell = { path = "../inkwell-patched" }
-
+# [patch.crates-io]
+# inkwell = { path = "../inkwell-patched" }

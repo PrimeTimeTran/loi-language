@@ -92,7 +92,6 @@ pub trait FileSystem: Send + Sync {
 ///
 /// It enforces the "Bridge Pattern": it separates the Meta
 /// operations (InodeOperations) from the I/O operations (FSOperations).
-
 pub trait Inode: Send + Sync {
     fn is_dir(&self) -> bool;
     fn get_meta(&self) -> Meta;

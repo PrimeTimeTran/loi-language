@@ -1,4 +1,4 @@
-use crate::language::{FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
+use crate::ir::{FunctionKind, Language, SymbolKind, TypeKind, VariableKind};
 use std::collections::HashSet;
 
 pub enum IncludePolicy {
@@ -60,6 +60,7 @@ impl Default for StructuralFilter {
         }
     }
 }
+
 impl Default for Rule {
     fn default() -> Self {
         let mut languages = HashSet::new();

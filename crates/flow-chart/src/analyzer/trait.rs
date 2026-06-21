@@ -1,4 +1,4 @@
-use crate::{analyzer::AnalysisError, language::Symbol};
+use crate::{analyzer::AnalysisError, ir::Symbol};
 
 #[derive(Debug)]
 pub struct AnalyzerOptions {

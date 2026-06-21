@@ -1,12 +1,12 @@
-use syn::visit::{self, Visit};
-
 use crate::{
     analyzer::{
         AnalysisError,
         r#trait::{Analyzer, AnalyzerOptions},
     },
-    language::{FunctionKind, Symbol, SymbolKind, TypeKind, Visibility},
+    ir::{FunctionKind, Symbol, SymbolKind, TypeKind, Visibility},
 };
+use quote::ToTokens;
+use syn::visit::{self, Visit};
 
 pub struct RustAnalyzer;
 
@@ -51,21 +51,62 @@ impl<'ast> Visit<'ast> for RustVisitor<'_> {
         let visibility = visibility(&item.vis);
 
         if self.options.include_private || matches!(visibility, Visibility::Public) {
+            // Extract Rust parameters
+            let params = Some(
+                item.sig
+                    .inputs
+                    .iter()
+                    .map(|arg| match arg {
+                        syn::FnArg::Typed(pat) => (
+                            pat.pat.to_token_stream().to_string(),
+                            pat.ty.to_token_stream().to_string(),
+                        ),
+                        syn::FnArg::Receiver(rec) => {
+                            ("self".to_string(), rec.to_token_stream().to_string())
+                        }
+                    })
+                    .collect(),
+            );
+
+            let return_type = Some(item.sig.output.to_token_stream().to_string());
+
             self.symbols.push(Symbol {
                 name: item.sig.ident.to_string(),
                 kind: SymbolKind::Function(FunctionKind::Free),
                 visibility,
+                params,
+                return_type,
             });
         }
-
         visit::visit_item_fn(self, item);
     }
 
     fn visit_impl_item_fn(&mut self, item: &'ast syn::ImplItemFn) {
+        // 1. Extract and format parameters using ToTokens
+        let params = Some(
+            item.sig
+                .inputs
+                .iter()
+                .map(|arg| match arg {
+                    syn::FnArg::Typed(pat) => (
+                        pat.pat.to_token_stream().to_string(),
+                        pat.ty.to_token_stream().to_string(),
+                    ),
+                    syn::FnArg::Receiver(rec) => {
+                        ("self".to_string(), rec.to_token_stream().to_string())
+                    }
+                })
+                .collect(),
+        );
+
+        let return_type = Some(item.sig.output.to_token_stream().to_string());
+
         self.symbols.push(Symbol {
             name: item.sig.ident.to_string(),
             kind: SymbolKind::Function(FunctionKind::Method),
             visibility: visibility(&item.vis),
+            params,
+            return_type,
         });
 
         visit::visit_impl_item_fn(self, item);
@@ -81,6 +122,8 @@ impl RustVisitor<'_> {
                 name,
                 kind: SymbolKind::Type(kind),
                 visibility,
+                params: None,
+                return_type: None,
             });
         }
     }

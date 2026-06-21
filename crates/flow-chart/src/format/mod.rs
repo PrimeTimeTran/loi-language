@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{extract::FileMatcher, language::SymbolKind};
+use crate::{extract::FileMatcher, ir::SymbolKind};
 
 #[derive(Debug, Clone)]
 pub enum LineStyle {

@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Language {
     Rust,
@@ -54,6 +52,13 @@ pub struct Symbol {
     pub name: String,
     pub kind: SymbolKind,
     pub visibility: Visibility,
+    pub params: Option<Vec<(String, String)>>,
+    pub return_type: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Signature {
+    pub params: Vec<(String, String)>,
+    pub return_type: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
