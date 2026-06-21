@@ -1,4 +1,4 @@
-use crate::{config::Config, render::RenderedFile, ui::format_output};
+use crate::{config::Config, render::RenderedFile, ui::render_output};
 
 pub trait OutputWriter {
     fn write_file(&self, files: Vec<RenderedFile>, config: &Config) -> String;
@@ -28,7 +28,11 @@ impl OutputWriter for MarkdownWriter {
             let level = depth.clamp(1, 6);
             let header_prefix = "#".repeat(level);
 
-            output.push_str(&format!("{} {}\n", header_prefix, relative_path.display()));
+            output.push_str(&format!(
+                "{} {}\n\n",
+                header_prefix,
+                relative_path.display()
+            ));
 
             if config.format.wrap_in_code_blocks {
                 let ext = relative_path
@@ -46,6 +50,6 @@ impl OutputWriter for MarkdownWriter {
             output.push_str(&empty.join("\n"));
         }
 
-        format_output(&output, config)
+        render_output(&output, config)
     }
 }

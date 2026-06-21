@@ -36,7 +36,6 @@ impl FileRenderer for TypeScriptFileRenderer {
             .trim_end()
             .to_string();
         let body = render_blocks(&self.config, groups, &indent);
-        // let body = render_blocks(&config, groups, &indent);
         let is_empty = body.trim().is_empty();
 
         RenderedFile {

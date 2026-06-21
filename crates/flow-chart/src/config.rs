@@ -5,7 +5,7 @@ use crate::{
     extract::Rule,
     format::{CodeBlockConfig, DenseConfig, HeaderFormat, LineStyle},
     mode::ViewMode,
-    ui::{INDENT_STEP, RenderScope},
+    ui::INDENT_STEP,
 };
 
 #[derive(Parser, Debug)]
@@ -101,93 +101,43 @@ impl Config {
         config
     }
 
+    pub fn method_scope(&self, struct_scope: &str) -> String {
+        format!("{}{}", struct_scope, INDENT_STEP)
+    }
     pub fn format_signature(
         &self,
         name: &str,
         params: &[String],
         ret: Option<String>,
-        signature_indent: &str,
+        fn_indent: &str,
     ) -> String {
-        let param_indent = format!("{}{}", signature_indent, INDENT_STEP);
+        let ret = ret
+            .map(|t| format!(" -> {}", format_type(&t)))
+            .unwrap_or_default();
+
+        if params.is_empty() {
+            return format!("{}fn {}(){}", fn_indent, name, ret);
+        }
+
+        // CASE 2: ONLY self → inline
+        if params.len() == 1 && params[0].trim() == "self" {
+            return format!("{}fn {}(self){}", fn_indent, name, ret);
+        }
+
+        // CASE 3: normal multi-line params
+        let param_indent = format!("{}{}", fn_indent, INDENT_STEP);
 
         let params = params
             .iter()
-            .map(|p| format!("{}{}", param_indent, p))
+            .map(|p| format!("{}{}", param_indent, format_type(p)))
             .collect::<Vec<_>>()
             .join(",\n");
 
-        let ret = ret.map(|t| format!(" -> {}", t)).unwrap_or_default();
-
         format!(
             "{}fn {}(\n{}\n{}){}",
-            signature_indent, name, params, signature_indent, ret
+            fn_indent, name, params, fn_indent, ret
         )
     }
-
-    pub fn format_method_sig(
-        &self,
-        name: &str,
-        params: &[String],
-        ret: Option<String>,
-        struct_scope: &str,
-    ) -> String {
-        let method_indent = format!("{}{}", struct_scope, INDENT_STEP);
-        let param_indent = format!("{}{}", method_indent, INDENT_STEP);
-
-        let params = params
-            .iter()
-            .map(|p| format!("{}{}", param_indent, p))
-            .collect::<Vec<_>>()
-            .join(",\n");
-
-        let ret = ret.map(|t| format!(" -> {}", t)).unwrap_or_default();
-
-        format!(
-            "{}fn {}(\n{}\n{}){}",
-            method_indent, name, params, method_indent, ret
-        )
-    }
-
-    // pub fn format_top_level_signature(
-    //     &self,
-    //     name: &str,
-    //     params: &[String],
-    //     ret: Option<String>,
-    //     indent: &str,
-    // ) -> String {
-    //     let base = indent.to_string();
-    //     let deep = format!("{}{}", base, INDENT_STEP);
-    //     let ret_s = ret.map(|t| format!(" -> {}", t)).unwrap_or_default();
-
-    //     let p_list = params
-    //         .iter()
-    //         .map(|p| format!("{}{}", deep, p))
-    //         .collect::<Vec<_>>()
-    //         .join(",\n");
-
-    //     let raw = format!("{}fn {}(\n{}\n{}){}", base, name, p_list, base, ret_s);
-    //     clean_rust_syntax(&raw)
-    // }
-    // pub fn format_method_signature(
-    //     &self,
-    //     name: &str,
-    //     params: &[String],
-    //     ret: Option<String>,
-    //     indent: &str,
-    // ) -> String {
-    //     let base = indent.to_string(); // 'indent' is already inner_indent
-    //     let deep = format!("{}{}", base, INDENT_STEP);
-    //     let ret_s = ret.map(|t| format!(" -> {}", t)).unwrap_or_default();
-
-    //     let p_list = params
-    //         .iter()
-    //         .map(|p| format!("{}{}", deep, p))
-    //         .collect::<Vec<_>>()
-    //         .join(",\n");
-
-    //     let raw = format!("{}fn {}(\n{}\n{}){}", base, name, p_list, base, ret_s);
-    //     clean_rust_syntax(&raw)
-    // }
 }
 
 impl Default for RenderPolicy {
@@ -226,4 +176,31 @@ pub fn clean_rust_syntax(input: &str) -> String {
         .replace(" ,", ",")
         .replace(" :", ":")
         .replace("  ", " ")
+}
+
+pub fn clean_type_spacing(s: &str) -> String {
+    s.replace(" < ", "<")
+        .replace("< ", "<")
+        .replace(" >", ">")
+        .replace(" > ", ">")
+        .replace(" ,", ",")
+        .replace(", ", ", ")
+}
+pub fn format_type(s: &str) -> String {
+    s
+        // generic cleanup
+        .replace(" < ", "<")
+        .replace("< ", "<")
+        .replace(" >", ">")
+        .replace(" > ", ">")
+        // commas
+        .replace(" ,", ",")
+        .replace(", ", ", ")
+        // arrow spacing
+        .replace("->", " -> ")
+        .replace("& ", "&")
+        // 🔥 critical: rust path fix
+        .replace(" :: ", "::")
+        .replace(":: ", "::")
+        .replace(" ::", "::")
 }

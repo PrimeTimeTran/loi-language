@@ -90,30 +90,21 @@ impl Evaluator {
 
             let src = fs::read_to_string(&file).unwrap_or_default();
 
-            // Pass the cleaned relative_path to the renderer
             rendered.push(renderer.render(relative_path, &src));
         }
-
         let output = self.writer.write_file(rendered, &self.config);
-        // let cleaned = format_output(output);
-
         fs::write(&self.config.output_name, output).unwrap();
-        // fs::write(&self.config.output_name, cleaned).unwrap();
-
         println!("Wrote {:?}", self.config.output_name);
     }
 }
 
 fn format_output(output: String) -> String {
-    // 1. Collapse multiple newlines into one
     let re = regex::Regex::new(r"\n{3,}").unwrap();
     let cleaned = re.replace_all(&output, "\n\n").to_string();
 
-    // 2. Fix signature line-breaks (e.g., convert ")\n->" to ") ->")
     let re_sig = regex::Regex::new(r"\)\s*\n\s*->").unwrap();
     let cleaned = re_sig.replace_all(&cleaned, ") ->").to_string();
 
-    // 3. Remove extra spaces inside function signatures (e.g., "Result < T >" -> "Result<T>")
     let re_spaces = regex::Regex::new(r"\s*([<,>])\s*").unwrap();
     let cleaned = re_spaces.replace_all(&cleaned, "$1").to_string();
 
