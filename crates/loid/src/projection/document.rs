@@ -3,12 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::daemon::resolver::{loid_root, project_root};
-
-// fn file_link(path: PathBuf) -> String {
-//     let p = path.to_string_lossy();
-//     format!("file://{}", p)
-// }
+use crate::{
+    daemon::resolver::{loid_root, project_root},
+    state::state,
+};
 
 fn file_link(path: &Path) -> String {
     let p = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -121,7 +119,10 @@ fn render_symbols(json: &serde_json::Value) -> String {
 
     out
 }
-pub fn generate_explain_doc(workspace: &PathBuf) -> std::io::Result<()> {
+pub fn generate_explain_doc() -> std::io::Result<()> {
+    let workspace = std::env::current_dir()?;
+    state::save_workspace(&workspace);
+    let out = workspace.join("explain.md");
     let path = explain_json_path();
 
     if !path.exists() {
@@ -139,8 +140,6 @@ pub fn generate_explain_doc(workspace: &PathBuf) -> std::io::Result<()> {
 
     format!("[Open Root]({})", file_link(&PathBuf::from(root)));
 
-    let out = workspace.join("explain.md");
-
     println!("writing → {:?}", out);
 
     fs::write(out, md)?;
@@ -148,9 +147,9 @@ pub fn generate_explain_doc(workspace: &PathBuf) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn generate_runtime_views(path_workspace: &PathBuf) {
+pub fn generate_runtime_views() {
     println!("▶ generate_runtime_views CALLED");
-    generate_explain_doc(path_workspace);
+    generate_explain_doc();
 }
 
 fn render_explain(json: &serde_json::Value) -> String {
@@ -221,4 +220,11 @@ fn render_explain(json: &serde_json::Value) -> String {
     out.push_str("\n");
 
     out
+}
+
+pub fn generate_explain_doc2() {
+    todo!("generate_explain_doc2")
+}
+pub fn open_explain_doc() {
+    todo!("open_explain_doc")
 }

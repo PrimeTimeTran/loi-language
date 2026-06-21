@@ -9,11 +9,9 @@ use clap::{Parser, Subcommand};
     long_about = None
 )]
 pub struct Cli {
-    /// Global verbosity flag (future use)
     #[arg(short, long, global = true)]
     pub verbose: bool,
 
-    /// Subcommand to execute
     #[command(subcommand)]
     pub command: Command,
 }
@@ -48,14 +46,26 @@ pub enum Command {
     ///   loid why
     #[command(alias = "why")]
     Explain,
+    
+    #[command(alias = "why")]
+    ExplainDoc,
 
     /// (future) switch active view
     ///
     /// Example:
     ///   loid view rust-dev
-    #[command(alias = "v")]
+    // #[command(alias = "v")]
+    // View {
+    //     /// Name of the view to activate
+    //     name: String,
+    // },
     View {
-        /// Name of the view to activate
+        #[arg(value_name = "VIEW_NAME")]
+        name: String,
+    },
+
+    ViewFork {
+        #[arg(value_name = "VIEW_NAME")]
         name: String,
     },
 
@@ -65,6 +75,13 @@ pub enum Command {
     ///   loid deps
     #[command(alias = "d")]
     Deps,
+
+    // #[command(alias = "d")]
+    Stop,
+    // #[command(alias = "d")]
+    Reload,
+    // #[command(alias = "d")]
+    ViewList,
 }
 
 /// Convenience wrapper so main.rs stays clean

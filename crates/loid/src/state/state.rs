@@ -5,21 +5,11 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct DaemonState {
     pub starts: u64,
     pub started_at: u64,
     pub longest_run: u64,
-}
-
-impl Default for DaemonState {
-    fn default() -> Self {
-        Self {
-            starts: 0,
-            started_at: 0,
-            longest_run: 0,
-        }
-    }
 }
 
 fn path() -> PathBuf {
@@ -42,6 +32,10 @@ pub fn save(state: &DaemonState) {
     fs::create_dir_all(p.parent().unwrap()).unwrap();
 
     fs::write(p, serde_json::to_string_pretty(state).unwrap()).unwrap();
+}
+
+pub fn save_workspace(path: &PathBuf) {
+    todo!("save_workspace")
 }
 
 pub fn now() -> u64 {

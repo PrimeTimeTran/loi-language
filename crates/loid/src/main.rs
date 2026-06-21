@@ -1,6 +1,7 @@
 use loid::{
     cli::command::{Command, parse},
-    daemon::{run::run, status::status},
+    daemon::{reload, run::start, status, stop},
+    projection::{document, view},
 };
 
 #[tokio::main]
@@ -8,21 +9,53 @@ async fn main() {
     let cli = parse();
 
     match cli.command {
-        Command::Start => run().await,
-        Command::Status => status().await,
-        // Command::View => view().new().await,
-        // Command::ViewFork => view().create.await,
-        // Command::Explain => explain().new.await,
-        // Command::ExplainDoc => explain().new().doc().await,
+        // -------------------------
+        // DAEMON LIFECYCLE
+        // -------------------------
+        Command::Start => {
+            start().await;
+        }
 
-        // Command::Start        → daemon::start()
-        // Command::Status       → daemon::status()
-        // Command::View         → view::set_active(...)
-        // Command::ViewFork     → view::fork(...)
-        // Command::Explain      → explain::run(...)
-        // Command::ExplainDoc   → explain::doc(...)
+        Command::Status => {
+            status::status().await;
+        }
+
+        Command::Stop => {
+            stop::stop().await;
+        }
+
+        Command::Reload => {
+            reload::reload().await;
+        }
+
+        // -------------------------
+        // VIEW SYSTEM
+        // -------------------------
+        Command::View { name } => {
+            view::set_active(name);
+        }
+
+        Command::ViewFork { name } => {
+            view::fork(name);
+        }
+        Command::ViewList => {
+            view::list();
+        }
+
+        // -------------------------
+        // EXPLAIN / DOCS SYSTEM
+        // -------------------------
+        Command::Explain => {
+            document::generate_explain_doc().unwrap();
+        }
+
+        Command::ExplainDoc => {
+            document::open_explain_doc();
+        }
+
+        // fallback
         _ => {
-            println!("all done")
+            println!("Unknown command");
         }
     }
 }
