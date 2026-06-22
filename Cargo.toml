@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/loi","crates/fml", "crates/vfs", "crates/monitor", "crates/cli", "crates/loid"]
+members = ["crates/loi", "crates/revelations", "crates/vfs", "crates/monitor", "crates/cli", "crates/leviticus"]
 resolver = "2"
 
 # [patch.crates-io]
