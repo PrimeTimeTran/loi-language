@@ -39,7 +39,6 @@ pub async fn start() {
     bootstrap(project_root.clone());
     init_runtime_state();
     // generate_explain_doc(&workspace);
-    let workspace = std::env::current_dir().unwrap();
-    generate_runtime_views(&workspace);
+    generate_runtime_views();
     serve(TcpListener::bind("127.0.0.1:7788").await.unwrap()).await;
 }

@@ -21,12 +21,10 @@ async fn main() {
         }
 
         Command::Stop => {
-            stop::stop().await;
+            stop::stop();
         }
 
-        Command::Reload => {
-            reload::reload().await;
-        }
+        Command::Reload => reload::reload(),
 
         // -------------------------
         // VIEW SYSTEM

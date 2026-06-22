@@ -16,13 +16,13 @@ pub struct Vfs {
 impl Vfs {
     #[wasm_bindgen(constructor)]
     pub fn new(root: JsValue) -> Result<Self, JsValue> {
-        web_sys::console::log_1(&format!("RAW: {:#?}", root).into());
+        crate::vfs_log!("RAW: {:#?}", root);
 
         let root: OwnedNode = serde_wasm_bindgen::from_value(root)
             .map_err(|e| JsValue::from_str(&format!("{e:?}")))?;
 
-        web_sys::console::log_1(&format!("ROOT: {}", root.name).into());
-        web_sys::console::log_1(&format!("children: {}", root.children.len()).into());
+        crate::vfs_log!("ROOT: {}", root.name);
+        crate::vfs_log!("children: {}", root.children.len());
 
         let mut files = Vec::new();
 
@@ -43,13 +43,11 @@ impl Vfs {
             format!("{}/{}", prefix, node.name)
         };
 
-        web_sys::console::log_1(
-            &format!("{}visiting: {} ({:?})", indent, path, node.node_type).into(),
-        );
+        crate::vfs_log!("{}visiting: {} ({:?})", indent, path, node.node_type);
 
         match node.node_type {
             NodeType::File => {
-                web_sys::console::log_1(&format!("{}FILE => {}", indent, path).into());
+                crate::vfs_log!("{}FILE => {}", indent, path);
 
                 out.push(FileEntry {
                     path,
@@ -58,7 +56,7 @@ impl Vfs {
             }
 
             NodeType::Directory => {
-                web_sys::console::log_1(&format!("{}DIR => {}", indent, path).into());
+                crate::vfs_log!("{}DIR => {}", indent, path);
 
                 for child in &node.children {
                     Self::debug_walk(child, path.clone(), depth + 1, out);

@@ -226,18 +226,15 @@ impl<S: Storage> FS<S> {
     //     None
     // }
     pub async fn readdir(&self, path: &str) -> Result<Vec<String>, FSError> {
-        web_sys::console::log_1(
-            &format!(
-                "[ROOT CHILDREN from readaddir] = {:?}",
-                self.core
-                    .root
-                    .children
-                    .read()
-                    .unwrap()
-                    .keys()
-                    .collect::<Vec<_>>()
-            )
-            .into(),
+        crate::vfs_log!(
+            "[ROOT CHILDREN from readaddir] = {:?}",
+            self.core
+                .root
+                .children
+                .read()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>()
         );
         self.core.readdir(path).await
     }
@@ -266,17 +263,14 @@ impl<S: Storage> FS<S> {
             index: RwLock::new(index),
         };
 
-        web_sys::console::log_1(
-            &format!(
-                "[ROOT CHILDREN from new] = {:?}",
-                core.root
-                    .children
-                    .read()
-                    .unwrap()
-                    .keys()
-                    .collect::<Vec<_>>()
-            )
-            .into(),
+        crate::vfs_log!(
+            "[ROOT CHILDREN from new] = {:?}",
+            core.root
+                .children
+                .read()
+                .unwrap()
+                .keys()
+                .collect::<Vec<_>>()
         );
 
         Self { core }

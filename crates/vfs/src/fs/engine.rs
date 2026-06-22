@@ -68,31 +68,26 @@ impl<S: Storage> Engine<S> {
         self.storage.write(&handle, data).await
     }
     pub fn walk(&self, path: &str) -> Result<FSHandle, FSError> {
-        web_sys::console::log_1(&format!("[ENGINE] walk path = {}", path).into());
+        crate::vfs_log!("[ENGINE] walk path = {}", path);
         let parts = Self::normalize_path(path);
-        web_sys::console::log_1(&format!("[ENGINE] parts = {:?}", parts).into());
+        crate::vfs_log!("[ENGINE] parts = {:?}", parts);
         let mut current = self.root.clone();
 
         for part in parts {
-            web_sys::console::log_1(
-                &format!("[ENGINE] at = {}, looking for = {}", current.name, part).into(),
-            );
+            crate::vfs_log!("[ENGINE] at = {}, looking for = {}", current.name, part);
 
             let next = {
                 let children = current.children.read().unwrap();
 
-                web_sys::console::log_1(
-                    &format!(
-                        "[ENGINE] children keys = {:?}",
-                        children.keys().collect::<Vec<_>>()
-                    )
-                    .into(),
+                crate::vfs_log!(
+                    "[ENGINE] children keys = {:?}",
+                    children.keys().collect::<Vec<_>>()
                 );
 
                 children
                     .get(&part)
                     .ok_or_else(|| {
-                        web_sys::console::log_1(&format!("[ENGINE] NOT FOUND = {}", part).into());
+                        crate::vfs_log!("[ENGINE] NOT FOUND = {}", part);
 
                         FSError::NotFound
                     })?
@@ -102,9 +97,7 @@ impl<S: Storage> Engine<S> {
             current = next;
         }
 
-        web_sys::console::log_1(
-            &format!("[ENGINE] final inode handle = {:?}", current.inode.handle()).into(),
-        );
+        crate::vfs_log!("[ENGINE] final inode handle = {:?}", current.inode.handle());
 
         Ok(current.inode.handle())
     }
