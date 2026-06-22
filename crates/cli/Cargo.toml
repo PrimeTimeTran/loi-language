@@ -4,3 +4,55 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive", "env"] }
+
+# Better terminal output
+console = "0.15"
+
+# Colors + styling
+colored = "2"
+
+# Progress bars / spinners
+indicatif = "0.17"
+
+# Interactive prompts
+dialoguer = "0.11"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Serialize config/state files
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Config file support
+toml = "0.8"
+
+# Filesystem utilities
+walkdir = "2"
+glob = "0.3"
+
+# Path handling helpers
+camino = "1"
+
+# Async support (if needed)
+tokio = { version = "1", features = ["full"] }
+
+# HTTP/networking (optional)
+reqwest = { version = "0.12", features = ["json"] }
+
+# Version/update checking
+semver = "1"
+
+# Temp files
+tempfile = "3"
+
+# Better time/date handling
+chrono = "0.4"
