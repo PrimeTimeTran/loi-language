@@ -1,33 +1,49 @@
-# 1. `cargo run`
+# Workspace Overview
 
-This is the base command that tells Cargo to:
+This document gives a high level overview of this workspaces's crates.
+The workspace is primarily configured by Rust/Cargo.
 
-- Compile the specified Rust package.
-- Run the resulting binary.
+## Crates
 
-# 2. `-p evaluator` (or `--package evaluator`)
+### [`/crates/vfs`](crates/vfs)
 
-The `-p` flag stands for **package**. In a workspace containing multiple crates, simply running `cargo run` at the root level is ambiguous because Cargo won't know which binary you intend to execute.
+A virtual file system which which enables building browser IDEs, plugins/extensions, analysis tools & more.
+The aim of this crate is to be language agnostic, lighting fast, and run anywhere.
 
-- **`-p evaluator`** explicitly tells Cargo to select the specific package named `evaluator` from the workspace and run it.
+### [`/crates/loid`](crates/loid)
 
-# 3. `./tools/evaluator`
+LOID is the higher-level development environment/tooling layer built around LOI projects.
+It focuses on project intelligence: understanding a workspace, maintaining registries/configuration,
+organizing global vs workspace knowledge, caching analysis results, and providing a structured
+representation of a codebase. Where FML extracts the flow/skeleton of code, LOID is more about
+managing the project model around that information — giving tools and humans a persistent,
+layered view of a project.
 
-This part of the command is **not** a Cargo argument. Because it appears after the command and any optional flags, it is interpreted as a **program argument** passed to the binary that `evaluator` produces.
+### [`/crates/loi`](crates/loi)
 
-- The `evaluator` binary will receive `./tools/evaluator` as a command-line argument (usually accessible via `std::env::args()`), which it likely uses as a file path, directory, or configuration input.
+Loi is the core language/toolchain/paradigm/"dream" crate. It defines the language concepts,
+conventions, and execution model around a new .loi programming language files/projects, including
+ideas like public-by-default symbols, privacy rules, module organization, project
+structure, and the foundation for future compilation/runtime
+tooling.
 
----
+The goal is to create a a new generation language ecosystem where file system, metadata,
+comments, analysis, and project context are first-class concepts rather than separate disconnected
+tools.
 
-# Summary Table
+### [`/crates/fml`](crates/fml)
 
-| Part                | Role     | Description                                      |
-| ------------------- | -------- | ------------------------------------------------ |
-| `cargo`             | Tool     | The Rust package manager/build system.           |
-| `run`               | Command  | Instructs Cargo to compile and execute a binary. |
-| `-p evaluator`      | Flag     | Specifies the target package within a workspace. |
-| `./tools/evaluator` | Argument | Data passed directly to your compiled program.   |
+Flow Model Language is a tool for enabling multi levels/layers of a project. Sometimes we want to know how the data flows
+throughout the application as a whole so aren't interested in every detail of a function like it's params & types but only the mods &
+structures used in the application. FML parses the source code into the skeleton so that humans and machines can get context and strip
+away noise consistently across any language and level of analysis.
 
----
+These crates have all been analyzed by FML for reference.
 
-Would you like to know more about how to set up or manage Cargo workspaces for your project?
+- [`/.agents/FML.md`](.agents/FML.md)
+- [`/.agents/VFS.md`](.agents/VFS.md)
+- [`/.agents/FML.md`](.agents/FML.md)
+- [`/.agents/LOID.md`](.agents/LOID.md)
+- [`/.agents/LLVM.md`](.agents/LLVM.md)
+
+Inspect them to see the I/Os of a crate as appropriate given your current task.

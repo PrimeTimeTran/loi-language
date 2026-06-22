@@ -23,5 +23,8 @@
     "tests/fixtures": false,
 
     "KEEP.end": true
-  },
+},
+"cSpell.words": [
+    "MSRV"
+],
 }
