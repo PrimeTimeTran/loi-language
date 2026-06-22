@@ -7,6 +7,7 @@ edition = "2024"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+cli = { path = "../cli" }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.75"
 serde-wasm-bindgen = "0.6"
@@ -16,5 +17,5 @@ async-trait = "0.1.89"
 js-sys = "0.3.102"
 futures = "0.3.32"
 web-sys = { version = "0.3", features = ["console"] }
-
-
+tokio = "1.52.3"
+clap = "4.6.1"

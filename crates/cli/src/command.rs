@@ -1,12 +1,12 @@
 use crate::Context;
 
+#[async_trait::async_trait]
 pub trait CliCommand {
-    fn run(&self, ctx: &Context);
+    async fn run(&self, ctx: &Context);
 }
 
-pub fn execute(cmd: impl CliCommand) {
+pub async fn execute(cmd: impl CliCommand, ctx: Context) {
     crate::output::init_logging();
-    let ctx = Context { verbose: true };
 
-    cmd.run(&ctx);
+    cmd.run(&ctx).await;
 }

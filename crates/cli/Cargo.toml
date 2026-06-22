@@ -56,3 +56,4 @@ tempfile = "3"
 
 # Better time/date handling
 chrono = "0.4"
+async-trait = "0.1.89"

@@ -1,13 +1,16 @@
 [workspace]
 members = [
-    "crates/revelations",
+    "crates/revelation",
     "crates/leviticus",
     "crates/epiphany",
-    "crates/elders",
+    "crates/elder",
     "crates/loi", 
     "crates/vfs", 
     "crates/monitor", 
     "crates/cli", 
+    "crates/leaven", 
+    "crates/gideon", 
+    "crates/passover", 
 ]
 
 resolver = "2"
